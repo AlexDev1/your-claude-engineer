@@ -1,6 +1,6 @@
 # Agent-generated output directories
 generations/
-
+.idea/
 # Log files
 logs/
 
