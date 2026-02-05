@@ -11,24 +11,55 @@ Run with:
 Or for development:
     python server.py
 
-Environment variables:
+Environment variables / Docker secrets:
     TELEGRAM_BOT_TOKEN: Bot token from @BotFather
     TELEGRAM_CHAT_ID: Default chat ID for notifications
 """
 
 import os
 import re
+from pathlib import Path
 from typing import Any, Optional
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+
+
+# =============================================================================
+# Docker Secrets Support
+# =============================================================================
+
+
+def read_secret(name: str, env_fallback: str = None) -> str:
+    """
+    Read secret from Docker secrets or environment variable.
+
+    Docker secrets are mounted at /run/secrets/<name>.
+    Falls back to environment variable if secret file doesn't exist.
+
+    Args:
+        name: Secret name (filename in /run/secrets/)
+        env_fallback: Environment variable name for fallback
+
+    Returns:
+        Secret value or empty string if not found
+    """
+    secret_path = Path(f"/run/secrets/{name}")
+    if secret_path.exists():
+        return secret_path.read_text().strip()
+    if env_fallback:
+        return os.environ.get(env_fallback, "")
+    return ""
 
 # =============================================================================
 # Configuration
 # =============================================================================
 
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+# Read from Docker secrets with env fallback
+TELEGRAM_BOT_TOKEN = read_secret("telegram_bot_token", "TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = read_secret("telegram_chat_id", "TELEGRAM_CHAT_ID")
 TELEGRAM_API_BASE = "https://api.telegram.org/bot"
 
 # Emoji conversion map (Slack → Telegram/Unicode)
@@ -153,10 +184,7 @@ async def get_updates(offset: int = 0, limit: int = 100) -> dict[str, Any]:
 # MCP Server Setup
 # =============================================================================
 
-mcp = FastMCP(
-    "Telegram MCP Server",
-    description="Telegram notification server replacing Slack",
-)
+mcp = FastMCP("Telegram MCP Server")
 
 
 # =============================================================================
@@ -299,10 +327,65 @@ async def Telegram_ListChats() -> dict[str, Any]:
 
 
 # =============================================================================
+# Health Check Endpoint
+# =============================================================================
+
+
+async def health_check(request):
+    """
+    Health check endpoint for container orchestration.
+
+    Verifies Telegram bot token is configured and returns health status.
+    Used by Docker healthcheck and load balancers.
+    """
+    if not TELEGRAM_BOT_TOKEN:
+        return JSONResponse(
+            {
+                "status": "unhealthy",
+                "service": "telegram-mcp-server",
+                "error": "TELEGRAM_BOT_TOKEN not configured",
+            },
+            status_code=503,
+        )
+
+    # Optionally verify bot token is valid
+    try:
+        result = await get_bot_info()
+        if result.get("ok"):
+            return JSONResponse({
+                "status": "healthy",
+                "service": "telegram-mcp-server",
+                "bot_configured": True,
+                "bot_username": result.get("result", {}).get("username"),
+            })
+        else:
+            return JSONResponse(
+                {
+                    "status": "unhealthy",
+                    "service": "telegram-mcp-server",
+                    "error": result.get("description", "Invalid bot token"),
+                },
+                status_code=503,
+            )
+    except Exception as e:
+        return JSONResponse(
+            {
+                "status": "unhealthy",
+                "service": "telegram-mcp-server",
+                "error": str(e),
+            },
+            status_code=503,
+        )
+
+
+# =============================================================================
 # ASGI Application
 # =============================================================================
 
 app = mcp.sse_app()
+
+# Add health check route
+app.routes.append(Route("/health", health_check, methods=["GET"]))
 
 
 if __name__ == "__main__":

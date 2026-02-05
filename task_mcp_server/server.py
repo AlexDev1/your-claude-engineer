@@ -14,9 +14,40 @@ Or for development:
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+
+
+# =============================================================================
+# Docker Secrets Support
+# =============================================================================
+
+
+def read_secret(name: str, env_fallback: str = None) -> str:
+    """
+    Read secret from Docker secrets or environment variable.
+
+    Docker secrets are mounted at /run/secrets/<name>.
+    Falls back to environment variable if secret file doesn't exist.
+
+    Args:
+        name: Secret name (filename in /run/secrets/)
+        env_fallback: Environment variable name for fallback
+
+    Returns:
+        Secret value or empty string if not found
+    """
+    secret_path = Path(f"/run/secrets/{name}")
+    if secret_path.exists():
+        return secret_path.read_text().strip()
+    if env_fallback:
+        return os.environ.get(env_fallback, "")
+    return ""
 
 from database import (
     db,
@@ -52,22 +83,8 @@ from models import (
 # =============================================================================
 
 
-@asynccontextmanager
-async def lifespan(app):
-    """Manage database connection lifecycle."""
-    await db.connect()
-    print("Database connected")
-    yield
-    await db.disconnect()
-    print("Database disconnected")
-
-
 # Create FastMCP server
-mcp = FastMCP(
-    "Task MCP Server",
-    description="Task management server replacing Linear",
-    lifespan=lifespan,
-)
+mcp = FastMCP("Task MCP Server")
 
 
 # =============================================================================
@@ -476,12 +493,57 @@ async def Task_ListWorkflowStates(team: str) -> dict[str, Any]:
 
 
 # =============================================================================
+# Health Check Endpoint
+# =============================================================================
+
+
+async def health_check(request):
+    """
+    Health check endpoint for container orchestration.
+
+    Verifies database connectivity and returns health status.
+    Used by Docker healthcheck and load balancers.
+    """
+    try:
+        # Check database connectivity
+        async with db.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        return JSONResponse({
+            "status": "healthy",
+            "service": "task-mcp-server",
+            "database": "connected",
+        })
+    except Exception as e:
+        return JSONResponse(
+            {
+                "status": "unhealthy",
+                "service": "task-mcp-server",
+                "database": "disconnected",
+                "error": str(e),
+            },
+            status_code=503,
+        )
+
+
+# =============================================================================
 # ASGI Application
 # =============================================================================
 
 
-# Create ASGI app for uvicorn
-app = mcp.sse_app()
+@asynccontextmanager
+async def app_lifespan(app):
+    """ASGI lifespan for database connection."""
+    await db.connect()
+    yield
+    await db.disconnect()
+
+
+# Create ASGI app for uvicorn with lifespan
+_mcp_app = mcp.sse_app()
+app = Starlette(
+    routes=_mcp_app.routes + [Route("/health", health_check, methods=["GET"])],
+    lifespan=app_lifespan,
+)
 
 
 if __name__ == "__main__":

@@ -7,15 +7,48 @@ Async PostgreSQL connection using asyncpg.
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
 from uuid import UUID
 
 import asyncpg
 
-# Database URL from environment
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://agent:password@localhost:5432/tasks"
-)
+
+def _get_database_url() -> str:
+    """
+    Build database URL with support for Docker secrets.
+
+    Reads password from /run/secrets/db_password if available,
+    otherwise falls back to environment variable.
+    """
+    base_url = os.environ.get(
+        "DATABASE_URL", "postgresql://agent:password@localhost:5432/tasks"
+    )
+
+    # Try to read password from Docker secret
+    secret_path = Path("/run/secrets/db_password")
+    if secret_path.exists():
+        password = secret_path.read_text().strip()
+        # Replace password placeholder in URL
+        # URL format: postgresql://user:password@host:port/db
+        if "@" in base_url and "://" in base_url:
+            # Extract parts
+            protocol_user = base_url.split("@")[0]  # postgresql://user:password
+            host_db = base_url.split("@")[1]  # host:port/db
+
+            # Get user part
+            protocol = protocol_user.split("://")[0]  # postgresql
+            user_pass = protocol_user.split("://")[1]  # user:password
+            user = user_pass.split(":")[0]  # user
+
+            # Rebuild URL with secret password
+            return f"{protocol}://{user}:{password}@{host_db}"
+
+    return base_url
+
+
+# Database URL with Docker secrets support
+DATABASE_URL = _get_database_url()
 
 
 class Database:
@@ -24,14 +57,52 @@ class Database:
     def __init__(self):
         self.pool: Optional[asyncpg.Pool] = None
 
-    async def connect(self) -> None:
-        """Create connection pool."""
-        self.pool = await asyncpg.create_pool(
-            DATABASE_URL,
-            min_size=2,
-            max_size=10,
-            command_timeout=60,
-        )
+    async def connect(self, max_retries: int = 10, retry_delay: float = 2.0) -> None:
+        """Create connection pool with enterprise-grade settings and retry logic."""
+        import asyncio
+        import socket
+        import urllib.parse
+
+        # Resolve hostname to IP to avoid DNS caching issues
+        db_url = DATABASE_URL
+        if "@postgres:" in db_url or "@postgres/" in db_url:
+            try:
+                ip = socket.gethostbyname("postgres")
+                db_url = db_url.replace("@postgres:", f"@{ip}:").replace("@postgres/", f"@{ip}/")
+            except socket.gaierror:
+                pass  # Will retry with hostname
+
+        # Parse connection parameters from URL
+        parsed = urllib.parse.urlparse(db_url)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 5432
+        user = parsed.username or "agent"
+        password = parsed.password or ""
+        database = parsed.path.lstrip("/") or "tasks"
+
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                self.pool = await asyncpg.create_pool(
+                    host=host,
+                    port=port,
+                    user=user,
+                    password=password,
+                    database=database,
+                    min_size=5,
+                    max_size=50,
+                    command_timeout=60,
+                    max_inactive_connection_lifetime=300,  # 5 min idle timeout
+                    ssl=False,  # Disable SSL for internal Docker network
+                )
+                return
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                    await asyncio.sleep(wait_time)
+
+        raise RuntimeError(f"Failed to connect to database after {max_retries} attempts: {last_error}")
 
     async def disconnect(self) -> None:
         """Close connection pool."""
@@ -347,38 +418,40 @@ async def create_issue(
     project_id: Optional[UUID] = None,
     priority: str = "medium",
 ) -> dict[str, Any]:
-    """Create a new issue."""
+    """Create a new issue with explicit transaction."""
     async with db.acquire() as conn:
-        # Get next identifier
-        identifier = await conn.fetchval(
-            "SELECT get_next_issue_identifier($1)", team_key
-        )
+        # Use explicit transaction for atomicity
+        async with conn.transaction():
+            # Get next identifier (uses FOR UPDATE internally)
+            identifier = await conn.fetchval(
+                "SELECT get_next_issue_identifier($1)", team_key
+            )
 
-        # Get default state (Todo)
-        default_state = await conn.fetchrow(
-            """
-            SELECT id FROM workflow_states
-            WHERE team_id = $1 AND name = 'Todo'
-            """,
-            team_id,
-        )
-        state_id = default_state["id"] if default_state else None
+            # Get default state (Todo)
+            default_state = await conn.fetchrow(
+                """
+                SELECT id FROM workflow_states
+                WHERE team_id = $1 AND name = 'Todo'
+                """,
+                team_id,
+            )
+            state_id = default_state["id"] if default_state else None
 
-        row = await conn.fetchrow(
-            """
-            INSERT INTO issues (identifier, title, description, priority, state_id, project_id, team_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, identifier, title, description, priority, state_id, project_id, team_id, created_at, updated_at
-            """,
-            identifier,
-            title,
-            description,
-            priority,
-            state_id,
-            project_id,
-            team_id,
-        )
-        return dict(row)
+            row = await conn.fetchrow(
+                """
+                INSERT INTO issues (identifier, title, description, priority, state_id, project_id, team_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING id, identifier, title, description, priority, state_id, project_id, team_id, created_at, updated_at
+                """,
+                identifier,
+                title,
+                description,
+                priority,
+                state_id,
+                project_id,
+                team_id,
+            )
+            return dict(row)
 
 
 async def update_issue(

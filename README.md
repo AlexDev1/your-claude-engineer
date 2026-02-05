@@ -53,16 +53,25 @@ pip install -r requirements.txt
 
 ```bash
 # На вашем VDS
-# Создайте .env файл с необходимыми переменными
-cat > .env << EOF
-DB_PASSWORD=ваш_безопасный_пароль_бд
-TELEGRAM_BOT_TOKEN=ваш_токен_бота
-TELEGRAM_CHAT_ID=ваш_chat_id
-EOF
+# Создайте директорию secrets и файлы с секретами
+mkdir -p secrets
+echo "ваш_безопасный_пароль_бд" > secrets/db_password.txt
+echo "ваш_токен_бота" > secrets/telegram_bot_token.txt
+echo "ваш_chat_id" > secrets/telegram_chat_id.txt
 
-# Запуск сервисов
+# Установите права доступа
+chmod 600 secrets/*
+
+# Запуск сервисов (используется pgvector/pgvector:pg16)
 docker-compose up -d
+
+# Проверка статуса
+docker-compose ps
+curl http://localhost:8001/health
+curl http://localhost:8002/health
 ```
+
+> **Примечание:** Используется образ `pgvector/pgvector:pg16` вместо стандартного PostgreSQL для поддержки векторных операций и RAG.
 
 ### 3. Настройка локального окружения
 
@@ -106,8 +115,11 @@ claude --version  # Должна быть последняя версия
 pip show claude-agent-sdk  # Проверка установки SDK
 
 # Тест подключения к MCP серверам
-curl http://your-vds:8001/sse
-curl http://your-vds:8002/sse
+curl http://your-vds:8001/health
+curl http://your-vds:8002/health
+
+# Запуск интеграционных тестов
+uv run python test_mcp_servers.py
 ```
 
 ## Быстрый старт
@@ -219,7 +231,9 @@ your-claude-engineer/
 ├── security.py               # Allowlist bash-команд и валидация
 ├── progress.py               # Утилиты отслеживания прогресса
 ├── prompts.py                # Утилиты загрузки промптов
+├── test_mcp_servers.py       # Интеграционные тесты MCP серверов
 ├── docker-compose.yml        # Конфигурация развёртывания MCP серверов
+├── Makefile                  # Команды сборки и развёртывания
 ├── agents/
 │   ├── definitions.py        # Определения агентов с конфигурацией моделей
 │   └── orchestrator.py       # Запуск сессии оркестратора
@@ -231,17 +245,23 @@ your-claude-engineer/
 │   ├── task_agent_prompt.md      # Промпт Task субагента
 │   ├── coding_agent_prompt.md    # Промпт Coding субагента
 │   └── telegram_agent_prompt.md  # Промпт Telegram субагента
-├── task_mcp_server/          # Task MCP Server (PostgreSQL бэкенд)
-│   ├── server.py             # FastMCP сервер с 10 инструментами
-│   ├── database.py           # Async PostgreSQL подключение
+├── task_mcp_server/          # Task MCP Server (PostgreSQL + pgvector)
+│   ├── server.py             # FastMCP сервер с 10 инструментами + Starlette lifespan
+│   ├── database.py           # Async PostgreSQL с retry и connection pool
 │   ├── models.py             # Pydantic модели
-│   ├── init_db.sql           # Схема базы данных
+│   ├── init_db.sql           # Схема БД с pgvector, RAG таблицами и триггерами
 │   ├── requirements.txt
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── .dockerignore
 ├── telegram_mcp_server/      # Telegram MCP Server
 │   ├── server.py             # FastMCP сервер с 3 инструментами
 │   ├── requirements.txt
-│   └── Dockerfile
+│   ├── Dockerfile
+│   └── .dockerignore
+├── secrets/                  # Docker secrets (не в git)
+│   ├── db_password.txt
+│   ├── telegram_bot_token.txt
+│   └── telegram_chat_id.txt
 └── requirements.txt          # Python зависимости
 ```
 
@@ -263,9 +283,18 @@ generations/my-app/           # Или GENERATIONS_BASE_PATH/my-app/
 
 | Сервер | Транспорт | Назначение |
 |--------|-----------|------------|
-| **Task MCP Server** | HTTP (SSE) | Управление проектами/задачами с PostgreSQL бэкендом |
+| **Task MCP Server** | HTTP (SSE) | Управление проектами/задачами с PostgreSQL + pgvector бэкендом |
 | **Telegram MCP Server** | HTTP (SSE) | Уведомления через Telegram Bot API |
 | **Playwright** | stdio | Браузерная автоматизация для UI-тестирования |
+
+### База данных (PostgreSQL + pgvector)
+
+Task MCP Server использует PostgreSQL 16 с расширением pgvector для поддержки семантического поиска:
+
+- **pgvector 0.8.1** — векторные операции и HNSW индексы для RAG
+- **Enterprise индексы** — composite, functional, covering индексы для высокой производительности
+- **RAG инфраструктура** — таблицы `rag_documents`, `rag_chunks`, `rag_embeddings` с автоматической синхронизацией через триггеры
+- **Docker secrets** — безопасное хранение паролей БД и токенов
 
 ### Инструменты Task MCP Server (10 инструментов)
 
@@ -281,6 +310,30 @@ generations/my-app/           # Или GENERATIONS_BASE_PATH/my-app/
 | `Task_TransitionIssueState` | Изменить статус задачи |
 | `Task_AddComment` | Добавить комментарий к задаче |
 | `Task_ListWorkflowStates` | Список доступных статусов |
+
+<details>
+<summary><strong>RAG инфраструктура (pgvector)</strong></summary>
+
+База данных включает таблицы для Retrieval-Augmented Generation:
+
+| Таблица | Назначение |
+|---------|------------|
+| `rag_documents` | Исходные документы (issues, comments) |
+| `rag_chunks` | Разбитые куски текста для embedding |
+| `rag_embeddings` | Векторы с HNSW индексом для быстрого поиска |
+| `embedding_models` | Конфигурация моделей (OpenAI, etc) |
+
+**Триггеры автоматической синхронизации:**
+- При создании issue → создаётся rag_document
+- При обновлении issue → обновляется rag_document (status='pending')
+- При создании comment → создаётся rag_document
+
+**SQL функции:**
+- `search_similar_documents(query_embedding, team_id, limit, threshold)` — семантический поиск
+- `chunk_document(document_id, chunk_size, overlap)` — разбиение документа
+- `get_chunk_context(chunk_id, context_radius)` — контекст вокруг chunk
+
+</details>
 
 ### Инструменты Telegram MCP Server (3 инструмента)
 
@@ -299,6 +352,34 @@ generations/my-app/           # Или GENERATIONS_BASE_PATH/my-app/
 3. **Allowlist Bash:** Разрешены только определённые команды (npm, node, git, curl, rm с валидацией и т.д.)
 4. **MCP-разрешения:** Инструменты явно разрешены в настройках безопасности
 5. **Валидация опасных команд:** Команды типа `rm` валидируются для предотвращения удаления системных директорий
+
+## Интеграционные тесты
+
+Для проверки работоспособности MCP серверов используйте интеграционные тесты:
+
+```bash
+# Убедитесь, что серверы запущены
+docker-compose up -d
+
+# Запуск тестов
+uv run python test_mcp_servers.py
+```
+
+**Тесты Task MCP Server (9 тестов):**
+- Health endpoint
+- SSE подключение
+- Список инструментов
+- WhoAmI, ListTeams
+- CreateIssue, GetIssue
+- TransitionIssueState
+- AddComment
+
+**Тесты Telegram MCP Server (5 тестов):**
+- Health endpoint
+- SSE подключение
+- Список инструментов
+- WhoAmI
+- SendMessage
 
 ## Устранение неполадок
 
@@ -319,6 +400,19 @@ generations/my-app/           # Или GENERATIONS_BASE_PATH/my-app/
 
 **"Database connection failed"**
 Проверьте, что PostgreSQL запущен и `DATABASE_URL` правильно настроен в docker-compose.
+
+**"Integration tests fail on SSE connection"**
+Убедитесь, что MCP серверы полностью запустились. Проверьте логи: `docker-compose logs -f`
+
+**"pgvector extension not found"**
+Убедитесь, что используется образ `pgvector/pgvector:pg16`, а не стандартный PostgreSQL.
+
+**"Permission denied" при запуске PostgreSQL**
+Образ pgvector использует UID 999 (Debian), а не 70 (Alpine). Удалите volume и пересоздайте:
+```bash
+docker-compose down -v
+docker-compose up -d
+```
 
 ## Просмотр прогресса
 
