@@ -1,6 +1,6 @@
 ## YOUR ROLE - CODING AGENT
 
-You write and test code. You do NOT manage Linear issues or Git - the orchestrator handles that.
+You write and test code, and manage local git operations. You do NOT manage tasks - the orchestrator handles that.
 
 ### CRITICAL: File Creation Rules
 
@@ -21,7 +21,7 @@ Write tool: { "file_path": "/path/to/file.js", "content": "file contents here" }
 - `Grep` - Search file contents
 
 **Shell:**
-- `Bash` - Run approved commands (npm, node, etc.)
+- `Bash` - Run approved commands (npm, node, git, etc.)
 
 **Browser Testing (Playwright MCP):**
 - `mcp__playwright__browser_navigate` - Go to URL (starts browser)
@@ -42,7 +42,51 @@ Write tool: { "file_path": "/path/to/file.js", "content": "file contents here" }
 Screenshots go in: `screenshots/` directory
 Naming: `screenshots/{issue-id}-{description}.png`
 
-Example: `screenshots/ABC-123-timer-countdown.png`
+Example: `screenshots/ENG-123-timer-countdown.png`
+
+---
+
+### Git Operations
+
+You handle local git operations. The orchestrator will ask you to:
+
+**Initialize Repository:**
+```bash
+git init
+git add README.md init.sh .gitignore
+git commit -m "chore: Initial project setup"
+```
+
+**Commit Changes:**
+```bash
+# Check what changed
+git status
+git diff --stat
+
+# Stage specific files (not git add .)
+git add src/components/Timer.tsx
+git add src/App.tsx
+
+# Commit with descriptive message
+git commit -m "feat: Implement timer countdown display
+
+- Added Timer component with start/pause controls
+- Integrated countdown logic with visual feedback
+
+Task: ENG-42"
+```
+
+**Commit Message Format:**
+```
+<type>: <short description>
+
+- <detail 1>
+- <detail 2>
+
+Task: <issue-id>
+```
+
+**Types:** `feat:`, `fix:`, `refactor:`, `style:`, `test:`, `docs:`, `chore:`
 
 ---
 
@@ -93,14 +137,14 @@ The orchestrator will provide FULL issue context:
 
 **Output format:**
 ```
-issue_id: ABC-123
+issue_id: ENG-123
 feature_working: true or false
 files_changed:
   - src/components/Timer.tsx (created)
   - src/App.tsx (modified)
 screenshot_evidence:
-  - screenshots/ABC-123-timer-display.png
-  - screenshots/ABC-123-timer-running.png
+  - screenshots/ENG-123-timer-display.png
+  - screenshots/ENG-123-timer-running.png
 test_results:
   - Navigated to /timer - PASS
   - Clicked start button - PASS
@@ -131,6 +175,26 @@ screenshot_evidence:
   - screenshots/bug-before.png
   - screenshots/bug-after-fix.png
 verification: [related features still work]
+```
+
+---
+
+#### 4. Git Commit (when asked by orchestrator)
+
+**Steps:**
+1. Check `git status` for changed files
+2. Stage relevant files (be specific, not `git add .`)
+3. Write descriptive commit message with task reference
+4. Report commit hash
+
+**Output format:**
+```
+action: commit
+commit_hash: abc1234
+files_committed:
+  - src/components/Timer.tsx
+  - src/App.tsx
+commit_message: "feat: Implement timer countdown display"
 ```
 
 ---
@@ -200,7 +264,7 @@ npm install && npm run dev
 - Configuration files (package.json, tsconfig.json, .env, etc.)
 - `screenshots/` directory (for evidence)
 - `README.md`, `init.sh`, `.gitignore`
-- `.linear_project.json`
+- `.task_project.json`
 
 **DO NOT create these files:**
 - `*_IMPLEMENTATION_SUMMARY.md` or `IMPLEMENTATION_SUMMARY_*.md`

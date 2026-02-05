@@ -1,334 +1,341 @@
 # Your Claude Engineer
 
-**Your own AI software engineer that manages projects, writes code, and communicates progress — autonomously.**
+**Ваш собственный AI-инженер, который управляет проектами, пишет код и сообщает о прогрессе — автономно.**
 
-Ever wished you could hand off a feature request and have it come back fully implemented, tested, and documented? Your Claude Engineer is a harness built on top of the Anthropic Harness for long running tasks and using the [Claude Agent SDK](https://github.com/anthropics/claude-code/tree/main/agent-sdk-python) that turns Claude into a long-running software engineer capable of tackling complex, multi-step tasks that go far beyond a single prompt.
+Когда-нибудь хотели передать задачу на разработку и получить её полностью реализованной, протестированной и задокументированной? Your Claude Engineer — это фреймворк для длительных задач на базе [Claude Agent SDK](https://github.com/anthropics/claude-code/tree/main/agent-sdk-python), который превращает Claude в долго работающего инженера, способного решать сложные многоэтапные задачи.
 
-It's a complete engineering workflow leveraging subagents to handle distinct concerns:
+Полный рабочий процесс разработки с использованием субагентов:
 
-- **Project Management**: Creates and tracks work in Linear, breaking down features into issues and updating status as work progresses
-- **Code Implementation**: Writes, tests, and iterates on code with browser-based UI verification via Playwright
-- **Version Control**: Commits changes, creates branches, and opens pull requests on GitHub
-- **Communication**: Keeps you informed with progress updates in Slack
+- **Управление проектом**: Создаёт и отслеживает работу через самохостируемый Task MCP Server (бэкенд на PostgreSQL), разбивает фичи на задачи и обновляет статусы
+- **Реализация кода**: Пишет, тестирует и итерирует код с UI-верификацией через Playwright
+- **Контроль версий**: Коммитит изменения в локальный git-репозиторий
+- **Коммуникация**: Информирует о прогрессе через Telegram
 
-The multi-agent architecture uses specialized agents (Linear, Coding, GitHub, Slack) coordinated by an orchestrator, enabling longer autonomous sessions without context window exhaustion. All external service integrations are powered by the [Arcade MCP server](https://arcade.dev), providing seamless OAuth authentication across Linear, GitHub, and Slack through a single gateway. The system also leverages Claude's tool discovery for context-optimized MCP interactions.
+Мультиагентная архитектура использует специализированных агентов (Task, Coding, Telegram), координируемых оркестратором, что позволяет проводить длительные автономные сессии без исчерпания контекстного окна. Все интеграции используют самохостируемые MCP серверы на вашем VDS.
 
-## Key Features
+## Ключевые возможности
 
-- **Long-Running Autonomy**: Harness architecture enables extended coding sessions across multiple iterations
-- **Multi-Agent Orchestration**: Specialized agents handle distinct concerns (project management, coding, version control, communication)
-- **Linear Integration**: Automatic issue tracking with real-time status updates and session handoff
-- **GitHub Integration**: Automatic commits, branches, and PR creation
-- **Slack Notifications**: Progress updates delivered to your team
-- **Arcade MCP Gateway**: Single authentication flow for all external services (Linear, GitHub, Slack)
-- **Browser Testing**: Playwright MCP for automated UI verification
-- **Model Configuration**: Per-agent model selection (Haiku, Sonnet, or Opus)
+- **Длительная автономность**: Архитектура позволяет проводить расширенные сессии кодинга
+- **Мультиагентная оркестрация**: Специализированные агенты отвечают за отдельные задачи
+- **Самохостируемое управление задачами**: PostgreSQL-бэкенд с полным контролем над данными
+- **Локальный Git**: Автоматические коммиты с описательными сообщениями
+- **Уведомления в Telegram**: Обновления прогресса в личный чат
+- **Браузерное тестирование**: Playwright MCP для автоматической UI-верификации
+- **Конфигурация моделей**: Выбор модели для каждого агента (Haiku, Sonnet или Opus)
 
-## Prerequisites
+## Требования
 
-> Note that this doesn't work on Windows because of limitations with the Claude Agent SDK and subagents. Use WSL or a Linux VM to run it!
+> Не работает на Windows из-за ограничений Claude Agent SDK и субагентов. Используйте WSL или Linux VM!
 
-### 0. Set Up Python Virtual Environment (Recommended)
+### 0. Создание виртуального окружения Python (рекомендуется)
 
 ```bash
-# Create virtual environment
+# Создание виртуального окружения
 python3 -m venv venv
 
-# Activate it
-source venv/bin/activate  # On macOS/Linux
-# or
-venv\Scripts\activate  # On Windows
+# Активация
+source venv/bin/activate  # На macOS/Linux
 ```
 
-### 1. Install Claude Code CLI and Python SDK
+### 1. Установка Claude Code CLI и Python SDK
 
 ```bash
-# Install Claude Code CLI (latest version required)
+# Установка Claude Code CLI (требуется последняя версия)
 npm install -g @anthropic-ai/claude-code
 
-# Install Python dependencies
+# Установка Python-зависимостей
 pip install -r requirements.txt
 ```
 
-### 2. Set Up Authentication
+### 2. Развёртывание MCP серверов
+
+Разверните Task MCP Server и Telegram MCP Server на вашем VDS:
 
 ```bash
-# Copy the example environment file
+# На вашем VDS
+# Создайте .env файл с необходимыми переменными
+cat > .env << EOF
+DB_PASSWORD=ваш_безопасный_пароль_бд
+TELEGRAM_BOT_TOKEN=ваш_токен_бота
+TELEGRAM_CHAT_ID=ваш_chat_id
+EOF
+
+# Запуск сервисов
+docker-compose up -d
+```
+
+### 3. Настройка локального окружения
+
+```bash
+# Скопируйте пример файла окружения
 cp .env.example .env
 
-# Edit .env with your credentials:
-# - ARCADE_API_KEY: Get from https://api.arcade.dev/dashboard/api-keys
-# - ARCADE_GATEWAY_SLUG: Create at https://api.arcade.dev/dashboard/mcp-gateways
-# - ARCADE_USER_ID: Your email for user tracking
-
-# Authorize Arcade tools (run once)
-python authorize_arcade.py
+# Отредактируйте .env с URL ваших MCP серверов:
+# - TASK_MCP_URL: http://your-vds:8001/sse
+# - TELEGRAM_MCP_URL: http://your-vds:8002/sse
 ```
 
 <details>
-<summary><strong>Environment Variables Reference</strong></summary>
+<summary><strong>Справочник переменных окружения</strong></summary>
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `ARCADE_API_KEY` | Arcade API key from https://api.arcade.dev/dashboard/api-keys | Yes |
-| `ARCADE_GATEWAY_SLUG` | Your Arcade MCP gateway slug | Yes |
-| `ARCADE_USER_ID` | Your email for user tracking | Recommended |
-| `GENERATIONS_BASE_PATH` | Base directory for generated projects (default: ./generations) | No |
-| `GITHUB_REPO` | GitHub repo in format `owner/repo` for auto-push | No |
-| `SLACK_CHANNEL` | Slack channel name (without #) for notifications | No |
-| `ORCHESTRATOR_MODEL` | Model for orchestrator: haiku, sonnet, opus (default: haiku) | No |
-| `LINEAR_AGENT_MODEL` | Model for Linear agent (default: haiku) | No |
-| `CODING_AGENT_MODEL` | Model for coding agent (default: sonnet) | No |
-| `GITHUB_AGENT_MODEL` | Model for GitHub agent (default: haiku) | No |
-| `SLACK_AGENT_MODEL` | Model for Slack agent (default: haiku) | No |
+| Переменная | Описание | Обязательна |
+|------------|----------|-------------|
+| `TASK_MCP_URL` | URL вашего Task MCP Server | Да |
+| `TELEGRAM_MCP_URL` | URL вашего Telegram MCP Server | Да |
+| `MCP_API_KEY` | Опциональный API ключ для аутентификации MCP серверов | Нет |
+| `GENERATIONS_BASE_PATH` | Базовая директория для генерируемых проектов (по умолчанию: ./generations) | Нет |
+| `ORCHESTRATOR_MODEL` | Модель для оркестратора: haiku, sonnet, opus (по умолчанию: haiku) | Нет |
+| `TASK_AGENT_MODEL` | Модель для Task агента (по умолчанию: haiku) | Нет |
+| `CODING_AGENT_MODEL` | Модель для Coding агента (по умолчанию: sonnet) | Нет |
+| `TELEGRAM_AGENT_MODEL` | Модель для Telegram агента (по умолчанию: haiku) | Нет |
 
 </details>
 
-### 3. Verify Installation
+### 4. Создание Telegram бота
+
+1. Напишите [@BotFather](https://t.me/BotFather) в Telegram
+2. Отправьте `/newbot` и следуйте инструкциям
+3. Скопируйте токен бота в `TELEGRAM_BOT_TOKEN`
+4. Напишите [@userinfobot](https://t.me/userinfobot) чтобы получить ваш chat ID
+5. Установите `TELEGRAM_CHAT_ID` в `.env` файле на VDS
+
+### 5. Проверка установки
 
 ```bash
-claude --version  # Should be latest version
-pip show claude-agent-sdk  # Check SDK is installed
+claude --version  # Должна быть последняя версия
+pip show claude-agent-sdk  # Проверка установки SDK
+
+# Тест подключения к MCP серверам
+curl http://your-vds:8001/sse
+curl http://your-vds:8002/sse
 ```
 
-## Quick Start
+## Быстрый старт
 
 ```bash
-# Basic usage - creates project in ./generations/my-app/
+# Базовое использование — создаёт проект в ./generations/my-app/
 uv run python autonomous_agent_demo.py --project-dir my-app
 
-# Specify custom output location
+# Указать другую директорию вывода
 uv run python autonomous_agent_demo.py --generations-base ~/projects/ai --project-dir my-app
 
-# Limit iterations for testing
+# Ограничить итерации для тестирования
 uv run python autonomous_agent_demo.py --project-dir my-app --max-iterations 3
 
-# Use Opus for orchestrator (more capable but higher cost)
+# Использовать Opus для оркестратора (более мощный, но дороже)
 uv run python autonomous_agent_demo.py --project-dir my-app --model opus
 ```
 
-## How It Works
+## Как это работает
 
-### Multi-Agent Orchestration
+### Мультиагентная оркестрация
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                   MULTI-AGENT ARCHITECTURE                    │
+│                  МУЛЬТИАГЕНТНАЯ АРХИТЕКТУРА                   │
 ├───────────────────────────────────────────────────────────────┤
 │                                                               │
 │                    ┌─────────────────┐                        │
-│                    │  ORCHESTRATOR   │  (Haiku by default)    │
-│                    │   Coordinates   │                        │
+│                    │   ОРКЕСТРАТОР   │  (Haiku по умолчанию)  │
+│                    │   Координирует  │                        │
 │                    └────────┬────────┘                        │
 │                             │                                 │
 │           ┌─────────────────┼─────────────────┐               │
 │           │                 │                 │               │
 │      ┌────▼─────┐    ┌─────▼──────┐   ┌─────▼──────┐          │
-│      │  LINEAR  │    │   CODING   │   │   GITHUB   │          │
+│      │   TASK   │    │   CODING   │   │ TELEGRAM   │          │
 │      │  (Haiku) │    │  (Sonnet)  │   │  (Haiku)   │          │
-│      └──────────┘    └────────────┘   └────────────┘          │
-│           │                │                 │                │
-│      ┌────▼─────┐          │                 │                │
-│      │  SLACK   │          │                 │                │
-│      │ (Haiku)  │          │                 │                │
-│      └──────────┘          │                 │                │
-│                            │                 │                │
-│     ┌──────────────────────▼─────────────────▼──────┐         │
-│     │         PROJECT OUTPUT (Isolated Git)         │         │
-│     │      GENERATIONS_BASE_PATH/project-name/      │         │
-│     └───────────────────────────────────────────────┘         │
+│      └────┬─────┘    └─────┬──────┘   └─────┬──────┘          │
+│           │                │                │                 │
+│      Task MCP         Playwright       Telegram MCP           │
+│      Server           + Local Git         Server              │
+│     (PostgreSQL)                        (Bot API)             │
+│                                                               │
+│     ┌──────────────────────────────────────────────┐          │
+│     │          ПРОЕКТ (Изолированный Git)          │          │
+│     │      GENERATIONS_BASE_PATH/project-name/     │          │
+│     └──────────────────────────────────────────────┘          │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-### Agent Responsibilities
+### Ответственность агентов
 
-1. **Orchestrator Agent:**
-   - Reads project state from `.linear_project.json`
-   - Queries Linear for current status
-   - Decides what to work on next
-   - Delegates to specialized agents via Task tool
-   - Coordinates handoff between agents
+1. **Оркестратор:**
+   - Читает состояние проекта из `.task_project.json`
+   - Запрашивает текущий статус у Task MCP Server
+   - Решает, что делать дальше
+   - Делегирует специализированным агентам через Task tool
+   - Координирует передачу между агентами
 
-2. **Linear Agent:**
-   - Creates and updates Linear projects and issues
-   - Manages issue status transitions (Todo → In Progress → Done)
-   - Adds comments with implementation details
-   - Maintains META issue for session tracking
+2. **Task Agent:**
+   - Создаёт и обновляет проекты и задачи
+   - Управляет переходами статусов (Todo → In Progress → Done)
+   - Добавляет комментарии с деталями реализации
+   - Поддерживает META issue для отслеживания сессий
 
 3. **Coding Agent:**
-   - Implements features based on Linear issues
-   - Writes and tests application code
-   - Uses Playwright for browser-based UI testing
-   - Validates previously completed features
+   - Реализует фичи на основе задач
+   - Пишет и тестирует код приложения
+   - Использует Playwright для браузерного UI-тестирования
+   - Валидирует ранее завершённые фичи
+   - Управляет локальными git-коммитами
 
-4. **GitHub Agent (Optional):**
-   - Commits code changes to git
-   - Creates branches and pushes to remote
-   - Creates pull requests when features are ready
-   - Requires `GITHUB_REPO` env var
+4. **Telegram Agent:**
+   - Публикует обновления прогресса в ваш Telegram-чат
+   - Уведомляет о завершении фич
+   - Отправляет сводки статуса проекта
 
-5. **Slack Agent (Optional):**
-   - Posts progress updates to Slack channels
-   - Notifies on feature completion
-   - Requires existing Slack channel (cannot create channels)
+## Опции командной строки
 
-## Command Line Options
+| Опция | Описание | По умолчанию |
+|-------|----------|--------------|
+| `--project-dir` | Имя проекта или путь | `./autonomous_demo_project` |
+| `--generations-base` | Базовая директория для всех проектов | `./generations` или `GENERATIONS_BASE_PATH` |
+| `--max-iterations` | Максимум итераций агента | Без ограничений |
+| `--model` | Модель оркестратора: haiku, sonnet, или opus | `haiku` или `ORCHESTRATOR_MODEL` |
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--project-dir` | Project name or path (relative paths go in generations base) | `./autonomous_demo_project` |
-| `--generations-base` | Base directory for all generated projects | `./generations` or `GENERATIONS_BASE_PATH` |
-| `--max-iterations` | Max agent iterations | Unlimited |
-| `--model` | Orchestrator model: haiku, sonnet, or opus | `haiku` or `ORCHESTRATOR_MODEL` |
+## Кастомизация
 
-## Setup Guide
+### Изменение приложения
 
-### 1. Arcade Gateway Setup
+Отредактируйте `prompts/app_spec.txt` чтобы указать другое приложение для сборки.
 
-1. Get API key from https://api.arcade.dev/dashboard/api-keys
-2. Create MCP gateway at https://api.arcade.dev/dashboard/mcp-gateways
-3. Add Linear tools to your gateway (required)
-4. Optionally add GitHub and Slack tools
-5. Run `python authorize_arcade.py` to authorize
+### Изменение количества задач
 
-### 2. Linear Workspace
+Отредактируйте `prompts/initializer_task.md` чтобы изменить количество создаваемых задач.
 
-Ensure you have:
-- A Linear workspace with at least one team
-- Linear tools added to your Arcade gateway
-- The orchestrator will automatically detect your team and create projects
+### Изменение разрешённых команд
 
-### 3. GitHub Integration (Optional)
+Отредактируйте `security.py` чтобы добавить или удалить команды из `ALLOWED_COMMANDS`.
 
-To enable GitHub integration:
-1. Create a GitHub repository
-2. Add GitHub tools to your Arcade gateway
-3. Set `GITHUB_REPO=owner/repo-name` in `.env`
-4. The GitHub agent will commit and push code automatically
-
-### 4. Slack Integration (Optional)
-
-To enable Slack notifications:
-1. Create a Slack channel (agents cannot create channels)
-2. Add Slack tools to your Arcade gateway
-3. Set `SLACK_CHANNEL=channel-name` in `.env`
-
-## Customization
-
-### Changing the Application
-
-Edit `prompts/app_spec.txt` to specify a different application to build.
-
-### Adjusting Issue Count
-
-Edit `prompts/initializer_task.md` to change how many issues are created during initialization.
-
-### Modifying Allowed Commands
-
-Edit `security.py` to add or remove commands from `ALLOWED_COMMANDS`.
-
-## Project Structure
+## Структура проекта
 
 ```
-linear-agent-harness/
-├── autonomous_agent_demo.py  # Main entry point
-├── agent.py                  # Agent session logic
-├── client.py                 # Claude SDK + MCP client configuration
-├── security.py               # Bash command allowlist and validation
-├── progress.py               # Progress tracking utilities
-├── prompts.py                # Prompt loading utilities
-├── arcade_config.py          # Arcade MCP gateway configuration
-├── authorize_arcade.py       # Arcade authorization flow
+your-claude-engineer/
+├── autonomous_agent_demo.py  # Точка входа
+├── agent.py                  # Логика сессий агента
+├── client.py                 # Конфигурация Claude SDK + MCP
+├── mcp_config.py             # URL MCP серверов и определения инструментов
+├── security.py               # Allowlist bash-команд и валидация
+├── progress.py               # Утилиты отслеживания прогресса
+├── prompts.py                # Утилиты загрузки промптов
+├── docker-compose.yml        # Конфигурация развёртывания MCP серверов
 ├── agents/
-│   ├── definitions.py        # Agent definitions with model config
-│   └── orchestrator.py       # Orchestrator session runner
+│   ├── definitions.py        # Определения агентов с конфигурацией моделей
+│   └── orchestrator.py       # Запуск сессии оркестратора
 ├── prompts/
-│   ├── app_spec.txt              # Application specification
-│   ├── orchestrator_prompt.md    # Orchestrator system prompt
-│   ├── initializer_task.md       # Task message for first session
-│   ├── continuation_task.md      # Task message for continuation sessions
-│   ├── linear_agent_prompt.md    # Linear subagent prompt
-│   ├── coding_agent_prompt.md    # Coding subagent prompt
-│   ├── github_agent_prompt.md    # GitHub subagent prompt
-│   └── slack_agent_prompt.md     # Slack subagent prompt
-└── requirements.txt          # Python dependencies
+│   ├── app_spec.txt              # Спецификация приложения
+│   ├── orchestrator_prompt.md    # Системный промпт оркестратора
+│   ├── initializer_task.md       # Сообщение задачи для первой сессии
+│   ├── continuation_task.md      # Сообщение задачи для продолжения
+│   ├── task_agent_prompt.md      # Промпт Task субагента
+│   ├── coding_agent_prompt.md    # Промпт Coding субагента
+│   └── telegram_agent_prompt.md  # Промпт Telegram субагента
+├── task_mcp_server/          # Task MCP Server (PostgreSQL бэкенд)
+│   ├── server.py             # FastMCP сервер с 10 инструментами
+│   ├── database.py           # Async PostgreSQL подключение
+│   ├── models.py             # Pydantic модели
+│   ├── init_db.sql           # Схема базы данных
+│   ├── requirements.txt
+│   └── Dockerfile
+├── telegram_mcp_server/      # Telegram MCP Server
+│   ├── server.py             # FastMCP сервер с 3 инструментами
+│   ├── requirements.txt
+│   └── Dockerfile
+└── requirements.txt          # Python зависимости
 ```
 
-## Generated Project Structure
+## Структура генерируемого проекта
 
-Projects are created in isolated directories with their own git repos:
+Проекты создаются в изолированных директориях со своими git-репозиториями:
 
 ```
-generations/my-app/           # Or GENERATIONS_BASE_PATH/my-app/
-├── .linear_project.json      # Linear project state (marker file)
-├── app_spec.txt              # Copied specification
-├── init.sh                   # Environment setup script
-├── .claude_settings.json     # Security settings
-├── .git/                     # Separate git repository
-└── [application files]       # Generated application code
+generations/my-app/           # Или GENERATIONS_BASE_PATH/my-app/
+├── .task_project.json        # Состояние проекта (маркер-файл)
+├── app_spec.txt              # Скопированная спецификация
+├── init.sh                   # Скрипт настройки окружения
+├── .claude_settings.json     # Настройки безопасности
+├── .git/                     # Отдельный git-репозиторий
+└── [файлы приложения]        # Сгенерированный код приложения
 ```
 
-## MCP Servers Used
+## MCP серверы
 
-| Server | Transport | Purpose |
-|--------|-----------|---------|
-| **Arcade Gateway** | HTTP | Unified access to Linear, GitHub, and Slack via Arcade MCP |
-| **Playwright** | stdio | Browser automation for UI testing |
+| Сервер | Транспорт | Назначение |
+|--------|-----------|------------|
+| **Task MCP Server** | HTTP (SSE) | Управление проектами/задачами с PostgreSQL бэкендом |
+| **Telegram MCP Server** | HTTP (SSE) | Уведомления через Telegram Bot API |
+| **Playwright** | stdio | Браузерная автоматизация для UI-тестирования |
 
-The Arcade Gateway provides access to:
-- **Linear**: Project management, issues, status, comments (39 tools)
-- **GitHub**: Repository operations, commits, PRs, branches (46 tools, optional)
-- **Slack**: Messaging and notifications (8 tools, optional)
+### Инструменты Task MCP Server (10 инструментов)
 
-## Security Model
+| Инструмент | Описание |
+|------------|----------|
+| `Task_WhoAmI` | Получить профиль и членство в командах |
+| `Task_ListTeams` | Список всех команд |
+| `Task_CreateProject` | Создать новый проект |
+| `Task_CreateIssue` | Создать новую задачу |
+| `Task_ListIssues` | Список задач с фильтрами |
+| `Task_GetIssue` | Получить детали задачи |
+| `Task_UpdateIssue` | Обновить поля задачи |
+| `Task_TransitionIssueState` | Изменить статус задачи |
+| `Task_AddComment` | Добавить комментарий к задаче |
+| `Task_ListWorkflowStates` | Список доступных статусов |
 
-This demo uses defense-in-depth security (see `security.py` and `client.py`):
+### Инструменты Telegram MCP Server (3 инструмента)
 
-1. **OS-level Sandbox:** Bash commands run in an isolated environment
-2. **Filesystem Restrictions:** File operations restricted to project directory
-3. **Bash Allowlist:** Only specific commands permitted (npm, node, git, curl, rm with validation, etc.)
-4. **MCP Permissions:** Tools explicitly allowed in security settings
-5. **Dangerous Command Validation:** Commands like `rm` are validated to prevent system directory deletion
+| Инструмент | Описание |
+|------------|----------|
+| `Telegram_WhoAmI` | Получить информацию о боте и статус конфигурации |
+| `Telegram_SendMessage` | Отправить сообщение (авто-конвертация Slack emoji) |
+| `Telegram_ListChats` | Список недавних чатов |
 
-## Troubleshooting
+## Модель безопасности
 
-**"ARCADE_API_KEY not set"**
-Get your API key from https://api.arcade.dev/dashboard/api-keys and set it in `.env`
+Демо использует многоуровневую безопасность (см. `security.py` и `client.py`):
 
-**"ARCADE_GATEWAY_SLUG not set"**
-Create a gateway at https://api.arcade.dev/dashboard/mcp-gateways and add Linear tools
+1. **Песочница на уровне ОС:** Bash-команды выполняются в изолированном окружении
+2. **Ограничения файловой системы:** Файловые операции ограничены директорией проекта
+3. **Allowlist Bash:** Разрешены только определённые команды (npm, node, git, curl, rm с валидацией и т.д.)
+4. **MCP-разрешения:** Инструменты явно разрешены в настройках безопасности
+5. **Валидация опасных команд:** Команды типа `rm` валидируются для предотвращения удаления системных директорий
 
-**"Authorization required"**
-Run `python authorize_arcade.py` to complete the OAuth flow
+## Устранение неполадок
+
+**"TASK_MCP_URL not set"**
+Установите `TASK_MCP_URL=http://your-vds:8001/sse` в вашем `.env` файле
+
+**"TELEGRAM_MCP_URL not set"**
+Установите `TELEGRAM_MCP_URL=http://your-vds:8002/sse` в вашем `.env` файле
+
+**"Connection refused" к MCP серверам**
+Проверьте, что MCP серверы запущены: `docker-compose ps` на вашем VDS
 
 **"Command blocked by security hook"**
-The agent tried to run a disallowed command. Add it to `ALLOWED_COMMANDS` in `security.py` if needed.
+Агент попытался выполнить запрещённую команду. Добавьте её в `ALLOWED_COMMANDS` в `security.py` при необходимости.
 
-**"MCP server connection failed"**
-Verify your Arcade API key is valid and your gateway has the required tools configured.
+**"Telegram message failed"**
+Убедитесь, что вы сначала написали боту (отправьте `/start`) и что `TELEGRAM_CHAT_ID` корректен.
 
-**"GitHub agent requires GITHUB_REPO"**
-If you want GitHub integration, set `GITHUB_REPO=owner/repo-name` in `.env`
+**"Database connection failed"**
+Проверьте, что PostgreSQL запущен и `DATABASE_URL` правильно настроен в docker-compose.
 
-**"Slack channel not found"**
-Agents cannot create Slack channels. Create the channel manually and set `SLACK_CHANNEL` to the channel name (without #).
+## Просмотр прогресса
 
-## Viewing Progress
+**Task MCP Server:**
+- Просмотр задач через прямые запросы к БД
+- Наблюдение за изменениями статусов в реальном времени (Todo → In Progress → Done)
+- Чтение комментариев с деталями реализации
+- Проверка сводок сессий в META issue
 
-**Linear Workspace:**
-- View the project created by the orchestrator
-- Watch real-time status changes (Todo → In Progress → Done)
-- Read implementation comments on each issue
-- Check session summaries on the META issue
+**Telegram:**
+- Получение обновлений прогресса в настроенный чат
+- Уведомления о завершении фич
 
-**GitHub (if configured):**
-- View commits pushed to your repository
-- Review pull requests created by the GitHub agent
+**Локальный Git:**
+- Просмотр коммитов в директории сгенерированного проекта
+- Проверка истории реализации через git log
 
-**Slack (if configured):**
-- Receive progress updates in your configured channel
-- Get notifications when features are completed
+## Лицензия
 
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — см. [LICENSE](LICENSE) для деталей.

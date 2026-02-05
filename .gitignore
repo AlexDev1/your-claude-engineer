@@ -6,6 +6,7 @@ logs/
 
 .env
 venv
+.venv/
 venv_linux
 .env.tmp
 __pycache__

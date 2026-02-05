@@ -3,36 +3,37 @@ Progress Tracking Utilities
 ===========================
 
 Functions for tracking and displaying progress of the autonomous coding agent.
-Progress is tracked via Linear issues, with local state cached in .linear_project.json.
+Progress is tracked via Task MCP Server, with local state cached in .task_project.json.
 """
 
 import json
 from pathlib import Path
 from typing import TypedDict
 
-# Local marker file to track Linear project initialization
-LINEAR_PROJECT_MARKER: str = ".linear_project.json"
+# Local marker file to track project initialization
+TASK_PROJECT_MARKER: str = ".task_project.json"
 
 
-class LinearProjectState(TypedDict, total=False):
-    """Structure of the .linear_project.json state file."""
+class TaskProjectState(TypedDict, total=False):
+    """Structure of the .task_project.json state file."""
 
     initialized: bool
     created_at: str
-    team_id: str
+    team_key: str
     project_id: str
     project_name: str
+    project_slug: str
     meta_issue_id: str
     total_issues: int
     notes: str
 
 
-def load_linear_project_state(project_dir: Path) -> LinearProjectState | None:
+def load_task_project_state(project_dir: Path) -> TaskProjectState | None:
     """
-    Load the Linear project state from the marker file.
+    Load the project state from the marker file.
 
     Args:
-        project_dir: Directory containing .linear_project.json
+        project_dir: Directory containing .task_project.json
 
     Returns:
         Project state dict or None if not initialized
@@ -44,7 +45,7 @@ def load_linear_project_state(project_dir: Path) -> LinearProjectState | None:
         Returns None if file doesn't exist. Raises ValueError if file exists
         but cannot be parsed, to prevent silent state corruption.
     """
-    marker_file: Path = project_dir / LINEAR_PROJECT_MARKER
+    marker_file: Path = project_dir / TASK_PROJECT_MARKER
 
     if not marker_file.exists():
         return None
@@ -72,18 +73,18 @@ def load_linear_project_state(project_dir: Path) -> LinearProjectState | None:
     return data  # type: ignore[return-value]
 
 
-def is_linear_initialized(project_dir: Path) -> bool:
+def is_project_initialized(project_dir: Path) -> bool:
     """
-    Check if Linear project has been initialized.
+    Check if project has been initialized.
 
     Args:
         project_dir: Directory to check
 
     Returns:
-        True if .linear_project.json exists and is valid with initialized=True
+        True if .task_project.json exists and is valid with initialized=True
     """
     try:
-        state = load_linear_project_state(project_dir)
+        state = load_task_project_state(project_dir)
         return state is not None and state.get("initialized", False)
     except ValueError:
         # Corrupted state file - treat as not initialized but log warning
@@ -105,24 +106,26 @@ def print_progress_summary(project_dir: Path) -> None:
     """
     Print a summary of current progress.
 
-    Since actual progress is tracked in Linear, this reads the local
-    state file for cached information. The agent updates Linear directly
+    Since actual progress is tracked in Task MCP Server, this reads the local
+    state file for cached information. The agent updates the server directly
     and reports progress in session comments.
     """
     try:
-        state = load_linear_project_state(project_dir)
+        state = load_task_project_state(project_dir)
     except ValueError as e:
         print(f"\nProgress: Error loading state - {e}")
         return
 
     if state is None:
-        print("\nProgress: Linear project not yet initialized")
+        print("\nProgress: Project not yet initialized")
         return
 
     total: int = state.get("total_issues", 0)
     meta_issue: str = state.get("meta_issue_id", "unknown")
+    project_name: str = state.get("project_name", "Unknown")
 
-    print(f"\nLinear Project Status:")
+    print(f"\nProject Status:")
+    print(f"  Project: {project_name}")
     print(f"  Total issues created: {total}")
     print(f"  META issue ID: {meta_issue}")
-    print(f"  (Check Linear for current Done/In Progress/Todo counts)")
+    print(f"  (Check Task MCP Server for current Done/In Progress/Todo counts)")

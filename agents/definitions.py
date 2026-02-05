@@ -4,6 +4,11 @@ Agent Definitions
 
 Specialized agent configurations using Claude Agent SDK's AgentDefinition.
 Model selection is configurable via environment variables.
+
+Agents:
+- task: Manages tasks, projects, and session tracking (replaces Linear)
+- coding: Writes code, tests with Playwright, handles git operations
+- telegram: Sends notifications via Telegram (replaces Slack)
 """
 
 import os
@@ -12,10 +17,9 @@ from typing import Final, Literal, TypeGuard
 
 from claude_agent_sdk.types import AgentDefinition
 
-from arcade_config import (
-    get_linear_tools,
-    get_github_tools,
-    get_slack_tools,
+from mcp_config import (
+    get_task_tools,
+    get_telegram_tools,
     get_coding_tools,
 )
 
@@ -32,10 +36,9 @@ _VALID_MODELS: Final[tuple[str, ...]] = ("haiku", "sonnet", "opus", "inherit")
 
 # Default models for each agent (immutable)
 DEFAULT_MODELS: Final[dict[str, ModelOption]] = {
-    "linear": "haiku",
+    "task": "haiku",
     "coding": "sonnet",
-    "github": "haiku",
-    "slack": "haiku",
+    "telegram": "haiku",
 }
 
 
@@ -49,7 +52,7 @@ def _get_model(agent_name: str) -> ModelOption:
     Get the model for an agent from environment variable or default.
 
     Environment variables:
-        LINEAR_AGENT_MODEL, CODING_AGENT_MODEL, GITHUB_AGENT_MODEL, SLACK_AGENT_MODEL
+        TASK_AGENT_MODEL, CODING_AGENT_MODEL, TELEGRAM_AGENT_MODEL
 
     Valid values: haiku, sonnet, opus, inherit
     """
@@ -103,28 +106,27 @@ def create_agent_definitions() -> dict[str, AgentDefinition]:
 
     This is called at import time but reads env vars, so changes to
     environment require reimporting or restarting.
+
+    Agents:
+    - task: Project/issue management via Task MCP Server (replaces Linear)
+    - coding: Code implementation + Playwright testing + local git
+    - telegram: Notifications via Telegram Bot API (replaces Slack)
     """
     return {
-        "linear": AgentDefinition(
-            description="Manages Linear issues, project status, and session handoff. Use for any Linear operations.",
-            prompt=_load_prompt("linear_agent_prompt"),
-            tools=get_linear_tools() + FILE_TOOLS,
-            model=_get_model("linear"),
+        "task": AgentDefinition(
+            description="Manages tasks, projects, and session tracking. Use for any task management operations.",
+            prompt=_load_prompt("task_agent_prompt"),
+            tools=get_task_tools() + FILE_TOOLS,
+            model=_get_model("task"),
         ),
-        "github": AgentDefinition(
-            description="Handles Git commits, branches, and GitHub PRs. Use for version control operations.",
-            prompt=_load_prompt("github_agent_prompt"),
-            tools=get_github_tools() + FILE_TOOLS + ["Bash"],
-            model=_get_model("github"),
-        ),
-        "slack": AgentDefinition(
-            description="Sends Slack notifications to keep users informed. Use for progress updates.",
-            prompt=_load_prompt("slack_agent_prompt"),
-            tools=get_slack_tools() + FILE_TOOLS,
-            model=_get_model("slack"),
+        "telegram": AgentDefinition(
+            description="Sends Telegram notifications to keep users informed. Use for progress updates.",
+            prompt=_load_prompt("telegram_agent_prompt"),
+            tools=get_telegram_tools() + FILE_TOOLS,
+            model=_get_model("telegram"),
         ),
         "coding": AgentDefinition(
-            description="Writes and tests code. Use when implementing features or fixing bugs.",
+            description="Writes code, tests with Playwright, and manages local git. Use for implementation and version control.",
             prompt=_load_prompt("coding_agent_prompt"),
             tools=get_coding_tools(),
             model=_get_model("coding"),
@@ -136,7 +138,6 @@ def create_agent_definitions() -> dict[str, AgentDefinition]:
 AGENT_DEFINITIONS: dict[str, AgentDefinition] = create_agent_definitions()
 
 # Export individual agents for convenience
-LINEAR_AGENT = AGENT_DEFINITIONS["linear"]
-GITHUB_AGENT = AGENT_DEFINITIONS["github"]
-SLACK_AGENT = AGENT_DEFINITIONS["slack"]
+TASK_AGENT = AGENT_DEFINITIONS["task"]
+TELEGRAM_AGENT = AGENT_DEFINITIONS["telegram"]
 CODING_AGENT = AGENT_DEFINITIONS["coding"]

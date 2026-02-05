@@ -3,7 +3,7 @@ Claude SDK Client Configuration
 ===============================
 
 Functions for creating and configuring the Claude Agent SDK client.
-Uses Arcade MCP Gateway for Linear + GitHub + Slack integration.
+Uses self-hosted Task MCP and Telegram MCP servers for integration.
 """
 
 import json
@@ -17,11 +17,14 @@ load_dotenv()
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, McpServerConfig
 from claude_agent_sdk.types import HookCallback, HookMatcher
 
-from arcade_config import (
-    ALL_ARCADE_TOOLS,
-    ARCADE_TOOLS_PERMISSION,
-    get_arcade_mcp_config,
-    validate_arcade_config,
+from mcp_config import (
+    ALL_MCP_TOOLS,
+    TASK_TOOLS_PERMISSION,
+    TELEGRAM_TOOLS_PERMISSION,
+    PLAYWRIGHT_TOOLS_PERMISSION,
+    get_task_mcp_config,
+    get_telegram_mcp_config,
+    validate_mcp_config,
 )
 from agents.definitions import AGENT_DEFINITIONS
 from security import bash_security_hook
@@ -106,8 +109,10 @@ def create_security_settings() -> SecuritySettings:
                 "Bash(*)",
                 # Allow Playwright MCP tools for browser automation
                 *PLAYWRIGHT_TOOLS,
-                # Allow all Arcade MCP Gateway tools (Linear + GitHub + Slack)
-                ARCADE_TOOLS_PERMISSION,
+                # Allow Task MCP tools (project/issue management)
+                TASK_TOOLS_PERMISSION,
+                # Allow Telegram MCP tools (notifications)
+                TELEGRAM_TOOLS_PERMISSION,
             ],
         ),
     )
@@ -167,11 +172,12 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
 
     Execution: Permissions checked first, then hooks run, finally sandbox executes.
     """
-    # Validate Arcade configuration
-    validate_arcade_config()
+    # Validate MCP configuration
+    validate_mcp_config()
 
-    # Get Arcade MCP configuration
-    arcade_config = get_arcade_mcp_config()
+    # Get MCP server configurations
+    task_config = get_task_mcp_config()
+    telegram_config = get_telegram_mcp_config()
 
     # Create and write security settings
     security_settings: SecuritySettings = create_security_settings()
@@ -181,7 +187,10 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     print("   - Sandbox enabled (OS-level bash isolation)")
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
     print("   - Bash commands restricted to allowlist (see security.py)")
-    print(f"   - MCP servers: playwright (browser), arcade ({arcade_config['url']})")
+    print(f"   - MCP servers:")
+    print(f"       - playwright (browser automation)")
+    print(f"       - task ({task_config['url']})")
+    print(f"       - telegram ({telegram_config['url']})")
     print()
 
     # Load orchestrator prompt as system prompt
@@ -193,14 +202,14 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
             system_prompt=orchestrator_prompt,
             allowed_tools=[
                 *BUILTIN_TOOLS,
-                *PLAYWRIGHT_TOOLS,
-                *ALL_ARCADE_TOOLS,
+                *ALL_MCP_TOOLS,
             ],
             mcp_servers=cast(
                 dict[str, McpServerConfig],
                 {
                     "playwright": {"command": "npx", "args": ["-y", "@playwright/mcp@latest"]},
-                    "arcade": arcade_config,
+                    "task": task_config,
+                    "telegram": telegram_config,
                 },
             ),
             hooks={

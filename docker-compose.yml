@@ -1,0 +1,60 @@
+version: '3.8'
+
+# Docker Compose for deploying Task MCP and Telegram MCP servers
+# Deploy to VDS: docker-compose up -d
+
+services:
+  # PostgreSQL database for Task MCP Server
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./task_mcp_server/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      POSTGRES_DB: tasks
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d tasks"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Task MCP Server (replaces Linear)
+  task-mcp:
+    build: ./task_mcp_server
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://agent:${DB_PASSWORD}@postgres:5432/tasks
+      AGENT_NAME: ${AGENT_NAME:-Task Agent}
+      AGENT_EMAIL: ${AGENT_EMAIL:-agent@local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/sse"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Telegram MCP Server (replaces Slack)
+  telegram-mcp:
+    build: ./telegram_mcp_server
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?TELEGRAM_CHAT_ID is required}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/sse"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  pgdata:
+    driver: local

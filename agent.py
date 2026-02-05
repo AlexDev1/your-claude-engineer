@@ -20,7 +20,7 @@ from claude_agent_sdk import (
 )
 
 from client import create_client
-from progress import print_session_header, print_progress_summary, is_linear_initialized
+from progress import print_session_header, print_progress_summary, is_project_initialized
 from prompts import (
     get_initializer_task,
     get_continuation_task,
@@ -155,12 +155,15 @@ async def run_agent_session(
         elif "rate" in error_lower or "limit" in error_lower:
             print("\nThis appears to be a rate limit error.")
             print("The agent will retry after a delay.")
-        elif "linear" in error_lower:
-            print("\nThis appears to be a Linear API error.")
-            print("Check your LINEAR_API_KEY and Linear project access.")
-        elif "arcade" in error_lower or "mcp" in error_lower:
-            print("\nThis appears to be an Arcade MCP Gateway error.")
-            print("Check your ARCADE_API_KEY and ARCADE_GATEWAY_SLUG configuration.")
+        elif "task" in error_lower:
+            print("\nThis appears to be a Task MCP Server error.")
+            print("Check your TASK_MCP_URL and ensure the server is running.")
+        elif "telegram" in error_lower:
+            print("\nThis appears to be a Telegram MCP Server error.")
+            print("Check your TELEGRAM_MCP_URL and ensure the server is running.")
+        elif "mcp" in error_lower:
+            print("\nThis appears to be an MCP server error.")
+            print("Check your MCP server URLs and ensure they are accessible.")
         else:
             # Unexpected error type - make this visible
             print(f"\nUnexpected error type: {error_type}")
@@ -204,22 +207,22 @@ async def run_autonomous_agent(
     project_dir.mkdir(parents=True, exist_ok=True)
 
     # Check if this is a fresh start or continuation
-    # We use .linear_project.json as the marker for initialization
-    is_first_run: bool = not is_linear_initialized(project_dir)
+    # We use .task_project.json as the marker for initialization
+    is_first_run: bool = not is_project_initialized(project_dir)
 
     if is_first_run:
         print("Fresh start - will use initializer agent")
         print()
         print("=" * 70)
-        print("  NOTE: First session takes 10-20+ minutes!")
-        print("  The agent is creating 50 Linear issues and setting up the project.")
+        print("  NOTE: First session takes 5-15+ minutes!")
+        print("  The agent is creating tasks and setting up the project.")
         print("  This may appear to hang - it's working. Watch for [Tool: ...] output.")
         print("=" * 70)
         print()
         # Copy the app spec into the project directory for the agent to read
         copy_spec_to_project(project_dir)
     else:
-        print("Continuing existing project (Linear initialized)")
+        print("Continuing existing project (tasks initialized)")
         print_progress_summary(project_dir)
 
     iteration: int = 0
@@ -241,7 +244,7 @@ async def run_autonomous_agent(
 
         # Choose task message based on session type
         # Task messages provide high-level objectives that the agent interprets
-        # Agent will delegate work to specialized sub-agents (linear, coding, github, slack)
+        # Agent will delegate work to specialized sub-agents (task, coding, telegram)
         if is_first_run:
             prompt: str = get_initializer_task(project_dir)
             is_first_run = False  # Only use initializer once
