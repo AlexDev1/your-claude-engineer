@@ -50,13 +50,6 @@ Example: `screenshots/ENG-123-timer-countdown.png`
 
 You handle local git operations. The orchestrator will ask you to:
 
-**Initialize Repository:**
-```bash
-git init
-git add README.md init.sh .gitignore
-git commit -m "chore: Initial project setup"
-```
-
 **Commit Changes:**
 ```bash
 # Check what changed
@@ -92,34 +85,7 @@ Task: <issue-id>
 
 ### Task Types
 
-#### 1. Verification Test (before new work)
-
-The orchestrator will ask you to verify existing features work.
-
-**Steps:**
-1. Run `init.sh` to start dev server (if not running)
-2. Navigate to app via Playwright
-3. Test 1-2 core features end-to-end
-4. Take screenshots as evidence
-5. Report PASS/FAIL
-
-**Output format:**
-```
-verification: PASS or FAIL
-tested_features:
-  - "User can start a new chat" - PASS
-  - "Messages display correctly" - PASS
-screenshots:
-  - screenshots/verification-chat-start.png
-  - screenshots/verification-message-display.png
-issues_found: none (or list problems)
-```
-
-**If verification FAILS:** Report the failure. Do NOT proceed to new work. The orchestrator will ask you to fix the regression first.
-
----
-
-#### 2. Implement Feature
+#### 1. Implement Feature
 
 The orchestrator will provide FULL issue context:
 - Issue ID
@@ -155,7 +121,7 @@ issues_found: none (or list problems)
 
 ---
 
-#### 3. Fix Bug/Regression
+#### 2. Fix Bug/Regression
 
 **Steps:**
 1. Reproduce the bug via Playwright (screenshot the broken state)
@@ -179,7 +145,7 @@ verification: [related features still work]
 
 ---
 
-#### 4. Git Commit (when asked by orchestrator)
+#### 3. Git Commit (when asked by orchestrator)
 
 **Steps:**
 1. Check `git status` for changed files
@@ -235,19 +201,6 @@ mcp__playwright__browser_wait_for(text="Success")
 
 ---
 
-### Starting Dev Server
-
-Always check if server is running first:
-```bash
-# Check if init.sh exists and run it
-ls init.sh && chmod +x init.sh && ./init.sh
-
-# Or start manually
-npm install && npm run dev
-```
-
----
-
 ### Code Quality
 
 - Zero console errors
@@ -264,7 +217,6 @@ npm install && npm run dev
 - Configuration files (package.json, tsconfig.json, .env, etc.)
 - `screenshots/` directory (for evidence)
 - `README.md`, `init.sh`, `.gitignore`
-- `.task_project.json`
 
 **DO NOT create these files:**
 - `*_IMPLEMENTATION_SUMMARY.md` or `IMPLEMENTATION_SUMMARY_*.md`

@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is an autonomous AI agent harness built on the Claude Agent SDK. It runs long-duration coding sessions using multi-agent orchestration with specialized sub-agents for Task management, Coding (implementation with Playwright testing and Git), and Telegram (notifications).
+This is an autonomous AI agent harness built on the Claude Agent SDK. It runs task-driven coding sessions using multi-agent orchestration with specialized sub-agents for Task management, Coding (implementation with Playwright testing and Git), and Telegram (notifications).
+
+The agent works in the current directory (cwd), picks tasks from the Task MCP Server by priority, and executes them one at a time until no tasks remain.
 
 **Important**: This is a harness/framework for running autonomous agents, not a traditional application.
 
@@ -16,9 +18,10 @@ This is an autonomous AI agent harness built on the Claude Agent SDK. It runs lo
 # Setup
 pip install -r requirements.txt
 
-# Run the agent
-uv run python autonomous_agent_demo.py --project-dir my-app
-uv run python autonomous_agent_demo.py --project-dir my-app --max-iterations 3 --model opus
+# Run the agent (works in current directory)
+uv run python autonomous_agent_demo.py
+uv run python autonomous_agent_demo.py --team ENG
+uv run python autonomous_agent_demo.py --team ENG --max-iterations 3 --model opus
 
 # Test security hooks
 uv run python test_security.py
@@ -28,7 +31,7 @@ uv run python test_security.py
 
 ```
 ORCHESTRATOR (coordinates work, delegates to sub-agents via Task tool)
-    ├── TASK AGENT        → Project/issue management (via Task MCP Server)
+    ├── TASK AGENT        → Issue management, prioritization (via Task MCP Server)
     ├── CODING AGENT      → Implementation + Playwright UI testing + Git commits
     └── TELEGRAM AGENT    → Progress notifications (via Telegram MCP Server)
 ```
@@ -40,15 +43,15 @@ ORCHESTRATOR (coordinates work, delegates to sub-agents via Task tool)
 - `mcp_config.py` - MCP server URLs and tool definitions
 - `security.py` - Bash command allowlist and validation hooks
 - `prompts/` - All agent system prompts and task templates
-- `prompts/app_spec.txt` - Application specification (edit this to build different apps)
+- `prompts/execute_task.md` - Per-iteration task prompt (get next task, implement, mark done)
 
-**State tracking**: `.task_project.json` marker file tracks initialization; Task MCP Server is the source of truth for work status.
+**Task-driven loop**: Each iteration the agent gets the next Todo task by priority, implements it, and marks it Done. When no tasks remain, the agent outputs `ALL_TASKS_DONE:` and stops.
 
 ## Key Patterns
 
 1. **Orchestrator pattern**: Main agent delegates to specialized sub-agents, passing context between them
 2. **Session isolation**: Fresh agent sessions each iteration to avoid context window exhaustion
-3. **Verification gates**: Orchestrator asks coding agent to verify existing features via Playwright before new work
+3. **Priority-based execution**: Tasks are picked by priority (urgent > high > medium > low)
 4. **Screenshot evidence**: All features require screenshot proof before marking Done
 
 ## Security Model (Defense-in-Depth)
@@ -62,11 +65,10 @@ ORCHESTRATOR (coordinates work, delegates to sub-agents via Task tool)
 
 ## Customization Points
 
-- **App to build**: Edit `prompts/app_spec.txt`
-- **Issue count**: Edit `prompts/initializer_task.md`
 - **Allowed bash commands**: Add to `ALLOWED_COMMANDS` in `security.py`
 - **Agent behavior**: Edit corresponding prompt in `prompts/`
 - **Models**: Set env vars (`ORCHESTRATOR_MODEL`, `CODING_AGENT_MODEL`, etc.) or use `--model` flag
+- **Team**: Use `--team` flag (default: ENG)
 
 ## Prerequisites
 
@@ -84,4 +86,3 @@ MCP_API_KEY=mcp_your_api_key
 
 - **Windows not supported** (subagents require Linux/macOS; WSL works)
 - Bash heredocs are blocked (use Write tool instead)
-- First session creates all tasks and sets up the project

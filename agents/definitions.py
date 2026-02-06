@@ -116,7 +116,7 @@ def create_agent_definitions() -> dict[str, AgentDefinition]:
         "task": AgentDefinition(
             description="Manages tasks, projects, and session tracking. Use for any task management operations.",
             prompt=_load_prompt("task_agent_prompt"),
-            tools=get_task_tools() + FILE_TOOLS,
+            tools=get_task_tools() + ["Read", "Glob"],
             model=_get_model("task"),
         ),
         "telegram": AgentDefinition(

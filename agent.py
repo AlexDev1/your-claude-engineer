@@ -20,12 +20,8 @@ from claude_agent_sdk import (
 )
 
 from client import create_client
-from progress import print_session_header, print_progress_summary, is_project_initialized
-from prompts import (
-    get_initializer_task,
-    get_continuation_task,
-    copy_spec_to_project,
-)
+from progress import print_session_header
+from prompts import get_execute_task
 
 
 # Configuration
@@ -40,8 +36,8 @@ SESSION_CONTINUE: SessionStatus = "continue"
 SESSION_ERROR: SessionStatus = "error"
 SESSION_COMPLETE: SessionStatus = "complete"
 
-# Completion signal that orchestrator outputs when all features are done
-COMPLETION_SIGNAL = "PROJECT_COMPLETE:"
+# Completion signal that orchestrator outputs when all tasks are done
+COMPLETION_SIGNAL = "ALL_TASKS_DONE:"
 
 
 class SessionResult(NamedTuple):
@@ -51,7 +47,7 @@ class SessionResult(NamedTuple):
         status: Session outcome:
             - "continue": Normal completion, agent can continue with more work
             - "error": Exception occurred, will retry with fresh session
-            - "complete": All features done, orchestrator signaled PROJECT_COMPLETE
+            - "complete": All tasks done, orchestrator signaled ALL_TASKS_DONE
         response: Response text from the agent, or error message if status is "error"
     """
 
@@ -76,7 +72,7 @@ async def run_agent_session(
         SessionResult with status and response text:
         - status=CONTINUE: Normal completion, agent can continue
         - status=ERROR: Exception occurred, will retry with fresh session
-        - status=COMPLETE: All features done, PROJECT_COMPLETE signal detected
+        - status=COMPLETE: All tasks done, ALL_TASKS_DONE signal detected
     """
     print("Sending prompt to Claude Agent SDK...\n")
 
@@ -121,7 +117,7 @@ async def run_agent_session(
 
         print("\n" + "-" * 70 + "\n")
 
-        # Check for project completion signal from orchestrator
+        # Check for completion signal from orchestrator
         if COMPLETION_SIGNAL in response_text:
             return SessionResult(status=SESSION_COMPLETE, response=response_text)
 
@@ -176,14 +172,16 @@ async def run_agent_session(
 async def run_autonomous_agent(
     project_dir: Path,
     model: str,
+    team: str,
     max_iterations: int | None = None,
 ) -> None:
     """
     Run the autonomous agent loop.
 
     Args:
-        project_dir: Directory for the project
+        project_dir: Working directory for the project
         model: Claude model to use
+        team: Team key for task management (e.g., "ENG")
         max_iterations: Maximum number of iterations (None for unlimited)
 
     Raises:
@@ -193,37 +191,16 @@ async def run_autonomous_agent(
         raise ValueError(f"max_iterations must be positive, got {max_iterations}")
 
     print("\n" + "=" * 70)
-    print("  AUTONOMOUS CODING AGENT DEMO")
+    print("  AUTONOMOUS CODING AGENT")
     print("=" * 70)
-    print(f"\nProject directory: {project_dir}")
+    print(f"\nWorking directory: {project_dir}")
+    print(f"Team: {team}")
     print(f"Model: {model}")
     if max_iterations:
         print(f"Max iterations: {max_iterations}")
     else:
-        print("Max iterations: Unlimited (will run until completion)")
+        print("Max iterations: Unlimited (will run until all tasks done)")
     print()
-
-    # Create project directory
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    # Check if this is a fresh start or continuation
-    # We use .task_project.json as the marker for initialization
-    is_first_run: bool = not is_project_initialized(project_dir)
-
-    if is_first_run:
-        print("Fresh start - will use initializer agent")
-        print()
-        print("=" * 70)
-        print("  NOTE: First session takes 5-15+ minutes!")
-        print("  The agent is creating tasks and setting up the project.")
-        print("  This may appear to hang - it's working. Watch for [Tool: ...] output.")
-        print("=" * 70)
-        print()
-        # Copy the app spec into the project directory for the agent to read
-        copy_spec_to_project(project_dir)
-    else:
-        print("Continuing existing project (tasks initialized)")
-        print_progress_summary(project_dir)
 
     iteration: int = 0
 
@@ -237,22 +214,15 @@ async def run_autonomous_agent(
             break
 
         # Print session header
-        print_session_header(iteration, is_first_run)
+        print_session_header(iteration)
 
-        # Prevents context window exhaustion in long-running loops
+        # Fresh client each iteration to avoid context window exhaustion
         client: ClaudeSDKClient = create_client(project_dir, model)
 
-        # Choose task message based on session type
-        # Task messages provide high-level objectives that the agent interprets
-        # Agent will delegate work to specialized sub-agents (task, coding, telegram)
-        if is_first_run:
-            prompt: str = get_initializer_task(project_dir)
-            is_first_run = False  # Only use initializer once
-        else:
-            prompt = get_continuation_task(project_dir)
+        # Same prompt every iteration: get next task and execute it
+        prompt: str = get_execute_task(team)
 
-        # Run session with async context manager
-        # Initialize result to satisfy type checker (will be reassigned in try or except)
+        # Run session
         result: SessionResult = SessionResult(status=SESSION_ERROR, response="uninitialized")
         try:
             async with client:
@@ -265,22 +235,18 @@ async def run_autonomous_agent(
         except Exception as e:
             error_type: str = type(e).__name__
             print(f"\nUnexpected error in session context ({error_type}): {e}")
-            print("This error occurred during SDK client initialization or cleanup.")
-            print("This may indicate an SDK bug, resource exhaustion, or configuration issue.")
             traceback.print_exc()
             result = SessionResult(status=SESSION_ERROR, response=str(e))
 
         # Handle status
         if result.status == SESSION_COMPLETE:
             print("\n" + "=" * 70)
-            print("  PROJECT COMPLETE")
+            print("  ALL TASKS DONE")
             print("=" * 70)
-            print("\nAll features have been implemented and verified!")
-            print_progress_summary(project_dir)
+            print("\nNo remaining tasks in Todo.")
             break
         elif result.status == SESSION_CONTINUE:
             print(f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s...")
-            print_progress_summary(project_dir)
         elif result.status == SESSION_ERROR:
             print("\nSession encountered an error")
             print("Will retry with a fresh session...")
@@ -297,18 +263,5 @@ async def run_autonomous_agent(
     print("\n" + "=" * 70)
     print("  SESSION COMPLETE")
     print("=" * 70)
-    print(f"\nProject directory: {project_dir}")
-    print_progress_summary(project_dir)
-
-    # Print instructions for running the generated application
-    print("\n" + "-" * 70)
-    print("  TO RUN THE GENERATED APPLICATION:")
-    print("-" * 70)
-    print(f"\n  cd {project_dir.resolve()}")
-    print("  ./init.sh           # Run the setup script")
-    print("  # Or manually:")
-    print("  npm install && npm run dev")
-    print("\n  Then open http://localhost:3000 (or check init.sh for the URL)")
-    print("-" * 70)
-
+    print(f"\nWorking directory: {project_dir}")
     print("\nDone!")

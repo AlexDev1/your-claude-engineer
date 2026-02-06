@@ -5,7 +5,6 @@ Prompt Loading Utilities
 Functions for loading prompt templates from the prompts directory.
 """
 
-import shutil
 from pathlib import Path
 
 
@@ -44,64 +43,15 @@ def load_prompt(name: str) -> str:
         ) from e
 
 
-def get_initializer_task(project_dir: Path) -> str:
+def get_execute_task(team: str) -> str:
     """
-    Get the task message for initializing a new project.
-
-    This is sent to the orchestrator, which will delegate to specialized agents.
+    Get the task message for executing the next task.
 
     Args:
-        project_dir: Directory for the project
+        team: Team key (e.g., "ENG")
 
     Returns:
-        Task message with project_dir substituted
+        Task message with team and cwd substituted
     """
-    template = load_prompt("initializer_task")
-    return template.format(project_dir=project_dir)
-
-
-def get_continuation_task(project_dir: Path) -> str:
-    """
-    Get the task message for continuing work on an existing project.
-
-    This is sent to the orchestrator, which will delegate to specialized agents.
-
-    Args:
-        project_dir: Directory for the project
-
-    Returns:
-        Task message with project_dir substituted
-    """
-    template = load_prompt("continuation_task")
-    return template.format(project_dir=project_dir)
-
-
-def copy_spec_to_project(project_dir: Path) -> None:
-    """
-    Copy the app spec file into the project directory for the agent to read.
-
-    Args:
-        project_dir: Target project directory
-
-    Raises:
-        FileNotFoundError: If source spec file doesn't exist
-        IOError: If copy operation fails
-    """
-    spec_source: Path = PROMPTS_DIR / "app_spec.txt"
-    spec_dest: Path = project_dir / "app_spec.txt"
-
-    if not spec_source.exists():
-        raise FileNotFoundError(
-            f"App spec template not found: {spec_source}\n"
-            f"This indicates an incomplete installation."
-        )
-
-    if not spec_dest.exists():
-        try:
-            shutil.copy(spec_source, spec_dest)
-            print(f"Copied app_spec.txt to {project_dir}")
-        except IOError as e:
-            raise IOError(
-                f"Failed to copy app spec to {spec_dest}: {e}\n"
-                f"Check disk space and permissions."
-            ) from e
+    template = load_prompt("execute_task")
+    return template.format(team=team, cwd=Path.cwd())

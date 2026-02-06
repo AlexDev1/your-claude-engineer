@@ -19,7 +19,7 @@ from typing import Literal, TypedDict
 class McpServerConfig(TypedDict):
     """Configuration for MCP server."""
 
-    type: Literal["http"]
+    type: Literal["sse"]
     url: str
     headers: dict[str, str]
 
@@ -111,7 +111,7 @@ def get_task_mcp_config() -> McpServerConfig:
         headers["Authorization"] = f"Bearer {MCP_API_KEY}"
 
     return McpServerConfig(
-        type="http",
+        type="sse",
         url=TASK_MCP_URL,
         headers=headers,
     )
@@ -138,7 +138,7 @@ def get_telegram_mcp_config() -> McpServerConfig:
         headers["Authorization"] = f"Bearer {MCP_API_KEY}"
 
     return McpServerConfig(
-        type="http",
+        type="sse",
         url=TELEGRAM_MCP_URL,
         headers=headers,
     )
