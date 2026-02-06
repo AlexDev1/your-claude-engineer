@@ -22,7 +22,7 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, Re
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
+from starlette.routing import Mount, Route
 
 
 # =============================================================================
@@ -582,10 +582,12 @@ async def health_check(request):
 
 async def auth_validate(request):
     """
-    Validate API key for nginx auth_request.
+    Validate a Bearer token (OAuth access token or API key).
 
-    Extracts Bearer token from Authorization header, hashes it with SHA-256,
-    and validates against the database.
+    Used by Telegram MCP to verify tokens via HTTP.
+    Delegates to oauth_provider.load_access_token() which checks:
+    1. OAuth access tokens table
+    2. API keys (SHA-256 hash) for backward compatibility
 
     Returns:
         200 with X-Auth-User header on success
@@ -609,14 +611,11 @@ async def auth_validate(request):
             media_type="application/json",
         )
 
-    key_hash = hashlib.sha256(token.encode()).hexdigest()
-    client_ip = request.headers.get("x-real-ip", request.client.host if request.client else None)
+    access_token = await oauth_provider.load_access_token(token)
 
-    user_info = await validate_api_key(key_hash, client_ip)
-
-    if user_info is None:
+    if access_token is None:
         return Response(
-            content='{"error":"invalid_key","message":"API key is invalid, expired, or revoked"}',
+            content='{"error":"invalid_token","message":"Token is invalid, expired, or revoked"}',
             status_code=403,
             media_type="application/json",
         )
@@ -625,8 +624,7 @@ async def auth_validate(request):
         content="",
         status_code=200,
         headers={
-            "X-Auth-User": user_info["username"],
-            "X-Auth-User-Id": user_info["user_id"],
+            "X-Auth-User": access_token.client_id,
         },
     )
 
@@ -645,13 +643,20 @@ async def app_lifespan(app):
 
 
 # Create ASGI app for uvicorn with lifespan
+# IMPORTANT: mcp.sse_app() returns a Starlette app with auth middleware
+# (AuthenticationMiddleware + AuthContextMiddleware). We must NOT extract
+# its routes into a new Starlette app — that loses the middleware.
+# Instead, Mount the MCP app as a sub-application and put our custom
+# routes (health, auth/validate, oauth/login) on the parent app where
+# they bypass MCP auth (they handle auth themselves or need none).
 _mcp_app = mcp.sse_app()
 app = Starlette(
-    routes=_mcp_app.routes + [
+    routes=[
         Route("/health", health_check, methods=["GET"]),
         Route("/auth/validate", auth_validate, methods=["GET"]),
         Route("/oauth/login", login_page, methods=["GET"]),
         Route("/oauth/login", login_submit, methods=["POST"]),
+        Mount("/", app=_mcp_app),
     ],
     lifespan=app_lifespan,
 )

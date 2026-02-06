@@ -24,8 +24,9 @@ from typing import Any, Optional
 import httpx
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from starlette.applications import Starlette
 from starlette.responses import JSONResponse
-from starlette.routing import Route
+from starlette.routing import Mount, Route
 
 
 # =============================================================================
@@ -429,10 +430,15 @@ async def health_check(request):
 # ASGI Application
 # =============================================================================
 
-app = mcp.sse_app()
-
-# Add health check route
-app.routes.append(Route("/health", health_check, methods=["GET"]))
+# IMPORTANT: mcp.sse_app() returns a Starlette app with auth middleware.
+# Health endpoint must be outside that middleware (no auth for Docker healthcheck).
+_mcp_app = mcp.sse_app()
+app = Starlette(
+    routes=[
+        Route("/health", health_check, methods=["GET"]),
+        Mount("/", app=_mcp_app),
+    ],
+)
 
 
 if __name__ == "__main__":
