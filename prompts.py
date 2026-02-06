@@ -55,3 +55,20 @@ def get_execute_task(team: str) -> str:
     """
     template = load_prompt("execute_task")
     return template.format(team=team, cwd=Path.cwd())
+
+
+def get_continuation_task(team: str) -> str:
+    """
+    Get the continuation task message for resuming work.
+
+    This prompt instructs the orchestrator to check previous session context
+    from the META issue before picking up work.
+
+    Args:
+        team: Team key (e.g., "ENG")
+
+    Returns:
+        Continuation task message with team and cwd substituted
+    """
+    template = load_prompt("continuation_task")
+    return template.format(team=team, cwd=Path.cwd())

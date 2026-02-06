@@ -120,6 +120,44 @@ You have finite context. Prioritize:
 
 ---
 
+### Memory Flush (Session Continuity)
+
+**Before EVERY session ends**, you MUST do a memory flush to preserve context for the next session.
+
+**When to flush:**
+- After completing a task (before ALL_TASKS_DONE or before session ends)
+- When context window is getting full
+- Before any expected interruption
+- On error recovery
+
+**What to record (via task agent, as comment on META issue):**
+
+```markdown
+## Session Summary
+
+### What Was Done
+- [completed actions with issue IDs]
+
+### What Failed (if any)
+- [failures with reasons, or "none"]
+
+### Files Changed
+- [list of modified/created files]
+
+### Next Step
+- [specific action for next session]
+
+### Context for Next Session
+- [important context to carry forward]
+```
+
+**Why this matters:**
+- Each session starts fresh with no memory of previous sessions
+- The META issue comment becomes the "memory" that bridges sessions
+- Next session reads this to continue seamlessly
+
+---
+
 ### Anti-Patterns to Avoid
 
 ❌ "Ask coding agent to check tasks for the next issue"

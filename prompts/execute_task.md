@@ -55,11 +55,41 @@ Delegate to `task` agent:
 Delegate to `telegram` agent:
 "Send message: :white_check_mark: Completed: [issue title] ([issue id])"
 
+### Step 8: Memory Flush (End of Session)
+Before the session ends (whether task completed or session interrupted):
+
+Delegate to `task` agent:
+"Add comment to META issue (the META issue for this team, e.g., 'ENG-META') with a structured session summary:
+
+## Session Summary
+
+### What Was Done
+- [list completed actions, e.g., 'Implemented timer countdown display']
+- [include issue IDs if applicable]
+
+### What Failed (if any)
+- [list failures with brief reason, e.g., 'Test failed: button click not registering - needs investigation']
+- none (if nothing failed)
+
+### Files Changed
+- [list of files modified/created during this session]
+
+### Next Step
+- [specific next action for the next session, e.g., 'Fix button click handler in Timer.tsx']
+- [or 'Pick next task from Todo' if current task completed]
+
+### Context for Next Session
+- [any important context the next session needs to know]
+"
+
+**IMPORTANT:** This memory flush ensures continuity between sessions. The next session will read this comment to understand where to pick up.
+
 ## CRITICAL RULES
 - Do NOT skip screenshot evidence — reject coding agent results without it
 - Do NOT mark Done without evidence from coding agent
 - Pass FULL issue context to coding agent (don't make it query tasks)
 - One issue per session — complete it fully before stopping
 - Clean up any temp files before finishing
+- **ALWAYS do memory flush before session ends** — even if interrupted or on error
 
 Remember: You are the orchestrator. Delegate to specialized agents, don't do the work yourself.

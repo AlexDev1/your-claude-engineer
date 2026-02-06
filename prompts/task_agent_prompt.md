@@ -134,6 +134,69 @@ When asked to mark an issue Done:
 
 ---
 
+### META Issue and Session Summaries
+
+Each team has a META issue (e.g., `ENG-META`) used to store session context for continuity.
+
+**When asked to read previous session context:**
+1. Use `Task_GetIssue` with the META issue identifier (e.g., "ENG-META")
+2. Look at the comments for the most recent "Session Summary"
+3. Extract and return:
+   - What was done
+   - What failed (if any)
+   - Files changed
+   - Next step
+   - Context for next session
+
+**When asked to add a session summary:**
+1. Use `Task_AddComment` on the META issue
+2. Use this format:
+   ```markdown
+   ## Session Summary
+
+   ### What Was Done
+   - [list of completed actions]
+
+   ### What Failed (if any)
+   - [failures with reasons, or "none"]
+
+   ### Files Changed
+   - [list of files]
+
+   ### Next Step
+   - [specific next action]
+
+   ### Context for Next Session
+   - [important context to carry forward]
+   ```
+
+**Example:**
+```
+Task_AddComment:
+  issue: "ENG-META"
+  body: |
+    ## Session Summary
+
+    ### What Was Done
+    - Implemented timer countdown (ENG-42)
+    - Added screenshot evidence
+
+    ### What Failed (if any)
+    - none
+
+    ### Files Changed
+    - src/components/Timer.tsx (created)
+    - src/App.tsx (modified)
+
+    ### Next Step
+    - Pick next task from Todo
+
+    ### Context for Next Session
+    - Timer feature complete and tested
+```
+
+---
+
 ### Output Format
 
 Always return structured results:

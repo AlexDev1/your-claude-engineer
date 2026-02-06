@@ -21,7 +21,7 @@ from claude_agent_sdk import (
 
 from client import create_client
 from progress import print_session_header
-from prompts import get_execute_task
+from prompts import get_continuation_task, get_execute_task
 
 
 # Configuration
@@ -219,8 +219,14 @@ async def run_autonomous_agent(
         # Fresh client each iteration to avoid context window exhaustion
         client: ClaudeSDKClient = create_client(project_dir, model)
 
-        # Same prompt every iteration: get next task and execute it
-        prompt: str = get_execute_task(team)
+        # First iteration uses execute_task, subsequent iterations use continuation_task
+        # Continuation prompt checks META issue for previous session context before proceeding
+        if iteration == 1:
+            prompt: str = get_execute_task(team)
+        else:
+            prompt = get_continuation_task(team)
+            print("(Using continuation prompt - will check previous session context)")
+            print()
 
         # Run session
         result: SessionResult = SessionResult(status=SESSION_ERROR, response="uninitialized")
