@@ -4,9 +4,6 @@ generations/
 # Log files
 logs/
 
-# Docker local overrides (use docker-compose.override.yml.example as template)
-docker-compose.override.yml
-
 .env
 venv
 .venv/
