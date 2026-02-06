@@ -140,6 +140,8 @@ services:
       # Note: The actual password is read from /run/secrets/db_password by the app
       AGENT_NAME: ${AGENT_NAME:-Task Agent}
       AGENT_EMAIL: ${AGENT_EMAIL:-agent@local}
+      # OAuth 2.0
+      OAUTH_ISSUER_URL: ${OAUTH_ISSUER_URL:-https://mcp.axoncode.pro/task}
     command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio", "--root-path", "/task"]
     depends_on:
       postgres:
@@ -177,6 +179,7 @@ services:
     restart: unless-stopped
     networks:
       - frontend
+      - backend
     ports:
       - "127.0.0.1:6002:8000"
     secrets:
@@ -187,6 +190,10 @@ services:
       # These env vars are only used as fallback in development
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # OAuth 2.0 / Token verification
+      AUTH_ISSUER_URL: ${AUTH_ISSUER_URL:-https://mcp.axoncode.pro/task}
+      RESOURCE_SERVER_URL: ${RESOURCE_SERVER_URL:-https://mcp.axoncode.pro/telegram}
+      AUTH_VALIDATE_URL: ${AUTH_VALIDATE_URL:-http://mcp-task:8000/auth/validate}
     command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/telegram"]
     healthcheck:
       <<: *healthcheck-defaults

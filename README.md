@@ -22,7 +22,7 @@
 - **Уведомления в Telegram**: Обновления прогресса в личный чат
 - **Браузерное тестирование**: Playwright MCP для автоматической UI-верификации
 - **Конфигурация моделей**: Выбор модели для каждого агента (Haiku, Sonnet или Opus)
-- **API Key аутентификация**: Защита MCP серверов API-ключами через nginx `auth_request`
+- **OAuth 2.0 + API Key аутентификация**: Двойная поддержка — OAuth 2.0 (Authorization Code + PKCE) для Claude.ai и Bearer API-ключи для Claude Code
 
 ## Требования
 
@@ -92,7 +92,7 @@ cp .env.example .env
 |------------|----------|-------------|
 | `TASK_MCP_URL` | URL вашего Task MCP Server | Да |
 | `TELEGRAM_MCP_URL` | URL вашего Telegram MCP Server | Да |
-| `MCP_API_KEY` | API ключ для аутентификации MCP серверов (см. [Настройка аутентификации](#5-настройка-api-key-аутентификации)) | Да |
+| `MCP_API_KEY` | API ключ для аутентификации MCP серверов (см. [Настройка аутентификации](#5-настройка-аутентификации)) | Да |
 | `GENERATIONS_BASE_PATH` | Базовая директория для генерируемых проектов (по умолчанию: ./generations) | Нет |
 | `ORCHESTRATOR_MODEL` | Модель для оркестратора: haiku, sonnet, opus (по умолчанию: haiku) | Нет |
 | `TASK_AGENT_MODEL` | Модель для Task агента (по умолчанию: haiku) | Нет |
@@ -109,23 +109,36 @@ cp .env.example .env
 4. Напишите [@userinfobot](https://t.me/userinfobot) чтобы получить ваш chat ID
 5. Установите `TELEGRAM_CHAT_ID` в `.env` файле на VDS
 
-### 5. Настройка API Key аутентификации
+### 5. Настройка аутентификации
 
-MCP серверы защищены API-ключами через nginx `auth_request`. Аутентификация централизована через Task MCP Server (PostgreSQL), Telegram MCP Server не требует изменений.
+MCP серверы поддерживают два метода аутентификации:
+
+- **OAuth 2.0** (Authorization Code + PKCE с Dynamic Client Registration) — для Claude.ai web connector
+- **Bearer API Key** — для Claude Code CLI и других клиентов
+
+Аутентификация обрабатывается нативно через FastMCP (MCP Python SDK). Nginx выступает только как reverse proxy без собственной логики аутентификации.
 
 ```
-Client --[Authorization: Bearer <key>]--> nginx
-    nginx --[auth_request]--> Task MCP /auth/validate
-        Task MCP --> PostgreSQL (проверка хеша ключа)
-    nginx --> 200 OK → proxy_pass к Task/Telegram MCP
-         --> 401/403 → отказ
+Claude.ai ──── OAuth 2.0 (Authorization Code + PKCE) ────┐
+Claude Code ── Bearer API Key ────────────────────────────┤
+                                                          ▼
+                                                      nginx (proxy)
+                                                       /     \
+                                              Task MCP         Telegram MCP
+                                            (Auth Server       (Resource Server
+                                           + Resource Server)   + TokenVerifier)
+                                                  │                    │
+                                              PostgreSQL        HTTP → Task MCP
+                                           (OAuth tables +      /auth/validate
+                                            API key tables)
 ```
 
 **Создание пользователя и API ключа:**
 
 ```bash
-# Применить миграцию (если БД уже работает)
+# Применить миграции (если БД уже работает)
 docker exec -i mcp-postgres psql -U agent -d tasks < task_mcp_server/migrations/001_auth_tables.sql
+docker exec -i mcp-postgres psql -U agent -d tasks < task_mcp_server/migrations/002_oauth_tables.sql
 
 # Создать пользователя
 docker exec -it mcp-task python admin_cli.py create-user agent --email agent@example.com
@@ -164,15 +177,26 @@ nginx -t && systemctl reload nginx
 **Проверка аутентификации:**
 
 ```bash
-# Без ключа — 401:
-curl https://mcp.axoncode.pro/task/sse
-
-# С ключом — SSE поток:
+# API-ключи работают (обратная совместимость):
 curl -N -H "Authorization: Bearer mcp_..." https://mcp.axoncode.pro/task/sse
+
+# OAuth metadata доступна:
+curl https://mcp.axoncode.pro/task/.well-known/oauth-authorization-server
+
+# Dynamic Client Registration:
+curl -X POST https://mcp.axoncode.pro/task/register \
+  -H "Content-Type: application/json" \
+  -d '{"redirect_uris":["https://example.com/callback"],"client_name":"test"}'
 
 # Health — без auth:
 curl https://mcp.axoncode.pro/task/health
 ```
+
+**Подключение через Claude.ai:**
+
+1. Откройте Claude.ai → Settings → Custom MCP Connectors
+2. Добавьте URL: `https://mcp.axoncode.pro/task/sse`
+3. OAuth flow запустится автоматически — введите ваш API-ключ на странице авторизации
 
 ### 6. Проверка установки
 
@@ -314,25 +338,29 @@ your-claude-engineer/
 │   ├── task_agent_prompt.md      # Промпт Task субагента
 │   ├── coding_agent_prompt.md    # Промпт Coding субагента
 │   └── telegram_agent_prompt.md  # Промпт Telegram субагента
-├── task_mcp_server/          # Task MCP Server (PostgreSQL + pgvector)
-│   ├── server.py             # FastMCP сервер с 10 инструментами + auth endpoint
+├── task_mcp_server/          # Task MCP Server (PostgreSQL + pgvector + OAuth 2.0)
+│   ├── server.py             # FastMCP сервер с 10 инструментами + OAuth AS
 │   ├── database.py           # Async PostgreSQL с retry, connection pool и auth
 │   ├── models.py             # Pydantic модели
 │   ├── admin_cli.py          # CLI управления пользователями и API ключами
-│   ├── init_db.sql           # Схема БД с pgvector, RAG и auth таблицами
+│   ├── oauth_provider.py     # PostgresOAuthProvider (OAuth 2.0 Authorization Server)
+│   ├── oauth_login.py        # Страница входа для OAuth (API key → auth code)
+│   ├── init_db.sql           # Схема БД с pgvector, RAG, auth и OAuth таблицами
 │   ├── migrations/
-│   │   └── 001_auth_tables.sql  # Миграция auth таблиц для работающей БД
+│   │   ├── 001_auth_tables.sql    # Миграция auth таблиц
+│   │   └── 002_oauth_tables.sql   # Миграция OAuth таблиц
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── .dockerignore
-├── telegram_mcp_server/      # Telegram MCP Server
-│   ├── server.py             # FastMCP сервер с 3 инструментами
+├── telegram_mcp_server/      # Telegram MCP Server (OAuth 2.0 Resource Server)
+│   ├── server.py             # FastMCP сервер с 3 инструментами + token verification
+│   ├── token_verifier.py     # HttpTokenVerifier (валидация через Task MCP)
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── .dockerignore
 ├── deploy/
 │   └── nginx/
-│       └── mcp-servers.conf  # Nginx конфиг с auth_request и SSE
+│       └── mcp-servers.conf  # Nginx reverse proxy с SSE (auth в FastMCP)
 ├── secrets/                  # Docker secrets (не в git)
 │   ├── db_password.txt
 │   ├── telegram_bot_token.txt
@@ -422,7 +450,7 @@ Task MCP Server использует PostgreSQL 16 с расширением pgv
 
 Демо использует многоуровневую безопасность (см. `security.py` и `client.py`):
 
-1. **API Key аутентификация:** MCP серверы защищены API-ключами через nginx `auth_request` — без валидного ключа доступ запрещён (401/403)
+1. **OAuth 2.0 + API Key аутентификация:** FastMCP обрабатывает аутентификацию нативно — OAuth 2.0 (Authorization Code + PKCE) для Claude.ai, Bearer API-ключи для Claude Code. Task MCP = Auth Server, Telegram MCP валидирует токены через HTTP к Task MCP
 2. **Песочница на уровне ОС:** Bash-команды выполняются в изолированном окружении
 3. **Ограничения файловой системы:** Файловые операции ограничены директорией проекта
 4. **Allowlist Bash:** Разрешены только определённые команды (npm, node, git, curl, rm с валидацией и т.д.)
@@ -491,10 +519,13 @@ docker-compose up -d
 ```
 
 **401 "unauthorized" при подключении к MCP серверам**
-Убедитесь, что `MCP_API_KEY` установлен в `.env` файле. Создайте ключ через `admin_cli.py` (см. [Настройка аутентификации](#5-настройка-api-key-аутентификации)).
+Убедитесь, что `MCP_API_KEY` установлен в `.env` файле. Создайте ключ через `admin_cli.py` (см. [Настройка аутентификации](#5-настройка-аутентификации)). Аутентификация теперь обрабатывается нативно FastMCP (OAuth 2.0 + API keys).
 
 **403 "forbidden" при подключении к MCP серверам**
 API ключ невалиден, истёк или отозван. Проверьте ключ: `docker exec -it mcp-task python admin_cli.py verify-key mcp_...`
+
+**OAuth flow не работает в Claude.ai**
+Проверьте, что OAuth миграция применена: `docker exec -i mcp-postgres psql -U agent -d tasks < task_mcp_server/migrations/002_oauth_tables.sql`. Проверьте доступность OAuth metadata: `curl https://mcp.axoncode.pro/task/.well-known/oauth-authorization-server`
 
 ## Просмотр прогресса
 

@@ -58,6 +58,8 @@ COPY --chown=appuser:appgroup server.py .
 COPY --chown=appuser:appgroup database.py .
 COPY --chown=appuser:appgroup models.py .
 COPY --chown=appuser:appgroup admin_cli.py .
+COPY --chown=appuser:appgroup oauth_provider.py .
+COPY --chown=appuser:appgroup oauth_login.py .
 
 # Switch to non-root user
 USER appuser

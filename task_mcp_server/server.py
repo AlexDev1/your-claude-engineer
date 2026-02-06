@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
 
+from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response
@@ -78,6 +79,8 @@ from models import (
     StateTransition,
     CommentCreate,
 )
+from oauth_provider import PostgresOAuthProvider
+from oauth_login import login_page, login_submit
 
 
 # =============================================================================
@@ -110,8 +113,28 @@ transport_security = TransportSecuritySettings(
     allowed_hosts=ALLOWED_HOSTS,
 )
 
-# Create FastMCP server
-mcp = FastMCP("Task MCP Server", transport_security=transport_security)
+# =============================================================================
+# OAuth 2.0 Configuration
+# =============================================================================
+
+OAUTH_ISSUER_URL = os.environ.get("OAUTH_ISSUER_URL", "https://mcp.axoncode.pro/task")
+
+oauth_provider = PostgresOAuthProvider()
+
+auth_settings = AuthSettings(
+    issuer_url=OAUTH_ISSUER_URL,
+    resource_server_url=OAUTH_ISSUER_URL,
+    client_registration_options=ClientRegistrationOptions(enabled=True),
+    revocation_options=RevocationOptions(enabled=True),
+)
+
+# Create FastMCP server with OAuth
+mcp = FastMCP(
+    "Task MCP Server",
+    transport_security=transport_security,
+    auth_server_provider=oauth_provider,
+    auth=auth_settings,
+)
 
 
 # =============================================================================
@@ -627,9 +650,14 @@ app = Starlette(
     routes=_mcp_app.routes + [
         Route("/health", health_check, methods=["GET"]),
         Route("/auth/validate", auth_validate, methods=["GET"]),
+        Route("/oauth/login", login_page, methods=["GET"]),
+        Route("/oauth/login", login_submit, methods=["POST"]),
     ],
     lifespan=app_lifespan,
 )
+
+# Store oauth_provider in app state for access from login handlers
+app.state.oauth_provider = oauth_provider
 
 
 if __name__ == "__main__":

@@ -35,8 +35,8 @@ ORCHESTRATOR (coordinates work, delegates to sub-agents via Task tool)
 ```
 
 **MCP Servers (self-hosted on VDS)**:
-- `task_mcp_server/` - Task management with PostgreSQL backend (replaces Linear)
-- `telegram_mcp_server/` - Notifications via Telegram Bot API (replaces Slack)
+- `task_mcp_server/` - Task management with PostgreSQL backend, OAuth 2.0 Authorization Server (replaces Linear)
+- `telegram_mcp_server/` - Notifications via Telegram Bot API, OAuth 2.0 Resource Server (replaces Slack)
 
 **Key files**:
 - `autonomous_agent_demo.py` - Main entry point, CLI argument parsing
@@ -47,6 +47,11 @@ ORCHESTRATOR (coordinates work, delegates to sub-agents via Task tool)
 - `prompts/` - All agent system prompts and task templates
 - `prompts/app_spec.txt` - Application specification (edit this to build different apps)
 - `docker-compose.yml` - Deployment configuration for MCP servers
+
+**OAuth 2.0 files** (for Claude.ai web connector compatibility):
+- `task_mcp_server/oauth_provider.py` - PostgresOAuthProvider (Authorization Server)
+- `task_mcp_server/oauth_login.py` - Login page for API key → OAuth code exchange
+- `telegram_mcp_server/token_verifier.py` - HttpTokenVerifier (validates tokens via Task MCP)
 
 **State tracking**: `.task_project.json` marker file tracks initialization; Task MCP Server is the source of truth for work status.
 
@@ -59,6 +64,10 @@ ORCHESTRATOR (coordinates work, delegates to sub-agents via Task tool)
 
 ## Security Model (Defense-in-Depth)
 
+- **OAuth 2.0 + API Keys**: FastMCP handles auth natively (no nginx auth_request)
+  - Task MCP = Authorization Server + Resource Server (`auth_server_provider`)
+  - Telegram MCP = Resource Server (`token_verifier` → HTTP to Task MCP)
+  - `load_access_token()` checks OAuth tokens first, then SHA-256 hashed API keys
 - OS-level sandbox for bash commands
 - Filesystem restricted to project directory
 - Bash command allowlist in `security.py` (`ALLOWED_COMMANDS` set)

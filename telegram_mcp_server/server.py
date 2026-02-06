@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -205,10 +206,32 @@ transport_security = TransportSecuritySettings(
 )
 
 # =============================================================================
+# OAuth 2.0 / Token Verification
+# =============================================================================
+
+AUTH_ISSUER_URL = os.environ.get("AUTH_ISSUER_URL", "https://mcp.axoncode.pro/task")
+RESOURCE_SERVER_URL = os.environ.get("RESOURCE_SERVER_URL", "https://mcp.axoncode.pro/telegram")
+AUTH_VALIDATE_URL = os.environ.get("AUTH_VALIDATE_URL", "http://mcp-task:8000/auth/validate")
+
+from token_verifier import HttpTokenVerifier
+
+token_verifier = HttpTokenVerifier(AUTH_VALIDATE_URL)
+
+auth_settings = AuthSettings(
+    issuer_url=AUTH_ISSUER_URL,
+    resource_server_url=RESOURCE_SERVER_URL,
+)
+
+# =============================================================================
 # MCP Server Setup
 # =============================================================================
 
-mcp = FastMCP("Telegram MCP Server", transport_security=transport_security)
+mcp = FastMCP(
+    "Telegram MCP Server",
+    transport_security=transport_security,
+    token_verifier=token_verifier,
+    auth=auth_settings,
+)
 
 
 # =============================================================================

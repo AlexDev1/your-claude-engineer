@@ -55,6 +55,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy only necessary application files
 COPY --chown=appuser:appgroup server.py .
+COPY --chown=appuser:appgroup token_verifier.py .
 
 # Switch to non-root user
 USER appuser
