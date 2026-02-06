@@ -81,7 +81,7 @@ services:
   # PostgreSQL Database
   # ---------------------------------------------------------------------------
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg17
     container_name: mcp-postgres
     restart: unless-stopped
     # Note: pgvector/pgvector:pg16 is Debian-based, uses uid 999 (not 70 like alpine)
