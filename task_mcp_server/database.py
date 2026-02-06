@@ -549,3 +549,70 @@ async def add_comment(issue_id: UUID, body: str) -> dict[str, Any]:
             body,
         )
         return dict(row)
+
+
+# =============================================================================
+# Auth Queries
+# =============================================================================
+
+
+async def validate_api_key(
+    key_hash: str, client_ip: Optional[str] = None
+) -> Optional[dict[str, Any]]:
+    """
+    Validate an API key by its SHA-256 hash.
+
+    Checks that the key exists, is active, not revoked, and not expired.
+    Updates last_used_at and last_used_ip on successful validation.
+
+    Returns user info dict or None if invalid.
+    """
+    async with db.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT k.id AS key_id, k.name AS key_name, k.key_prefix,
+                   k.expires_at, k.revoked_at, k.is_active AS key_active,
+                   u.id AS user_id, u.username, u.email, u.is_active AS user_active
+            FROM auth_api_keys k
+            JOIN auth_users u ON k.user_id = u.id
+            WHERE k.key_hash = $1
+            """,
+            key_hash,
+        )
+
+        if not row:
+            return None
+
+        # Check key is active and not revoked
+        if not row["key_active"] or row["revoked_at"] is not None:
+            return None
+
+        # Check user is active
+        if not row["user_active"]:
+            return None
+
+        # Check expiration
+        if row["expires_at"] is not None:
+            from datetime import datetime, timezone
+
+            if datetime.now(timezone.utc) > row["expires_at"]:
+                return None
+
+        # Update last_used_at and last_used_ip
+        await conn.execute(
+            """
+            UPDATE auth_api_keys
+            SET last_used_at = NOW(), last_used_ip = $2
+            WHERE id = $1
+            """,
+            row["key_id"],
+            client_ip,
+        )
+
+        return {
+            "user_id": str(row["user_id"]),
+            "username": row["username"],
+            "email": row["email"],
+            "key_name": row["key_name"],
+            "key_prefix": row["key_prefix"],
+        }

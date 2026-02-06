@@ -57,6 +57,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --chown=appuser:appgroup server.py .
 COPY --chown=appuser:appgroup database.py .
 COPY --chown=appuser:appgroup models.py .
+COPY --chown=appuser:appgroup admin_cli.py .
 
 # Switch to non-root user
 USER appuser

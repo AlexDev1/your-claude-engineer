@@ -12,6 +12,7 @@ Or for development:
     python server.py
 """
 
+import hashlib
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -19,7 +20,7 @@ from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 
@@ -65,6 +66,7 @@ from database import (
     update_issue,
     get_comments,
     add_comment,
+    validate_api_key,
 )
 from models import (
     UserInfo,
@@ -551,6 +553,62 @@ async def health_check(request):
 
 
 # =============================================================================
+# Auth Validation Endpoint (for nginx auth_request)
+# =============================================================================
+
+
+async def auth_validate(request):
+    """
+    Validate API key for nginx auth_request.
+
+    Extracts Bearer token from Authorization header, hashes it with SHA-256,
+    and validates against the database.
+
+    Returns:
+        200 with X-Auth-User header on success
+        401 if no token provided
+        403 if token is invalid/expired/revoked
+    """
+    auth_header = request.headers.get("authorization", "")
+
+    if not auth_header.startswith("Bearer "):
+        return Response(
+            content='{"error":"missing_token","message":"Authorization: Bearer <token> required"}',
+            status_code=401,
+            media_type="application/json",
+        )
+
+    token = auth_header[7:]  # Strip "Bearer "
+    if not token:
+        return Response(
+            content='{"error":"missing_token","message":"Authorization: Bearer <token> required"}',
+            status_code=401,
+            media_type="application/json",
+        )
+
+    key_hash = hashlib.sha256(token.encode()).hexdigest()
+    client_ip = request.headers.get("x-real-ip", request.client.host if request.client else None)
+
+    user_info = await validate_api_key(key_hash, client_ip)
+
+    if user_info is None:
+        return Response(
+            content='{"error":"invalid_key","message":"API key is invalid, expired, or revoked"}',
+            status_code=403,
+            media_type="application/json",
+        )
+
+    return Response(
+        content="",
+        status_code=200,
+        headers={
+            "X-Auth-User": user_info["username"],
+            "X-Auth-User-Id": user_info["user_id"],
+        },
+    )
+
+
+# =============================================================================
 # ASGI Application
 # =============================================================================
 
@@ -566,7 +624,10 @@ async def app_lifespan(app):
 # Create ASGI app for uvicorn with lifespan
 _mcp_app = mcp.sse_app()
 app = Starlette(
-    routes=_mcp_app.routes + [Route("/health", health_check, methods=["GET"])],
+    routes=_mcp_app.routes + [
+        Route("/health", health_check, methods=["GET"]),
+        Route("/auth/validate", auth_validate, methods=["GET"]),
+    ],
     lifespan=app_lifespan,
 )
 

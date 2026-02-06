@@ -22,6 +22,7 @@
 - **Уведомления в Telegram**: Обновления прогресса в личный чат
 - **Браузерное тестирование**: Playwright MCP для автоматической UI-верификации
 - **Конфигурация моделей**: Выбор модели для каждого агента (Haiku, Sonnet или Opus)
+- **API Key аутентификация**: Защита MCP серверов API-ключами через nginx `auth_request`
 
 ## Требования
 
@@ -91,7 +92,7 @@ cp .env.example .env
 |------------|----------|-------------|
 | `TASK_MCP_URL` | URL вашего Task MCP Server | Да |
 | `TELEGRAM_MCP_URL` | URL вашего Telegram MCP Server | Да |
-| `MCP_API_KEY` | Опциональный API ключ для аутентификации MCP серверов | Нет |
+| `MCP_API_KEY` | API ключ для аутентификации MCP серверов (см. [Настройка аутентификации](#5-настройка-api-key-аутентификации)) | Да |
 | `GENERATIONS_BASE_PATH` | Базовая директория для генерируемых проектов (по умолчанию: ./generations) | Нет |
 | `ORCHESTRATOR_MODEL` | Модель для оркестратора: haiku, sonnet, opus (по умолчанию: haiku) | Нет |
 | `TASK_AGENT_MODEL` | Модель для Task агента (по умолчанию: haiku) | Нет |
@@ -108,15 +109,83 @@ cp .env.example .env
 4. Напишите [@userinfobot](https://t.me/userinfobot) чтобы получить ваш chat ID
 5. Установите `TELEGRAM_CHAT_ID` в `.env` файле на VDS
 
-### 5. Проверка установки
+### 5. Настройка API Key аутентификации
+
+MCP серверы защищены API-ключами через nginx `auth_request`. Аутентификация централизована через Task MCP Server (PostgreSQL), Telegram MCP Server не требует изменений.
+
+```
+Client --[Authorization: Bearer <key>]--> nginx
+    nginx --[auth_request]--> Task MCP /auth/validate
+        Task MCP --> PostgreSQL (проверка хеша ключа)
+    nginx --> 200 OK → proxy_pass к Task/Telegram MCP
+         --> 401/403 → отказ
+```
+
+**Создание пользователя и API ключа:**
+
+```bash
+# Применить миграцию (если БД уже работает)
+docker exec -i mcp-postgres psql -U agent -d tasks < task_mcp_server/migrations/001_auth_tables.sql
+
+# Создать пользователя
+docker exec -it mcp-task python admin_cli.py create-user agent --email agent@example.com
+
+# Создать API ключ (показывается ОДИН раз!)
+docker exec -it mcp-task python admin_cli.py create-key agent --name "Production Key"
+
+# Скопируйте полученный ключ (mcp_...) в .env:
+# MCP_API_KEY=mcp_...
+```
+
+**Управление ключами:**
+
+```bash
+# Список пользователей и ключей
+docker exec -it mcp-task python admin_cli.py list-users
+docker exec -it mcp-task python admin_cli.py list-keys --username agent
+
+# Отозвать ключ по префиксу
+docker exec -it mcp-task python admin_cli.py revoke-key mcp_abcd
+
+# Проверить ключ (для отладки)
+docker exec -it mcp-task python admin_cli.py verify-key mcp_...
+
+# Создать ключ с ограниченным сроком действия
+docker exec -it mcp-task python admin_cli.py create-key agent --name "Temp Key" --expires-days 30
+```
+
+**Обновить nginx конфиг и перезагрузить:**
+
+```bash
+cp deploy/nginx/mcp-servers.conf /etc/nginx/sites-available/mcp-servers.conf
+nginx -t && systemctl reload nginx
+```
+
+**Проверка аутентификации:**
+
+```bash
+# Без ключа — 401:
+curl https://mcp.axoncode.pro/task/sse
+
+# С ключом — SSE поток:
+curl -N -H "Authorization: Bearer mcp_..." https://mcp.axoncode.pro/task/sse
+
+# Health — без auth:
+curl https://mcp.axoncode.pro/task/health
+```
+
+### 6. Проверка установки
 
 ```bash
 claude --version  # Должна быть последняя версия
 pip show claude-agent-sdk  # Проверка установки SDK
 
-# Тест подключения к MCP серверам
-curl http://your-vds:8001/health
-curl http://your-vds:8002/health
+# Тест подключения к MCP серверам (health не требует auth)
+curl https://your-vds/task/health
+curl https://your-vds/telegram/health
+
+# Тест с API ключом
+curl -H "Authorization: Bearer $MCP_API_KEY" https://your-vds/task/sse
 
 # Запуск интеграционных тестов
 uv run python test_mcp_servers.py
@@ -246,10 +315,13 @@ your-claude-engineer/
 │   ├── coding_agent_prompt.md    # Промпт Coding субагента
 │   └── telegram_agent_prompt.md  # Промпт Telegram субагента
 ├── task_mcp_server/          # Task MCP Server (PostgreSQL + pgvector)
-│   ├── server.py             # FastMCP сервер с 10 инструментами + Starlette lifespan
-│   ├── database.py           # Async PostgreSQL с retry и connection pool
+│   ├── server.py             # FastMCP сервер с 10 инструментами + auth endpoint
+│   ├── database.py           # Async PostgreSQL с retry, connection pool и auth
 │   ├── models.py             # Pydantic модели
-│   ├── init_db.sql           # Схема БД с pgvector, RAG таблицами и триггерами
+│   ├── admin_cli.py          # CLI управления пользователями и API ключами
+│   ├── init_db.sql           # Схема БД с pgvector, RAG и auth таблицами
+│   ├── migrations/
+│   │   └── 001_auth_tables.sql  # Миграция auth таблиц для работающей БД
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── .dockerignore
@@ -258,6 +330,9 @@ your-claude-engineer/
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── .dockerignore
+├── deploy/
+│   └── nginx/
+│       └── mcp-servers.conf  # Nginx конфиг с auth_request и SSE
 ├── secrets/                  # Docker secrets (не в git)
 │   ├── db_password.txt
 │   ├── telegram_bot_token.txt
@@ -347,11 +422,12 @@ Task MCP Server использует PostgreSQL 16 с расширением pgv
 
 Демо использует многоуровневую безопасность (см. `security.py` и `client.py`):
 
-1. **Песочница на уровне ОС:** Bash-команды выполняются в изолированном окружении
-2. **Ограничения файловой системы:** Файловые операции ограничены директорией проекта
-3. **Allowlist Bash:** Разрешены только определённые команды (npm, node, git, curl, rm с валидацией и т.д.)
-4. **MCP-разрешения:** Инструменты явно разрешены в настройках безопасности
-5. **Валидация опасных команд:** Команды типа `rm` валидируются для предотвращения удаления системных директорий
+1. **API Key аутентификация:** MCP серверы защищены API-ключами через nginx `auth_request` — без валидного ключа доступ запрещён (401/403)
+2. **Песочница на уровне ОС:** Bash-команды выполняются в изолированном окружении
+3. **Ограничения файловой системы:** Файловые операции ограничены директорией проекта
+4. **Allowlist Bash:** Разрешены только определённые команды (npm, node, git, curl, rm с валидацией и т.д.)
+5. **MCP-разрешения:** Инструменты явно разрешены в настройках безопасности
+6. **Валидация опасных команд:** Команды типа `rm` валидируются для предотвращения удаления системных директорий
 
 ## Интеграционные тесты
 
@@ -413,6 +489,12 @@ uv run python test_mcp_servers.py
 docker-compose down -v
 docker-compose up -d
 ```
+
+**401 "unauthorized" при подключении к MCP серверам**
+Убедитесь, что `MCP_API_KEY` установлен в `.env` файле. Создайте ключ через `admin_cli.py` (см. [Настройка аутентификации](#5-настройка-api-key-аутентификации)).
+
+**403 "forbidden" при подключении к MCP серверам**
+API ключ невалиден, истёк или отозван. Проверьте ключ: `docker exec -it mcp-task python admin_cli.py verify-key mcp_...`
 
 ## Просмотр прогресса
 
