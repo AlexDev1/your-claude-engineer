@@ -10,9 +10,12 @@ Backward-compatible: load_access_token() checks both OAuth tokens and API keys.
 
 import hashlib
 import json
+import logging
 import os
 import secrets
 import time
+
+logger = logging.getLogger(__name__)
 
 from mcp.server.auth.provider import (
     AuthorizationCode,
@@ -364,20 +367,28 @@ class PostgresOAuthProvider:
         2. If not found, hash with SHA-256 and check auth_api_keys
         3. Return AccessToken in both cases
         """
+        logger.info("load_access_token called, token prefix: %s...", token[:20] if len(token) > 20 else token)
+
         # 1. Check OAuth access tokens
-        async with db.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT * FROM oauth_access_tokens
-                WHERE token = $1 AND revoked = FALSE
-                """,
-                token,
-            )
+        try:
+            async with db.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    SELECT * FROM oauth_access_tokens
+                    WHERE token = $1 AND revoked = FALSE
+                    """,
+                    token,
+                )
+        except Exception as e:
+            logger.error("OAuth token query failed: %s", e)
+            row = None
 
         if row:
             if row["expires_at"] and int(time.time()) > row["expires_at"]:
+                logger.info("OAuth token expired")
                 return None
             scopes = json.loads(row["scopes"]) if isinstance(row["scopes"], str) else row["scopes"]
+            logger.info("OAuth token valid, client_id=%s", row["client_id"])
             return AccessToken(
                 token=token,
                 client_id=row["client_id"],
@@ -388,15 +399,18 @@ class PostgresOAuthProvider:
 
         # 2. Check API keys (backward compatibility)
         key_hash = hashlib.sha256(token.encode()).hexdigest()
+        logger.info("No OAuth token found, checking API key hash: %s...", key_hash[:16])
         user_info = await validate_api_key(key_hash)
 
         if user_info:
+            logger.info("API key valid, username=%s", user_info["username"])
             return AccessToken(
                 token=token,
                 client_id=user_info["username"],
                 scopes=[],
             )
 
+        logger.warning("Token not found in OAuth tokens or API keys")
         return None
 
     # =========================================================================
