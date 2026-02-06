@@ -83,8 +83,33 @@ from models import (
 # =============================================================================
 
 
+# =============================================================================
+# Transport Security Settings
+# =============================================================================
+
+# Get allowed hosts from environment (comma-separated)
+_allowed_hosts_env = os.environ.get("MCP_ALLOWED_HOSTS", "")
+_extra_hosts = [h.strip() for h in _allowed_hosts_env.split(",") if h.strip()]
+
+# Default allowed hosts for production behind reverse proxy
+ALLOWED_HOSTS = [
+    "localhost",
+    "localhost:*",
+    "127.0.0.1",
+    "127.0.0.1:*",
+    "0.0.0.0:*",
+] + _extra_hosts
+
+# Import security settings
+from mcp.server.transport_security import TransportSecuritySettings
+
+transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=ALLOWED_HOSTS,
+)
+
 # Create FastMCP server
-mcp = FastMCP("Task MCP Server")
+mcp = FastMCP("Task MCP Server", transport_security=transport_security)
 
 
 # =============================================================================

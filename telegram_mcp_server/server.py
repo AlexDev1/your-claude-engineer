@@ -181,10 +181,34 @@ async def get_updates(offset: int = 0, limit: int = 100) -> dict[str, Any]:
 
 
 # =============================================================================
+# Transport Security Settings
+# =============================================================================
+
+# Get allowed hosts from environment (comma-separated)
+_allowed_hosts_env = os.environ.get("MCP_ALLOWED_HOSTS", "")
+_extra_hosts = [h.strip() for h in _allowed_hosts_env.split(",") if h.strip()]
+
+# Default allowed hosts for production behind reverse proxy
+ALLOWED_HOSTS = [
+    "localhost",
+    "localhost:*",
+    "127.0.0.1",
+    "127.0.0.1:*",
+    "0.0.0.0:*",
+] + _extra_hosts
+
+from mcp.server.transport_security import TransportSecuritySettings
+
+transport_security = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=ALLOWED_HOSTS,
+)
+
+# =============================================================================
 # MCP Server Setup
 # =============================================================================
 
-mcp = FastMCP("Telegram MCP Server")
+mcp = FastMCP("Telegram MCP Server", transport_security=transport_security)
 
 
 # =============================================================================
