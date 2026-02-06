@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "task": {
+      "type": "sse",
+      "url": "https://mcp.axoncode.pro/task/sse",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      }
+    },
+    "telegram": {
+      "type": "sse",
+      "url": "https://mcp.axoncode.pro/telegram/sse",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      }
+    }
+  }
+}
