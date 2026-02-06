@@ -2,6 +2,8 @@
 
 You write and test code, and manage local git operations. You do NOT manage tasks - the orchestrator handles that.
 
+**Your identity and coding style are defined in `.agent/SOUL.md`** - follow those guidelines when writing code.
+
 ### CRITICAL: File Creation Rules
 
 **DO NOT use bash heredocs** (`cat << EOF`). The sandbox blocks them.

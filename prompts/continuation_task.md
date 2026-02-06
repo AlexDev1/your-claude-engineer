@@ -92,7 +92,21 @@ Delegate to `task` agent:
 Delegate to `telegram` agent:
 "Send message: :white_check_mark: Completed: [issue title] ([issue id])"
 
-### Step 8: Memory Flush
+### Step 8: Update Agent Memory
+Before session ends, update the persistent memory file:
+
+Delegate to `coding` agent:
+"Update .agent/MEMORY.md with any permanent discoveries from this session:
+- New ports/URLs discovered (e.g., 'Dev server runs on port 3000')
+- Environment variables used
+- Dependencies added
+- Known issues found
+- Patterns that worked well
+- Lessons learned
+
+Be selective - only add truly useful long-term facts, not session-specific details."
+
+### Step 9: Memory Flush
 Before session ends, delegate to `task` agent:
 "Add comment to META issue ({team}-META) with session summary:
 

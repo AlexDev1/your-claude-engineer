@@ -3,12 +3,14 @@ Prompt Loading Utilities
 ========================
 
 Functions for loading prompt templates from the prompts directory.
+Supports loading persistent agent memory from .agent/MEMORY.md.
 """
 
 from pathlib import Path
 
 
 PROMPTS_DIR: Path = Path(__file__).parent / "prompts"
+AGENT_DIR: Path = Path(__file__).parent / ".agent"
 
 
 def load_prompt(name: str) -> str:
@@ -72,3 +74,109 @@ def get_continuation_task(team: str) -> str:
     """
     template = load_prompt("continuation_task")
     return template.format(team=team, cwd=Path.cwd())
+
+
+def load_agent_memory(project_dir: Path | None = None) -> str:
+    """
+    Load the agent memory file (.agent/MEMORY.md) if it exists.
+
+    The memory file contains curated facts learned across sessions,
+    including discovered patterns, known issues, and project-specific context.
+
+    Args:
+        project_dir: Project directory to look for .agent/MEMORY.md.
+                     If None, uses the module's parent directory.
+
+    Returns:
+        Contents of MEMORY.md, or empty string if file doesn't exist.
+    """
+    if project_dir is None:
+        agent_dir = AGENT_DIR
+    else:
+        agent_dir = project_dir / ".agent"
+
+    memory_path = agent_dir / "MEMORY.md"
+
+    if not memory_path.exists():
+        return ""
+
+    try:
+        return memory_path.read_text()
+    except IOError:
+        # Fail silently - memory is optional
+        return ""
+
+
+def load_agent_soul(project_dir: Path | None = None) -> str:
+    """
+    Load the agent soul file (.agent/SOUL.md) if it exists.
+
+    The soul file defines immutable identity, preferences, and principles
+    for the coding agent. It is included in the system prompt.
+
+    Args:
+        project_dir: Project directory to look for .agent/SOUL.md.
+                     If None, uses the module's parent directory.
+
+    Returns:
+        Contents of SOUL.md, or empty string if file doesn't exist.
+    """
+    if project_dir is None:
+        agent_dir = AGENT_DIR
+    else:
+        agent_dir = project_dir / ".agent"
+
+    soul_path = agent_dir / "SOUL.md"
+
+    if not soul_path.exists():
+        return ""
+
+    try:
+        return soul_path.read_text()
+    except IOError:
+        # Fail silently - soul is optional
+        return ""
+
+
+def get_execute_task_with_memory(team: str, project_dir: Path | None = None) -> str:
+    """
+    Get the task message with memory context loaded.
+
+    Args:
+        team: Team key (e.g., "ENG")
+        project_dir: Project directory for .agent/MEMORY.md
+
+    Returns:
+        Task message with team, cwd, and memory context
+    """
+    template = load_prompt("execute_task")
+    base_prompt = template.format(team=team, cwd=Path.cwd())
+
+    memory = load_agent_memory(project_dir)
+    if memory:
+        memory_section = f"\n\n---\n\n## Agent Memory (from .agent/MEMORY.md)\n\n{memory}"
+        return base_prompt + memory_section
+
+    return base_prompt
+
+
+def get_continuation_task_with_memory(team: str, project_dir: Path | None = None) -> str:
+    """
+    Get the continuation task message with memory context loaded.
+
+    Args:
+        team: Team key (e.g., "ENG")
+        project_dir: Project directory for .agent/MEMORY.md
+
+    Returns:
+        Continuation task message with team, cwd, and memory context
+    """
+    template = load_prompt("continuation_task")
+    base_prompt = template.format(team=team, cwd=Path.cwd())
+
+    memory = load_agent_memory(project_dir)
+    if memory:
+        memory_section = f"\n\n---\n\n## Agent Memory (from .agent/MEMORY.md)\n\n{memory}"
+        return base_prompt + memory_section
+
+    return base_prompt

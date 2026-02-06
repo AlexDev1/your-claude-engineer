@@ -75,6 +75,43 @@ def _load_prompt(name: str) -> str:
     return (PROMPTS_DIR / f"{name}.md").read_text()
 
 
+def _load_soul() -> str:
+    """
+    Load the agent soul file (.agent/SOUL.md) if it exists.
+
+    The soul file defines immutable identity, preferences, and principles
+    for the coding agent. It is included in the system prompt.
+
+    Returns:
+        Contents of SOUL.md, or empty string if file doesn't exist.
+    """
+    soul_path = PROMPTS_DIR.parent / ".agent" / "SOUL.md"
+
+    if not soul_path.exists():
+        return ""
+
+    try:
+        return soul_path.read_text()
+    except IOError:
+        return ""
+
+
+def _get_coding_prompt() -> str:
+    """
+    Get the coding agent prompt with SOUL.md content appended.
+
+    Returns:
+        Combined prompt with base coding prompt and soul identity.
+    """
+    base_prompt = _load_prompt("coding_agent_prompt")
+    soul = _load_soul()
+
+    if soul:
+        return f"{base_prompt}\n\n---\n\n## Your Identity (from .agent/SOUL.md)\n\n{soul}"
+
+    return base_prompt
+
+
 OrchestratorModelOption = Literal["haiku", "sonnet", "opus"]
 
 # Valid orchestrator model values (no "inherit" option since orchestrator is root)
@@ -127,7 +164,7 @@ def create_agent_definitions() -> dict[str, AgentDefinition]:
         ),
         "coding": AgentDefinition(
             description="Writes code, tests with Playwright, and manages local git. Use for implementation and version control.",
-            prompt=_load_prompt("coding_agent_prompt"),
+            prompt=_get_coding_prompt(),
             tools=get_coding_tools(),
             model=_get_model("coding"),
         ),

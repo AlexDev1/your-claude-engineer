@@ -12,3 +12,7 @@ venv_linux
 __pycache__
 api-key
 .playwright-mcp
+/screenshots/
+
+# Agent persistent memory (SESSION_LOG is local, MEMORY/SOUL can be tracked)
+.agent/SESSION_LOG.md

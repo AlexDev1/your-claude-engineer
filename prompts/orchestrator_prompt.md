@@ -160,11 +160,45 @@ You have finite context. Prioritize:
 
 ### Anti-Patterns to Avoid
 
-❌ "Ask coding agent to check tasks for the next issue"
-✅ "Get issue from task agent, then pass full context to coding agent"
+[U+274C] "Ask coding agent to check tasks for the next issue"
+[U+2705] "Get issue from task agent, then pass full context to coding agent"
 
-❌ "Mark issue done" (without screenshot evidence)
-✅ "Mark issue done with screenshots: [paths from coding agent]"
+[U+274C] "Mark issue done" (without screenshot evidence)
+[U+2705] "Mark issue done with screenshots: [paths from coding agent]"
 
-❌ "Implement the feature and test it"
-✅ "Implement: ID=X, Title=Y, Description=Z, TestSteps=[...]"
+[U+274C] "Implement the feature and test it"
+[U+2705] "Implement: ID=X, Title=Y, Description=Z, TestSteps=[...]"
+
+---
+
+### Persistent Memory (.agent/MEMORY.md)
+
+The agent has a persistent memory stored in `.agent/MEMORY.md`. This file is loaded at the start of each session (provided in the prompt context).
+
+**At the END of each session**, instruct the coding agent to update MEMORY.md:
+
+```
+Delegate to `coding` agent:
+"Update .agent/MEMORY.md with any discoveries from this session:
+- New ports/URLs discovered
+- Environment variables used
+- Dependencies added
+- Known issues found
+- Patterns that worked well
+- Lessons learned
+
+Be selective - only add truly useful long-term facts, not session-specific details.
+Session-specific details go in the META issue comment."
+```
+
+**What goes in MEMORY.md vs META issue:**
+
+| MEMORY.md (Permanent) | META Issue Comment (Session) |
+|----------------------|------------------------------|
+| Port 3000 is used by dev server | "Started dev server on port 3000" |
+| React components in src/components/ | "Modified Timer.tsx and App.tsx" |
+| pytest requires -v flag for verbose | "Ran tests, 3 passed 1 failed" |
+| Button clicks need 100ms delay | "Fixed race condition in click handler" |
+
+MEMORY.md is for **facts that help future sessions avoid repeating work**.
+META issue is for **what happened in this specific session**.
