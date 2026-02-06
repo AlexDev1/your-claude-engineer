@@ -140,6 +140,7 @@ services:
       # Note: The actual password is read from /run/secrets/db_password by the app
       AGENT_NAME: ${AGENT_NAME:-Task Agent}
       AGENT_EMAIL: ${AGENT_EMAIL:-agent@local}
+    command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio", "--root-path", "/task"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -186,6 +187,7 @@ services:
       # These env vars are only used as fallback in development
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    command: ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/telegram"]
     healthcheck:
       <<: *healthcheck-defaults
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
