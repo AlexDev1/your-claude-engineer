@@ -11,13 +11,25 @@ Endpoints:
 - GET /api/analytics/bottlenecks - Stuck tasks, retry rates
 - GET /api/analytics/export - Export data as CSV/PDF
 - GET /api/analytics/summary - Overview dashboard data
+
+Issue CRUD Endpoints:
+- GET /api/issues - List all issues
+- GET /api/issues/{id} - Get single issue
+- POST /api/issues - Create new issue
+- PUT /api/issues/{id} - Update issue
+- DELETE /api/issues/{id} - Delete issue
+- POST /api/issues/{id}/comments - Add comment
+- POST /api/issues/bulk - Bulk operations
 """
 
 import os
 import json
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Optional, List
 from collections import defaultdict
+from enum import Enum
+import uuid
+import copy
 
 import httpx
 from fastapi import FastAPI, Query, Response
@@ -93,6 +105,93 @@ class SummaryData(BaseModel):
     bottlenecks: BottleneckData
     priority_distribution: dict[str, int]
     activity_heatmap: list[dict[str, Any]]
+
+
+class IssueState(str, Enum):
+    """Valid issue states."""
+    TODO = "Todo"
+    IN_PROGRESS = "In Progress"
+    DONE = "Done"
+    CANCELLED = "Cancelled"
+
+
+class IssuePriority(str, Enum):
+    """Valid issue priorities."""
+    URGENT = "urgent"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    NONE = "none"
+
+
+class IssueType(str, Enum):
+    """Issue type templates."""
+    BUG = "Bug"
+    FEATURE = "Feature"
+    TASK = "Task"
+    EPIC = "Epic"
+
+
+class Comment(BaseModel):
+    """Issue comment."""
+    id: str
+    author: str = "Agent"
+    content: str
+    created_at: str
+
+
+class CreateIssueRequest(BaseModel):
+    """Request model for creating an issue."""
+    title: str
+    description: Optional[str] = ""
+    priority: IssuePriority = IssuePriority.MEDIUM
+    issue_type: Optional[IssueType] = IssueType.TASK
+    team: str = "ENG"
+    project: Optional[str] = None
+    parent_id: Optional[str] = None
+    dependencies: Optional[List[str]] = []
+
+
+class UpdateIssueRequest(BaseModel):
+    """Request model for updating an issue."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    state: Optional[IssueState] = None
+    priority: Optional[IssuePriority] = None
+    parent_id: Optional[str] = None
+    dependencies: Optional[List[str]] = None
+
+
+class BulkOperationRequest(BaseModel):
+    """Request model for bulk operations."""
+    issue_ids: List[str]
+    operation: str  # "change_state", "change_priority", "assign_project", "delete"
+    value: Optional[str] = None
+
+
+class IssueResponse(BaseModel):
+    """Full issue response."""
+    identifier: str
+    title: str
+    description: str
+    state: str
+    priority: str
+    issue_type: str
+    team: str
+    project: Optional[str]
+    parent_id: Optional[str]
+    dependencies: List[str]
+    comments: List[Comment]
+    created_at: str
+    updated_at: str
+    completed_at: Optional[str]
+
+
+# In-memory storage for issues (for development/demo)
+# In production, this would connect to a real database or task management system
+ISSUES_STORE: dict[str, dict] = {}
+ISSUE_COUNTER = 50  # Start after existing mock issues
+UNDO_STACK: list[dict] = []  # For undo operations
 
 
 # =============================================================================
@@ -498,6 +597,320 @@ async def export_data(
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "analytics-api", "timestamp": datetime.now().isoformat()}
+
+
+# =============================================================================
+# Issue CRUD Endpoints
+# =============================================================================
+
+
+def initialize_issues_store():
+    """Initialize the in-memory store with mock issues."""
+    global ISSUES_STORE
+    if ISSUES_STORE:
+        return
+
+    mock_issues = generate_mock_issues()
+    for issue in mock_issues:
+        issue_id = issue["identifier"]
+        ISSUES_STORE[issue_id] = {
+            **issue,
+            "description": f"Description for {issue['title']}",
+            "issue_type": "Task" if "Refactor" in issue["title"] else "Feature" if "Feature" in issue["title"] else "Bug",
+            "team": "ENG",
+            "project": "Agent Dashboard",
+            "parent_id": None,
+            "dependencies": [],
+            "comments": [],
+        }
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize data on startup."""
+    initialize_issues_store()
+
+
+@app.get("/api/issues")
+async def list_issues(
+    team: str = Query("ENG", description="Team to filter by"),
+    state: Optional[str] = Query(None, description="Filter by state"),
+    priority: Optional[str] = Query(None, description="Filter by priority"),
+) -> dict:
+    """List all issues with optional filters."""
+    initialize_issues_store()
+
+    issues = list(ISSUES_STORE.values())
+
+    # Apply filters
+    if state:
+        issues = [i for i in issues if i.get("state") == state]
+    if priority:
+        issues = [i for i in issues if i.get("priority") == priority]
+    if team:
+        issues = [i for i in issues if i.get("team", "ENG") == team]
+
+    # Sort by priority and created_at
+    priority_order = {"urgent": 0, "high": 1, "medium": 2, "low": 3, "none": 4}
+    issues.sort(key=lambda x: (
+        priority_order.get(x.get("priority", "none"), 4),
+        x.get("created_at", "")
+    ))
+
+    return {"issues": issues, "total": len(issues)}
+
+
+@app.get("/api/issues/{issue_id}")
+async def get_issue(issue_id: str) -> dict:
+    """Get a single issue by ID."""
+    initialize_issues_store()
+
+    if issue_id not in ISSUES_STORE:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
+
+    return ISSUES_STORE[issue_id]
+
+
+@app.post("/api/issues")
+async def create_issue(request: CreateIssueRequest) -> dict:
+    """Create a new issue."""
+    global ISSUE_COUNTER
+    initialize_issues_store()
+
+    ISSUE_COUNTER += 1
+    issue_id = f"{request.team}-{ISSUE_COUNTER}"
+    now = datetime.now().isoformat()
+
+    issue = {
+        "identifier": issue_id,
+        "title": request.title,
+        "description": request.description or "",
+        "state": "Todo",
+        "priority": request.priority.value if request.priority else "medium",
+        "issue_type": request.issue_type.value if request.issue_type else "Task",
+        "team": request.team,
+        "project": request.project,
+        "parent_id": request.parent_id,
+        "dependencies": request.dependencies or [],
+        "comments": [],
+        "created_at": now,
+        "updated_at": now,
+        "completed_at": None,
+    }
+
+    ISSUES_STORE[issue_id] = issue
+
+    # Add to undo stack
+    UNDO_STACK.append({
+        "action": "create",
+        "issue_id": issue_id,
+        "timestamp": now,
+    })
+
+    return issue
+
+
+@app.put("/api/issues/{issue_id}")
+async def update_issue(issue_id: str, request: UpdateIssueRequest) -> dict:
+    """Update an existing issue."""
+    initialize_issues_store()
+
+    if issue_id not in ISSUES_STORE:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
+
+    issue = ISSUES_STORE[issue_id]
+    old_state = copy.deepcopy(issue)
+    now = datetime.now().isoformat()
+
+    # Validate state transition
+    if request.state:
+        valid_transitions = {
+            "Todo": ["In Progress", "Cancelled"],
+            "In Progress": ["Todo", "Done", "Cancelled"],
+            "Done": ["In Progress"],
+            "Cancelled": ["Todo"],
+        }
+        current_state = issue.get("state", "Todo")
+        new_state = request.state.value
+
+        if new_state != current_state and new_state not in valid_transitions.get(current_state, []):
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid state transition: {current_state} -> {new_state}"
+            )
+
+        issue["state"] = new_state
+        if new_state == "Done":
+            issue["completed_at"] = now
+        elif new_state != "Done" and issue.get("completed_at"):
+            issue["completed_at"] = None
+
+    # Update other fields
+    if request.title is not None:
+        issue["title"] = request.title
+    if request.description is not None:
+        issue["description"] = request.description
+    if request.priority is not None:
+        issue["priority"] = request.priority.value
+    if request.parent_id is not None:
+        issue["parent_id"] = request.parent_id
+    if request.dependencies is not None:
+        issue["dependencies"] = request.dependencies
+
+    issue["updated_at"] = now
+
+    # Add to undo stack
+    UNDO_STACK.append({
+        "action": "update",
+        "issue_id": issue_id,
+        "old_state": old_state,
+        "timestamp": now,
+    })
+
+    return issue
+
+
+@app.delete("/api/issues/{issue_id}")
+async def delete_issue(issue_id: str) -> dict:
+    """Delete an issue."""
+    initialize_issues_store()
+
+    if issue_id not in ISSUES_STORE:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
+
+    deleted_issue = ISSUES_STORE.pop(issue_id)
+
+    # Add to undo stack
+    UNDO_STACK.append({
+        "action": "delete",
+        "issue_id": issue_id,
+        "issue_data": deleted_issue,
+        "timestamp": datetime.now().isoformat(),
+    })
+
+    return {"deleted": True, "identifier": issue_id}
+
+
+@app.post("/api/issues/{issue_id}/comments")
+async def add_comment(issue_id: str, content: str = Query(..., description="Comment content")) -> dict:
+    """Add a comment to an issue."""
+    initialize_issues_store()
+
+    if issue_id not in ISSUES_STORE:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Issue {issue_id} not found")
+
+    comment = {
+        "id": str(uuid.uuid4())[:8],
+        "author": "Agent",
+        "content": content,
+        "created_at": datetime.now().isoformat(),
+    }
+
+    ISSUES_STORE[issue_id]["comments"].append(comment)
+    ISSUES_STORE[issue_id]["updated_at"] = datetime.now().isoformat()
+
+    return comment
+
+
+@app.post("/api/issues/bulk")
+async def bulk_operation(request: BulkOperationRequest) -> dict:
+    """Perform bulk operations on multiple issues."""
+    initialize_issues_store()
+
+    results = {"success": [], "failed": []}
+    old_states = []
+
+    for issue_id in request.issue_ids:
+        if issue_id not in ISSUES_STORE:
+            results["failed"].append({"id": issue_id, "error": "Not found"})
+            continue
+
+        try:
+            issue = ISSUES_STORE[issue_id]
+            old_states.append({"issue_id": issue_id, "state": copy.deepcopy(issue)})
+
+            if request.operation == "change_state":
+                issue["state"] = request.value
+                if request.value == "Done":
+                    issue["completed_at"] = datetime.now().isoformat()
+                issue["updated_at"] = datetime.now().isoformat()
+                results["success"].append(issue_id)
+
+            elif request.operation == "change_priority":
+                issue["priority"] = request.value
+                issue["updated_at"] = datetime.now().isoformat()
+                results["success"].append(issue_id)
+
+            elif request.operation == "assign_project":
+                issue["project"] = request.value
+                issue["updated_at"] = datetime.now().isoformat()
+                results["success"].append(issue_id)
+
+            elif request.operation == "delete":
+                deleted = ISSUES_STORE.pop(issue_id)
+                old_states[-1]["deleted"] = deleted
+                results["success"].append(issue_id)
+
+            else:
+                results["failed"].append({"id": issue_id, "error": f"Unknown operation: {request.operation}"})
+
+        except Exception as e:
+            results["failed"].append({"id": issue_id, "error": str(e)})
+
+    # Add to undo stack
+    UNDO_STACK.append({
+        "action": "bulk",
+        "operation": request.operation,
+        "old_states": old_states,
+        "timestamp": datetime.now().isoformat(),
+    })
+
+    return results
+
+
+@app.post("/api/issues/undo")
+async def undo_last_operation() -> dict:
+    """Undo the last operation."""
+    if not UNDO_STACK:
+        return {"success": False, "message": "Nothing to undo"}
+
+    last_action = UNDO_STACK.pop()
+
+    if last_action["action"] == "create":
+        # Undo create by deleting
+        issue_id = last_action["issue_id"]
+        if issue_id in ISSUES_STORE:
+            del ISSUES_STORE[issue_id]
+        return {"success": True, "action": "Undid issue creation", "issue_id": issue_id}
+
+    elif last_action["action"] == "update":
+        # Undo update by restoring old state
+        issue_id = last_action["issue_id"]
+        ISSUES_STORE[issue_id] = last_action["old_state"]
+        return {"success": True, "action": "Undid issue update", "issue_id": issue_id}
+
+    elif last_action["action"] == "delete":
+        # Undo delete by restoring
+        issue_id = last_action["issue_id"]
+        ISSUES_STORE[issue_id] = last_action["issue_data"]
+        return {"success": True, "action": "Restored deleted issue", "issue_id": issue_id}
+
+    elif last_action["action"] == "bulk":
+        # Undo bulk operation
+        for item in last_action["old_states"]:
+            issue_id = item["issue_id"]
+            if "deleted" in item:
+                ISSUES_STORE[issue_id] = item["deleted"]
+            else:
+                ISSUES_STORE[issue_id] = item["state"]
+        return {"success": True, "action": f"Undid bulk {last_action['operation']}", "count": len(last_action["old_states"])}
+
+    return {"success": False, "message": "Unknown action type"}
 
 
 if __name__ == "__main__":

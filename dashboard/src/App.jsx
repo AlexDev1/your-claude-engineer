@@ -1,11 +1,12 @@
 import React from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { BarChart3, Activity, AlertTriangle, Download } from 'lucide-react'
+import { BarChart3, Activity, ClipboardList } from 'lucide-react'
 
 function App() {
   const location = useLocation()
 
   const navItems = [
+    { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   ]
 
@@ -24,7 +25,7 @@ function App() {
                 key={path}
                 to={path}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                  location.pathname === path || (location.pathname === '/' && path === '/analytics')
+                  location.pathname === path || (location.pathname === '/' && path === '/tasks')
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-400 hover:text-white hover:bg-gray-700'
                 }`}
