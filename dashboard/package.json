@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "echo 'Run tests from project root: make test-e2e'",
+    "test:e2e": "cd .. && pytest tests/e2e/ -v"
   },
   "dependencies": {
     "react": "^18.2.0",
