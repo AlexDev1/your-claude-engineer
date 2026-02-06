@@ -131,7 +131,7 @@ LOGIN_HTML = """<!DOCTYPE html>
             {client_info}
         </div>
         {error_html}
-        <form method="POST" action="/oauth/login">
+        <form method="POST" action="{form_action}">
             <input type="hidden" name="session_id" value="{session_id}">
             <label for="api_key">API Key</label>
             <input type="password" id="api_key" name="api_key"
@@ -170,10 +170,15 @@ async def login_page(request: Request) -> Response:
         f"is requesting access to your MCP server."
     )
 
+    # Use root_path to build correct form action behind reverse proxy
+    root_path = request.scope.get("root_path", "")
+    form_action = f"{root_path}/oauth/login"
+
     html = LOGIN_HTML.format(
         session_id=session_id,
         client_info=client_info,
         error_html="",
+        form_action=form_action,
     )
     return HTMLResponse(content=html)
 
@@ -210,10 +215,13 @@ async def login_submit(request: Request) -> Response:
             f'Application <span class="client-name">{client.client_name or client.client_id}</span> '
             f"is requesting access to your MCP server."
         )
+        root_path = request.scope.get("root_path", "")
+        form_action = f"{root_path}/oauth/login"
         html = LOGIN_HTML.format(
             session_id=session_id,
             client_info=client_info,
             error_html='<div class="error">Invalid API key. Please check and try again.</div>',
+            form_action=form_action,
         )
         return HTMLResponse(content=html)
 
