@@ -95,7 +95,8 @@ services:
     environment:
       POSTGRES_DB: tasks
       POSTGRES_USER: agent
-      # Password is set via POSTGRES_PASSWORD in override (dev) or POSTGRES_PASSWORD_FILE in production
+      # Production: read password from Docker secret
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     healthcheck:
       <<: *healthcheck-defaults
       test: ["CMD-SHELL", "pg_isready -U agent -d tasks"]
