@@ -600,6 +600,150 @@ async def health_check():
 
 
 # =============================================================================
+# Context Budget Endpoints
+# =============================================================================
+
+
+# In-memory context stats (updated by agent sessions)
+CONTEXT_STATS = {
+    "max_tokens": 200000,
+    "total_used": 0,
+    "remaining": 200000,
+    "usage_percent": 0.0,
+    "is_warning": False,
+    "breakdown": {
+        "system_prompt": 0,
+        "files": 0,
+        "history": 0,
+        "memory": 0,
+        "issue": 0,
+    },
+    "files_loaded": 0,
+    "history_messages": 0,
+}
+
+# Prompt token stats (calculated from prompts directory)
+PROMPT_STATS = None
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count (~4 chars per token)."""
+    return len(text) // 4 if text else 0
+
+
+def calculate_prompt_stats() -> dict:
+    """Calculate token stats for all prompts."""
+    global PROMPT_STATS
+    if PROMPT_STATS is not None:
+        return PROMPT_STATS
+
+    import os
+    prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
+
+    stats = {}
+    total = 0
+
+    if os.path.exists(prompts_dir):
+        for filename in os.listdir(prompts_dir):
+            if filename.endswith(".md"):
+                filepath = os.path.join(prompts_dir, filename)
+                with open(filepath, "r") as f:
+                    content = f.read()
+                    tokens = estimate_tokens(content)
+                    stats[filename.replace(".md", "")] = {
+                        "chars": len(content),
+                        "tokens": tokens,
+                    }
+                    total += tokens
+
+    stats["_total"] = {"tokens": total}
+
+    # Add savings info (original was ~9896 tokens)
+    original_total = 9896
+    stats["_savings"] = {
+        "before": original_total,
+        "after": total,
+        "percent": round((original_total - total) / original_total * 100, 1) if original_total > 0 else 0,
+    }
+
+    PROMPT_STATS = stats
+    return stats
+
+
+@app.get("/api/context/stats")
+async def get_context_stats() -> dict:
+    """Get current context budget statistics.
+
+    Returns real-time context usage if agent session is active,
+    otherwise returns last known stats or demo data.
+    """
+    # Try to get live stats from context manager
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        from context_manager import get_context_manager
+        ctx = get_context_manager()
+        stats = ctx.get_stats()
+        # Update global stats
+        CONTEXT_STATS.update(stats)
+        return stats
+    except Exception:
+        pass
+
+    # Return stored stats or generate demo
+    if CONTEXT_STATS["total_used"] == 0:
+        # Return demo data when no live session
+        prompts = calculate_prompt_stats()
+        prompt_tokens = prompts.get("_total", {}).get("tokens", 2283)
+
+        return {
+            "max_tokens": 200000,
+            "total_used": prompt_tokens + 45000,  # Demo: prompts + estimated file/history
+            "remaining": 200000 - (prompt_tokens + 45000),
+            "usage_percent": (prompt_tokens + 45000) / 200000 * 100,
+            "is_warning": False,
+            "breakdown": {
+                "system_prompt": prompt_tokens,
+                "files": 30000,
+                "history": 12000,
+                "memory": 1500,
+                "issue": 1500,
+            },
+            "files_loaded": 8,
+            "history_messages": 5,
+        }
+
+    return CONTEXT_STATS
+
+
+@app.post("/api/context/stats")
+async def update_context_stats(stats: dict) -> dict:
+    """Update context stats from agent session.
+
+    This endpoint is called by the agent to report current context usage.
+    """
+    global CONTEXT_STATS
+    allowed_keys = ["max_tokens", "total_used", "remaining", "usage_percent",
+                    "is_warning", "breakdown", "files_loaded", "history_messages"]
+
+    for key in allowed_keys:
+        if key in stats:
+            CONTEXT_STATS[key] = stats[key]
+
+    return {"updated": True, "stats": CONTEXT_STATS}
+
+
+@app.get("/api/context/prompts")
+async def get_prompt_stats() -> dict:
+    """Get token statistics for all prompt files.
+
+    Returns character and token counts for each prompt,
+    plus total and savings compared to pre-optimization.
+    """
+    return calculate_prompt_stats()
+
+
+# =============================================================================
 # Issue CRUD Endpoints
 # =============================================================================
 

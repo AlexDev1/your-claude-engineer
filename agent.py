@@ -3,6 +3,7 @@ Agent Session Logic
 ===================
 
 Core agent interaction functions for running autonomous coding sessions.
+Integrates with context_manager for token budget tracking.
 """
 
 import asyncio
@@ -20,6 +21,7 @@ from claude_agent_sdk import (
 )
 
 from client import create_client
+from context_manager import ContextManager, estimate_tokens, get_context_manager
 from progress import print_session_header
 from prompts import (
     get_continuation_task_with_memory,
@@ -225,6 +227,10 @@ async def run_autonomous_agent(
         # First iteration uses execute_task, subsequent iterations use continuation_task
         # Continuation prompt checks META issue for previous session context before proceeding
         # Both prompts now include .agent/MEMORY.md content for persistent memory
+        # Track context usage via context manager
+        ctx_manager = get_context_manager()
+        ctx_manager.reset()  # Fresh tracking for each session
+
         if iteration == 1:
             prompt: str = get_execute_task_with_memory(team, project_dir)
             print("(Loading agent memory from .agent/MEMORY.md)")
@@ -232,6 +238,11 @@ async def run_autonomous_agent(
             prompt = get_continuation_task_with_memory(team, project_dir)
             print("(Using continuation prompt - will check previous session context)")
             print("(Loading agent memory from .agent/MEMORY.md)")
+
+        # Track prompt tokens
+        ctx_manager.set_system_prompt(prompt)
+        stats = ctx_manager.get_stats()
+        print(f"(Context budget: {stats['total_used']:,} / {stats['max_tokens']:,} tokens)")
 
         # Run session
         result: SessionResult = SessionResult(status=SESSION_ERROR, response="uninitialized")

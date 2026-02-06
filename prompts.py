@@ -4,9 +4,14 @@ Prompt Loading Utilities
 
 Functions for loading prompt templates from the prompts directory.
 Supports loading persistent agent memory from .agent/MEMORY.md.
+Integrates with context_manager for token budget tracking.
 """
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from context_manager import ContextManager
 
 
 PROMPTS_DIR: Path = Path(__file__).parent / "prompts"
@@ -180,3 +185,54 @@ def get_continuation_task_with_memory(team: str, project_dir: Path | None = None
         return base_prompt + memory_section
 
     return base_prompt
+
+
+def get_prompt_with_context_tracking(
+    prompt_name: str,
+    context_manager: "ContextManager | None" = None,
+    **format_kwargs,
+) -> str:
+    """
+    Load prompt and track tokens in context manager.
+
+    Args:
+        prompt_name: Name of prompt template
+        context_manager: Optional context manager for tracking
+        **format_kwargs: Format arguments for template
+
+    Returns:
+        Formatted prompt text
+    """
+    template = load_prompt(prompt_name)
+    prompt = template.format(**format_kwargs) if format_kwargs else template
+
+    if context_manager:
+        from context_manager import estimate_tokens
+        context_manager.budget.add("system_prompt", estimate_tokens(prompt))
+
+    return prompt
+
+
+def get_all_prompt_stats() -> dict:
+    """
+    Get token statistics for all prompts.
+
+    Returns:
+        Dictionary with prompt names and their token counts
+    """
+    from context_manager import estimate_tokens
+
+    stats = {}
+    total = 0
+
+    for prompt_file in PROMPTS_DIR.glob("*.md"):
+        content = prompt_file.read_text()
+        tokens = estimate_tokens(content)
+        stats[prompt_file.stem] = {
+            "chars": len(content),
+            "tokens": tokens,
+        }
+        total += tokens
+
+    stats["_total"] = {"tokens": total}
+    return stats

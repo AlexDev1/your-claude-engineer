@@ -6,6 +6,7 @@ import BottleneckPanel from '../components/BottleneckPanel'
 import PriorityChart from '../components/PriorityChart'
 import ActivityHeatmap from '../components/ActivityHeatmap'
 import StateTimeChart from '../components/StateTimeChart'
+import ContextBudget from '../components/ContextBudget'
 import { useAnalytics, useExport } from '../hooks/useAnalytics'
 
 function Analytics() {
@@ -134,8 +135,13 @@ function Analytics() {
           {/* Third Row - Activity Heatmap */}
           <ActivityHeatmap data={data.activity_heatmap} />
 
-          {/* Bottom Row - Bottleneck Detection */}
-          <BottleneckPanel data={data.bottlenecks} />
+          {/* Bottom Row - Bottleneck Detection and Context Budget */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <BottleneckPanel data={data.bottlenecks} />
+            </div>
+            <ContextBudget refreshInterval={10000} />
+          </div>
 
           {/* Summary Stats Footer */}
           <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
