@@ -43,7 +43,7 @@ MCP_API_KEY: str = os.environ.get("MCP_API_KEY", "")
 # =============================================================================
 # Tools use the format: mcp__<server>__<ToolName>
 
-# Task MCP tools (10 tools) - replaces Linear
+# Task MCP tools (11 tools) - replaces Linear
 TASK_TOOLS: list[str] = [
     "mcp__task__Task_WhoAmI",
     "mcp__task__Task_ListTeams",
@@ -55,6 +55,7 @@ TASK_TOOLS: list[str] = [
     "mcp__task__Task_TransitionIssueState",
     "mcp__task__Task_AddComment",
     "mcp__task__Task_ListWorkflowStates",
+    "mcp__task__Task_GetStaleIssues",
 ]
 
 # Telegram MCP tools (3 tools) - replaces Slack
