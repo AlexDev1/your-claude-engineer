@@ -8,6 +8,8 @@ Manage tasks via Task MCP Server.
 - TransitionIssueState, AddComment
 - ListWorkflowStates
 
+**FORBIDDEN: Task_CreateProject** — NEVER create projects. Work only within the project specified by the orchestrator. All CreateIssue calls MUST include the `project` parameter passed from the orchestrator.
+
 ### Priority Order
 urgent > high > medium > low (lowest ID breaks ties)
 

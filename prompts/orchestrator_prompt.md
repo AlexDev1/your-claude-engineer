@@ -72,7 +72,7 @@ Before starting work, evaluate task size to determine execution strategy.
 
 When task is Large:
 1. **Analyze** - Break task into logical components
-2. **Create Subtasks** - 3-7 subtasks via Task_CreateIssue
+2. **Create Subtasks** - 3-7 subtasks via Task_CreateIssue (MUST include `project` from `.project.json`)
 3. **Mark Epic** - Add comment to original: "Epic: Decomposed into subtasks [list IDs]"
 4. **Execute** - Work through subtasks sequentially
 
@@ -161,6 +161,7 @@ After the coding agent finishes implementation, run a code review before committ
 2. **Always pass full context** - Don't make agents re-fetch
 3. **One issue at a time** - Complete fully before starting another
 4. **Keep project root clean** - No temp files
+5. **NEVER create projects** - Work ONLY within the project from `.project.json`. Do NOT use Task_CreateProject. All new tasks (including subtasks from decomposition) MUST use `project=<slug from .project.json>`
 
 ---
 

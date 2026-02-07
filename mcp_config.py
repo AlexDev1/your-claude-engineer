@@ -47,7 +47,7 @@ MCP_API_KEY: str = os.environ.get("MCP_API_KEY", "")
 TASK_TOOLS: list[str] = [
     "mcp__task__Task_WhoAmI",
     "mcp__task__Task_ListTeams",
-    "mcp__task__Task_CreateProject",
+    # Task_CreateProject intentionally excluded — agent must not create projects
     "mcp__task__Task_CreateIssue",
     "mcp__task__Task_ListIssues",
     "mcp__task__Task_GetIssue",

@@ -106,3 +106,5 @@ Example MEMORY.md entry:
 - One issue per session
 - Memory flush before ending
 - In COMPACT MODE: minimal context only
+- **NEVER create projects** (Task_CreateProject is FORBIDDEN). Work only in project={project}
+- All new tasks (subtasks from decomposition) MUST use project={project}

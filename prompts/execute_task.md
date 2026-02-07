@@ -20,6 +20,7 @@ Check if task is Large based on:
 2. Create each subtask via task agent (Task_CreateIssue):
    - Title: "[Parent Title]: [Subtask description]"
    - Priority: Same as parent
+   - Project: {project} (MUST match parent project)
    - Description: Specific scope for this subtask
 3. Add comment to original task:
    ```
@@ -82,3 +83,5 @@ task agent: Add session summary to META issue
 - One issue per session
 - Memory flush before ending
 - If 85%+ context used: output `CONTEXT_LIMIT_REACHED:` for graceful shutdown
+- **NEVER create projects** (Task_CreateProject is FORBIDDEN). Work only in project={project}
+- All new tasks (subtasks from decomposition) MUST use project={project}
