@@ -2211,6 +2211,177 @@ async def get_telegram_log(
     return result
 
 
+# =============================================================================
+# Telegram Pause/Resume Commands (ENG-52): /pause, /resume
+# =============================================================================
+
+# Path to the PAUSED file
+PAUSED_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".agent", "PAUSED")
+
+
+@app.post("/api/telegram/pause")
+async def telegram_pause(
+    format_html: bool = Query(True, description="Return HTML formatted for Telegram"),
+) -> dict:
+    """
+    Pause the agent by creating .agent/PAUSED file (ENG-52).
+
+    The agent main loop checks for this file before each iteration.
+    If the file exists, the agent will sleep and retry.
+
+    Returns:
+        dict with:
+        - success: True if paused successfully
+        - message: HTML-formatted message for Telegram
+        - already_paused: True if agent was already paused
+    """
+    try:
+        # Ensure .agent directory exists
+        os.makedirs(os.path.dirname(PAUSED_FILE_PATH), exist_ok=True)
+
+        # Check if already paused
+        already_paused = os.path.exists(PAUSED_FILE_PATH)
+
+        if already_paused:
+            result = {
+                "success": True,
+                "already_paused": True,
+            }
+            if format_html:
+                result["message"] = "Agent is already paused."
+            return result
+
+        # Create PAUSED file with timestamp
+        with open(PAUSED_FILE_PATH, "w") as f:
+            f.write(f"Paused at: {datetime.now().isoformat()}\n")
+
+        result = {
+            "success": True,
+            "already_paused": False,
+            "paused_at": datetime.now().isoformat(),
+        }
+
+        if format_html:
+            result["message"] = "Agent paused.\n\nUse /resume to continue."
+
+        return result
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to pause agent: {str(e)}",
+        }
+
+
+@app.post("/api/telegram/resume")
+async def telegram_resume(
+    format_html: bool = Query(True, description="Return HTML formatted for Telegram"),
+) -> dict:
+    """
+    Resume the agent by removing .agent/PAUSED file (ENG-52).
+
+    When the PAUSED file is removed, the agent will resume on its next check.
+
+    Returns:
+        dict with:
+        - success: True if resumed successfully
+        - message: HTML-formatted message for Telegram
+        - was_paused: True if agent was paused before resume
+    """
+    try:
+        # Check if paused
+        was_paused = os.path.exists(PAUSED_FILE_PATH)
+
+        if not was_paused:
+            result = {
+                "success": True,
+                "was_paused": False,
+            }
+            if format_html:
+                result["message"] = "Agent is not paused."
+            return result
+
+        # Read pause time for reporting
+        paused_at = None
+        try:
+            with open(PAUSED_FILE_PATH, "r") as f:
+                content = f.read()
+                if "Paused at:" in content:
+                    paused_at = content.split("Paused at:")[1].strip().split("\n")[0]
+        except Exception:
+            pass
+
+        # Remove PAUSED file
+        os.remove(PAUSED_FILE_PATH)
+
+        result = {
+            "success": True,
+            "was_paused": True,
+            "resumed_at": datetime.now().isoformat(),
+            "paused_at": paused_at,
+        }
+
+        if format_html:
+            result["message"] = "Agent resumed."
+
+        return result
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to resume agent: {str(e)}",
+        }
+
+
+@app.get("/api/telegram/pause-status")
+async def get_pause_status(
+    format_html: bool = Query(True, description="Return HTML formatted for Telegram"),
+) -> dict:
+    """
+    Get the current pause status of the agent (ENG-52).
+
+    Returns:
+        dict with:
+        - is_paused: True if agent is paused
+        - paused_at: Timestamp when agent was paused (if paused)
+        - message: HTML-formatted message for Telegram
+    """
+    try:
+        is_paused = os.path.exists(PAUSED_FILE_PATH)
+
+        paused_at = None
+        if is_paused:
+            try:
+                with open(PAUSED_FILE_PATH, "r") as f:
+                    content = f.read()
+                    if "Paused at:" in content:
+                        paused_at = content.split("Paused at:")[1].strip().split("\n")[0]
+            except Exception:
+                pass
+
+        result = {
+            "is_paused": is_paused,
+            "paused_at": paused_at,
+        }
+
+        if format_html:
+            if is_paused:
+                result["message"] = f"Agent is paused.\n\nPaused at: {paused_at or 'unknown'}\n\nUse /resume to continue."
+            else:
+                result["message"] = "Agent is running.\n\nUse /pause to pause."
+
+        return result
+
+    except Exception as e:
+        return {
+            "is_paused": False,
+            "error": str(e),
+            "message": f"Error checking pause status: {str(e)}",
+        }
+
+
 @app.get("/api/telegram/budget")
 async def get_telegram_budget(
     format_html: bool = Query(True, description="Return HTML formatted for Telegram"),

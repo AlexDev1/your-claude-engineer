@@ -46,6 +46,84 @@ from session_state import (
     get_session_state_manager,
 )
 
+# Pause check configuration (ENG-52)
+PAUSE_CHECK_INTERVAL_SECONDS: int = 60
+
+
+def is_agent_paused(project_dir: Path) -> bool:
+    """
+    Check if the agent is paused by checking for .agent/PAUSED file (ENG-52).
+
+    Args:
+        project_dir: Project directory path
+
+    Returns:
+        True if .agent/PAUSED file exists, False otherwise
+    """
+    paused_file = project_dir / ".agent" / "PAUSED"
+    return paused_file.exists()
+
+
+async def wait_while_paused(project_dir: Path) -> bool:
+    """
+    Wait while the agent is paused, checking every PAUSE_CHECK_INTERVAL_SECONDS (ENG-52).
+
+    When resumed, sends notification to Telegram if configured.
+
+    Args:
+        project_dir: Project directory path
+
+    Returns:
+        True if agent was paused and is now resumed, False if never paused
+    """
+    if not is_agent_paused(project_dir):
+        return False
+
+    print("\n" + "=" * 70)
+    print("  AGENT PAUSED")
+    print("=" * 70)
+    print(f"\nAgent is paused. Checking every {PAUSE_CHECK_INTERVAL_SECONDS}s...")
+    print("Use /resume command in Telegram to continue.\n")
+
+    was_paused = True
+
+    while is_agent_paused(project_dir):
+        await asyncio.sleep(PAUSE_CHECK_INTERVAL_SECONDS)
+        print(f"[{asyncio.get_event_loop().time():.0f}] Still paused, waiting...")
+
+    # Agent has been resumed
+    print("\n" + "=" * 70)
+    print("  AGENT RESUMED")
+    print("=" * 70)
+    print("\nAgent has been resumed. Continuing with next task...\n")
+
+    # Try to send Telegram notification
+    try:
+        import httpx
+        telegram_url = project_dir / ".env"
+        # Read .env to get Telegram config
+        import os
+        from dotenv import load_dotenv
+        load_dotenv(project_dir / ".env")
+
+        telegram_bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+
+        if telegram_bot_token and telegram_chat_id:
+            async with httpx.AsyncClient() as client:
+                url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
+                payload = {
+                    "chat_id": telegram_chat_id,
+                    "text": "Agent resumed.",
+                    "parse_mode": "HTML",
+                }
+                await client.post(url, json=payload, timeout=10.0)
+                print("Sent resume notification to Telegram.")
+    except Exception as e:
+        print(f"Note: Could not send Telegram notification: {e}")
+
+    return was_paused
+
 
 # Configuration
 AUTO_CONTINUE_DELAY_SECONDS: int = 3
@@ -318,6 +396,9 @@ async def run_autonomous_agent(
 
     while True:
         iteration += 1
+
+        # Check for pause before each iteration (ENG-52)
+        await wait_while_paused(project_dir)
 
         # Check max iterations
         if max_iterations and iteration > max_iterations:
