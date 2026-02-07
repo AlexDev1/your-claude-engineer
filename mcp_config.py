@@ -43,7 +43,7 @@ MCP_API_KEY: str = os.environ.get("MCP_API_KEY", "")
 # =============================================================================
 # Tools use the format: mcp__<server>__<ToolName>
 
-# Task MCP tools (11 tools) - replaces Linear
+# Task MCP tools (13 tools) - replaces Linear
 TASK_TOOLS: list[str] = [
     "mcp__task__Task_WhoAmI",
     "mcp__task__Task_ListTeams",
@@ -56,14 +56,26 @@ TASK_TOOLS: list[str] = [
     "mcp__task__Task_AddComment",
     "mcp__task__Task_ListWorkflowStates",
     "mcp__task__Task_GetStaleIssues",
+    # Analytics tools (ENG-7)
+    "mcp__task__Task_GetProjectStats",
+    "mcp__task__Task_GetSessionReport",
 ]
 
-# Telegram MCP tools (3 tools) - replaces Slack
+# Telegram MCP tools (3 core tools) - replaces Slack
+# Additional rich report types are handled by telegram_reports.py module
 TELEGRAM_TOOLS: list[str] = [
     "mcp__telegram__Telegram_WhoAmI",
     "mcp__telegram__Telegram_SendMessage",
     "mcp__telegram__Telegram_ListChats",
 ]
+
+# Rich report types available via telegram_reports.py (ENG-31)
+# These are Python functions that format messages for Telegram_SendMessage:
+# - format_daily_digest() - Daily statistics and progress bar
+# - format_session_summary() - Time, tokens, git commits per session
+# - format_error_alert() - Error with file, line, attempt context
+# - format_weekly_summary() - Cost and velocity trends
+# - format_progress_bar() - Visual percentage completion
 
 # Playwright MCP tools for browser automation
 PLAYWRIGHT_TOOLS: list[str] = [
@@ -75,6 +87,15 @@ PLAYWRIGHT_TOOLS: list[str] = [
     "mcp__playwright__browser_hover",
     "mcp__playwright__browser_snapshot",
     "mcp__playwright__browser_wait_for",
+]
+
+# GitHub Integration tools (implemented in github_integration.py)
+# These are Python functions, not MCP tools, but listed here for documentation
+GITHUB_TOOLS: list[str] = [
+    "Git_PushBranch",  # Push branch to remote
+    "GitHub_CreatePR",  # Create pull request
+    "GitHub_SyncIssue",  # Sync issue to GitHub Issues
+    "GitHub_SetStatus",  # Set commit status check
 ]
 
 # All MCP tools combined
@@ -196,3 +217,8 @@ def get_coding_tools() -> list[str]:
     """Get tools for coding agent (file ops + Playwright + git)."""
     builtin_tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
     return builtin_tools + PLAYWRIGHT_TOOLS
+
+
+def get_reviewer_tools() -> list[str]:
+    """Get tools for reviewer agent (read-only + git diff)."""
+    return ["Read", "Grep", "Bash"]

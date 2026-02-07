@@ -1777,6 +1777,89 @@ async def delete_backup(filename: str) -> dict:
     return {"success": True, "deleted": filename}
 
 
+# =============================================================================
+# Task Analytics Endpoints (ENG-7)
+# =============================================================================
+
+# Import analytics functions from task_mcp_server
+try:
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    from task_mcp_server.database import (
+        get_project_stats as db_get_project_stats,
+        get_stale_issues as db_get_stale_issues,
+        get_session_timeline as db_get_session_timeline,
+        set_issues_store,
+        STALE_THRESHOLD_HOURS,
+    )
+    TASK_ANALYTICS_AVAILABLE = True
+except ImportError:
+    TASK_ANALYTICS_AVAILABLE = False
+
+
+@app.get("/api/project-stats")
+async def get_project_stats_endpoint(
+    team: str = Query("ENG", description="Team identifier"),
+    project: Optional[str] = Query(None, description="Optional project filter"),
+) -> dict:
+    """
+    Get comprehensive project statistics (ENG-7).
+
+    Returns:
+    - Count of tasks by each state (Todo, In Progress, Done, Cancelled)
+    - Count of tasks by priority (urgent, high, medium, low, none)
+    - Average time from creation to Done (in hours)
+    - Average time in "In Progress" state (in hours)
+    - Average number of comments per task
+    - List of stale tasks (In Progress longer than threshold)
+    """
+    if not TASK_ANALYTICS_AVAILABLE:
+        return {"error": "Task analytics module not available"}
+
+    initialize_issues_store()
+    set_issues_store(ISSUES_STORE)
+
+    stats = db_get_project_stats(team=team, project=project)
+    return stats.to_dict()
+
+
+@app.get("/api/stale-issues")
+async def get_stale_issues_endpoint(
+    team: str = Query("ENG", description="Team identifier"),
+    threshold_hours: Optional[float] = Query(None, description="Override stale threshold"),
+) -> dict:
+    """
+    Get tasks that have been in "In Progress" longer than the threshold (ENG-7).
+
+    Used by heartbeat daemon for monitoring stuck tasks.
+    """
+    if not TASK_ANALYTICS_AVAILABLE:
+        return {"error": "Task analytics module not available", "stale_count": 0, "issues": []}
+
+    initialize_issues_store()
+    set_issues_store(ISSUES_STORE)
+
+    return db_get_stale_issues(team=team, threshold_hours=threshold_hours)
+
+
+@app.get("/api/session-timeline/{meta_issue_id}")
+async def get_session_timeline_endpoint(meta_issue_id: str) -> dict:
+    """
+    Get session timeline from META issue comments (ENG-7).
+
+    Parses session summaries and returns a timeline showing:
+    - Session N -> what was done, how many tasks closed
+    """
+    if not TASK_ANALYTICS_AVAILABLE:
+        return {"error": "Task analytics module not available", "sessions": []}
+
+    initialize_issues_store()
+    set_issues_store(ISSUES_STORE)
+
+    timeline = db_get_session_timeline(meta_issue_id=meta_issue_id)
+    return timeline.to_dict()
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8003)
