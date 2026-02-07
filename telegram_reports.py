@@ -973,3 +973,232 @@ def format_status_simple(
         stale_count=stale_count,
     )
     return format_status(data)
+
+
+# =============================================================================
+# Info Commands (ENG-56): /next, /log, /budget
+# =============================================================================
+
+
+def format_next_task(
+    task_id: str,
+    title: str,
+    priority: str,
+    description: str = "",
+    total_todo: int = 0,
+) -> str:
+    """
+    Format the next task message for /next command (ENG-56).
+
+    Args:
+        task_id: Task identifier (e.g., "ENG-42")
+        title: Task title
+        priority: Priority level (urgent, high, medium, low, none)
+        description: Task description (will be truncated)
+        total_todo: Total number of tasks in Todo queue
+
+    Returns:
+        HTML-formatted Telegram message
+
+    Example output:
+        <b>Next Task</b>
+
+        <code>ENG-42</code> Add user authentication
+        <b>Priority:</b> high
+
+        <i>Description:</i>
+        Implement OAuth2 login flow with...
+
+        5 tasks remaining in queue
+    """
+    # Priority emoji
+    priority_emoji = {
+        "urgent": "!!!",
+        "high": "!",
+        "medium": "",
+        "low": "",
+        "none": "",
+    }.get(priority.lower(), "")
+
+    lines = [
+        "<b>Next Task</b>",
+        "",
+        f"<code>{task_id}</code> {priority_emoji}{title}",
+        f"<b>Priority:</b> {priority}",
+    ]
+
+    # Add truncated description if available
+    if description:
+        desc_truncated = description[:150]
+        if len(description) > 150:
+            desc_truncated += "..."
+        lines.append("")
+        lines.append(f"<i>{desc_truncated}</i>")
+
+    # Add queue count
+    lines.append("")
+    if total_todo > 1:
+        lines.append(f"{total_todo} tasks remaining in queue")
+    else:
+        lines.append("This is the last task in queue")
+
+    return "\n".join(lines)
+
+
+def format_action_log(actions: list[dict]) -> str:
+    """
+    Format agent action log for /log command (ENG-56).
+
+    Args:
+        actions: List of action dictionaries with keys:
+            - type: Action type (tool_call, file_change, test_result, etc.)
+            - title: Action title/description
+            - description: Additional details (optional)
+            - timestamp: When action occurred (optional)
+            - task_id: Related task ID (optional)
+
+    Returns:
+        HTML-formatted Telegram message
+
+    Example output:
+        <b>Recent Actions</b>
+
+          file_change: Modified agent.py
+          test_result: All tests passed
+          tool_call: Read config file
+          commit: feat: Add new feature
+          tool_call: Updated task status
+    """
+    if not actions:
+        return "<b>Recent Actions</b>\n\nNo recent actions logged."
+
+    lines = [
+        "<b>Recent Actions</b>",
+        "",
+    ]
+
+    # Type emoji mapping
+    type_emoji = {
+        "tool_call": "",
+        "file_change": "",
+        "test_result": "",
+        "commit": "",
+        "error": "",
+        "session": "",
+        "action": "",
+        "default": "",
+    }
+
+    for action in actions:
+        action_type = action.get("type", "action")
+        title = action.get("title", "Unknown action")[:60]
+        emoji = type_emoji.get(action_type, type_emoji["default"])
+
+        # Add task reference if available
+        task_ref = ""
+        if action.get("task_id"):
+            task_ref = f" [{action['task_id']}]"
+
+        lines.append(f"  {emoji} {title}{task_ref}")
+
+    return "\n".join(lines)
+
+
+def format_budget_status(
+    context_stats: dict | None = None,
+    cost_stats: dict | None = None,
+) -> str:
+    """
+    Format budget status for /budget command (ENG-56).
+
+    Args:
+        context_stats: Context token usage stats with keys:
+            - total_used: Tokens used
+            - max_tokens: Token limit
+            - usage_percent: Usage percentage
+            - mode: Current mode (normal, compact, critical)
+        cost_stats: Cost tracking stats with keys:
+            - limit_usd: Budget limit in USD (optional)
+            - spent_usd: Amount spent in USD
+            - remaining_usd: Remaining budget (optional)
+            - cost_usd: Session/weekly cost (alternative)
+
+    Returns:
+        HTML-formatted Telegram message
+
+    Example output:
+        <b>Budget Status</b>
+
+        <b>Context:</b>
+        <code>|||||     </code> 47%
+        84,600 / 180,000 tokens
+        Mode: normal
+
+        <b>Cost:</b>
+        $12.45 spent
+        $87.55 remaining (of $100 limit)
+    """
+    lines = [
+        "<b>Budget Status</b>",
+        "",
+    ]
+
+    # Context usage section
+    if context_stats:
+        usage_pct = context_stats.get("usage_percent", 0)
+        total_used = context_stats.get("total_used", 0)
+        max_tokens = context_stats.get("max_tokens", 180000)
+        mode = context_stats.get("mode", "normal")
+
+        # Create visual progress bar
+        bar_width = 10
+        filled = int((usage_pct / 100) * bar_width)
+        bar = "|" * filled + " " * (bar_width - filled)
+
+        lines.append("<b>Context:</b>")
+        lines.append(f"<code>[{bar}]</code> {usage_pct:.0f}%")
+        lines.append(f"  {total_used:,} / {max_tokens:,} tokens")
+
+        # Mode indicator
+        if mode == "critical":
+            lines.append("  Mode: CRITICAL")
+        elif mode == "compact":
+            lines.append("  Mode: COMPACT")
+        else:
+            lines.append(f"  Mode: {mode}")
+
+        lines.append("")
+
+    # Cost section
+    if cost_stats:
+        lines.append("<b>Cost:</b>")
+
+        if "limit_usd" in cost_stats:
+            # Budget with limit
+            spent = cost_stats.get("spent_usd", 0)
+            limit = cost_stats.get("limit_usd", 0)
+            remaining = cost_stats.get("remaining_usd", limit - spent)
+
+            lines.append(f"  ${spent:.2f} spent")
+            if limit > 0:
+                lines.append(f"  ${remaining:.2f} remaining (of ${limit:.2f} limit)")
+
+                # Add warning if over 80%
+                if spent / limit > 0.8:
+                    lines.append("  Over 80% of budget used")
+        else:
+            # Just cost tracking without limit
+            cost = cost_stats.get("cost_usd", 0)
+            sessions = cost_stats.get("sessions", 0)
+            tasks = cost_stats.get("tasks_completed", 0)
+
+            lines.append(f"  ${cost:.2f} this week")
+            if sessions > 0:
+                lines.append(f"  {sessions} sessions, {tasks} tasks completed")
+    else:
+        lines.append("<i>Cost tracking not configured</i>")
+        lines.append("")
+        lines.append("To enable, create <code>.agent/budget.json</code>:")
+        lines.append('<code>{"limit_usd": 100}</code>')
+
+    return "\n".join(lines)

@@ -2001,6 +2001,343 @@ async def post_telegram_status(
     return await get_telegram_status(team=team, format_html=True)
 
 
+# =============================================================================
+# Telegram Info Commands (ENG-56): /next, /log, /budget
+# =============================================================================
+
+
+@app.get("/api/telegram/next")
+async def get_telegram_next(
+    team: str = Query("ENG", description="Team identifier"),
+    format_html: bool = Query(True, description="Return HTML formatted for Telegram"),
+) -> dict:
+    """
+    Get next planned task from Todo queue for Telegram /next command (ENG-56).
+
+    Returns the highest priority Todo task that should be worked on next.
+
+    Args:
+        team: Team identifier (default: ENG)
+        format_html: If True, returns HTML formatted message for Telegram
+
+    Returns:
+        dict with:
+        - message: HTML-formatted next task message (if format_html=True)
+        - task: Next task data (or None if no pending tasks)
+    """
+    initialize_issues_store()
+
+    # Get issues from store
+    issues = [i for i in ISSUES_STORE.values() if i.get("team", "ENG") == team]
+
+    # Filter for Todo tasks only
+    todo_tasks = [i for i in issues if i.get("state") == "Todo"]
+
+    if not todo_tasks:
+        result = {
+            "task": None,
+            "total_todo": 0,
+        }
+        if format_html:
+            result["message"] = "<b>Next Task</b>\n\nNo pending tasks in Todo queue."
+        return result
+
+    # Sort by priority (urgent > high > medium > low > none)
+    priority_order = {"urgent": 0, "high": 1, "medium": 2, "low": 3, "none": 4}
+    todo_tasks.sort(key=lambda x: (
+        priority_order.get(x.get("priority", "none").lower(), 4),
+        x.get("created_at", "")  # Older tasks first within same priority
+    ))
+
+    next_task = todo_tasks[0]
+
+    result = {
+        "task": {
+            "id": next_task.get("identifier", ""),
+            "title": next_task.get("title", ""),
+            "priority": next_task.get("priority", "none"),
+            "description": next_task.get("description", "")[:200],  # Truncate description
+            "created_at": next_task.get("created_at", ""),
+        },
+        "total_todo": len(todo_tasks),
+    }
+
+    if format_html:
+        try:
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from telegram_reports import format_next_task
+
+            result["message"] = format_next_task(
+                task_id=next_task.get("identifier", ""),
+                title=next_task.get("title", ""),
+                priority=next_task.get("priority", "none"),
+                description=next_task.get("description", ""),
+                total_todo=len(todo_tasks),
+            )
+        except Exception as e:
+            # Fallback format
+            priority_emoji = {
+                "urgent": "!",
+                "high": "!",
+                "medium": "",
+                "low": "",
+                "none": "",
+            }.get(next_task.get("priority", "none").lower(), "")
+            result["message"] = (
+                f"<b>Next Task</b>\n\n"
+                f"<code>{next_task.get('identifier', '')}</code> {priority_emoji}{next_task.get('title', '')}\n"
+                f"Priority: {next_task.get('priority', 'none')}\n\n"
+                f"{len(todo_tasks)} tasks remaining in queue"
+            )
+            result["format_error"] = str(e)
+
+    return result
+
+
+@app.get("/api/telegram/log")
+async def get_telegram_log(
+    limit: int = Query(5, ge=1, le=20, description="Number of log entries to return"),
+    format_html: bool = Query(True, description="Return HTML formatted for Telegram"),
+) -> dict:
+    """
+    Get last N agent actions for Telegram /log command (ENG-56).
+
+    Returns recent activity from the session activity stream.
+
+    Args:
+        limit: Number of log entries to return (default: 5, max: 20)
+        format_html: If True, returns HTML formatted message for Telegram
+
+    Returns:
+        dict with:
+        - message: HTML-formatted log message (if format_html=True)
+        - actions: List of recent actions
+    """
+    actions = []
+
+    # Try to get actions from task_mcp_server session state
+    try:
+        from task_mcp_server.server import get_session_state
+        session_data = get_session_state()
+        activities = session_data.get("activities", [])
+
+        for activity in activities[:limit]:
+            actions.append({
+                "type": activity.get("activityType", "action"),
+                "title": activity.get("title", ""),
+                "description": activity.get("description", ""),
+                "timestamp": activity.get("timestamp", ""),
+                "task_id": activity.get("taskId"),
+            })
+    except Exception:
+        pass
+
+    # If no actions from session state, try to read from memory file
+    if not actions:
+        try:
+            memory_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                ".agent",
+                "MEMORY.md"
+            )
+            if os.path.exists(memory_path):
+                with open(memory_path, "r") as f:
+                    content = f.read()
+
+                # Parse recent session entries from memory
+                # Look for session history entries
+                lines = content.split("\n")
+                in_session_history = False
+                session_entries = []
+
+                for line in lines:
+                    if "## Session History" in line or "### 20" in line:
+                        in_session_history = True
+                    elif in_session_history and line.startswith("### "):
+                        # New session entry
+                        session_entries.append(line)
+                    elif in_session_history and line.startswith("- "):
+                        # Action within session
+                        if session_entries:
+                            session_entries.append(line)
+
+                # Take last few entries
+                for entry in session_entries[-limit:]:
+                    if entry.startswith("### "):
+                        actions.append({
+                            "type": "session",
+                            "title": entry.replace("### ", "").strip(),
+                            "description": "",
+                            "timestamp": "",
+                            "task_id": None,
+                        })
+                    elif entry.startswith("- "):
+                        actions.append({
+                            "type": "action",
+                            "title": entry.replace("- ", "").strip()[:100],
+                            "description": "",
+                            "timestamp": "",
+                            "task_id": None,
+                        })
+        except Exception:
+            pass
+
+    result = {
+        "actions": actions,
+        "count": len(actions),
+    }
+
+    if format_html:
+        try:
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from telegram_reports import format_action_log
+
+            result["message"] = format_action_log(actions)
+        except Exception as e:
+            # Fallback format
+            if actions:
+                lines = ["<b>Recent Actions</b>\n"]
+                for action in actions:
+                    title = action.get("title", "Unknown action")[:60]
+                    action_type = action.get("type", "action")
+                    lines.append(f"  {action_type}: {title}")
+                result["message"] = "\n".join(lines)
+            else:
+                result["message"] = "<b>Recent Actions</b>\n\nNo recent actions logged."
+            result["format_error"] = str(e)
+
+    return result
+
+
+@app.get("/api/telegram/budget")
+async def get_telegram_budget(
+    format_html: bool = Query(True, description="Return HTML formatted for Telegram"),
+) -> dict:
+    """
+    Get budget/cost information for Telegram /budget command (ENG-56).
+
+    Returns:
+    - Context token usage (from context_manager)
+    - Cost tracking (from heartbeat weekly stats if available)
+
+    Args:
+        format_html: If True, returns HTML formatted message for Telegram
+
+    Returns:
+        dict with:
+        - message: HTML-formatted budget message (if format_html=True)
+        - context: Context token usage stats
+        - cost: Cost tracking stats (if available)
+    """
+    context_stats = None
+    cost_stats = None
+
+    # Get context budget from context manager
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        from context_manager import get_context_manager
+        ctx = get_context_manager()
+        context_stats = {
+            "total_used": ctx.budget.total_used,
+            "max_tokens": ctx.budget.max_tokens,
+            "usage_percent": round(ctx.budget.usage_percent, 1),
+            "remaining": ctx.budget.remaining,
+            "mode": ctx.budget.mode,
+            "is_warning": ctx.budget.is_warning,
+            "is_critical": ctx.budget.is_critical,
+        }
+    except Exception:
+        # Use defaults if context manager not available
+        context_stats = {
+            "total_used": 0,
+            "max_tokens": 180000,
+            "usage_percent": 0.0,
+            "remaining": 180000,
+            "mode": "normal",
+            "is_warning": False,
+            "is_critical": False,
+        }
+
+    # Try to get cost stats from heartbeat weekly data
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        from heartbeat import _weekly_stats
+        if _weekly_stats:
+            cost_stats = {
+                "sessions": _weekly_stats.get("sessions", 0),
+                "tasks_completed": _weekly_stats.get("tasks_completed", 0),
+                "cost_usd": _weekly_stats.get("cost", 0.0),
+            }
+    except Exception:
+        pass
+
+    # If no cost stats, check for a budget config file
+    if not cost_stats:
+        try:
+            budget_config_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                ".agent",
+                "budget.json"
+            )
+            if os.path.exists(budget_config_path):
+                with open(budget_config_path, "r") as f:
+                    budget_data = json.load(f)
+                    cost_stats = {
+                        "limit_usd": budget_data.get("limit_usd", 0),
+                        "spent_usd": budget_data.get("spent_usd", 0),
+                        "remaining_usd": budget_data.get("remaining_usd", 0),
+                    }
+        except Exception:
+            pass
+
+    result = {
+        "context": context_stats,
+        "cost": cost_stats,
+        "budget_configured": cost_stats is not None,
+    }
+
+    if format_html:
+        try:
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from telegram_reports import format_budget_status
+
+            result["message"] = format_budget_status(
+                context_stats=context_stats,
+                cost_stats=cost_stats,
+            )
+        except Exception as e:
+            # Fallback format
+            lines = ["<b>Budget Status</b>\n"]
+
+            # Context usage
+            if context_stats:
+                usage_bar = ""
+                usage_pct = context_stats.get("usage_percent", 0)
+                filled = int(usage_pct / 10)
+                usage_bar = "" * filled + "" * (10 - filled)
+                lines.append(f"<b>Context:</b> {usage_bar} {usage_pct}%")
+                lines.append(f"  {context_stats.get('total_used', 0):,} / {context_stats.get('max_tokens', 0):,} tokens")
+
+            # Cost (if available)
+            if cost_stats:
+                if "limit_usd" in cost_stats:
+                    lines.append(f"\n<b>Cost:</b> ${cost_stats.get('spent_usd', 0):.2f} / ${cost_stats.get('limit_usd', 0):.2f}")
+                else:
+                    lines.append(f"\n<b>Cost:</b> ${cost_stats.get('cost_usd', 0):.2f} this week")
+            else:
+                lines.append("\n<i>Cost tracking not configured</i>")
+
+            result["message"] = "\n".join(lines)
+            result["format_error"] = str(e)
+
+    return result
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8003)
