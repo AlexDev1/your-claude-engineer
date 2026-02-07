@@ -25,6 +25,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from agent import run_autonomous_agent
+from preflight import run_preflight_checks
 
 # Load environment variables from .env file
 load_dotenv()
@@ -63,6 +64,12 @@ Examples:
   # Limit iterations for testing
   uv run python autonomous_agent_demo.py --max-iterations 5
 
+  # Skip preflight checks for faster dev iteration
+  uv run python autonomous_agent_demo.py --skip-preflight
+
+  # Stop on first preflight failure
+  uv run python autonomous_agent_demo.py --fail-fast
+
 Environment Variables:
   ORCHESTRATOR_MODEL         Orchestrator model (default: haiku)
   TASK_MCP_URL               Task MCP server URL
@@ -93,6 +100,18 @@ Environment Variables:
         help=f"Model for orchestrator (sub-agents have fixed models: coding=sonnet, others=haiku) (default: {DEFAULT_MODEL})",
     )
 
+    parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        help="Skip preflight checks (for faster dev iteration)",
+    )
+
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Exit on first preflight failure (default: run all checks)",
+    )
+
     return parser.parse_args()
 
 
@@ -101,15 +120,26 @@ def main() -> int:
     Main entry point.
 
     Returns:
-        Exit code (0 for success, 1 for error, 130 for keyboard interrupt)
+        Exit code (0 for success, 1 for error, 2 for preflight failure, 130 for keyboard interrupt)
     """
     args: argparse.Namespace = parse_args()
+
+    # Run preflight checks unless skipped
+    if not args.skip_preflight:
+        preflight_passed: bool = run_preflight_checks(fail_fast=args.fail_fast)
+        if not preflight_passed:
+            print("\nPreflight checks failed. Use --skip-preflight to bypass.")
+            return 2  # Distinct exit code for preflight failure
+        print()  # Blank line before starting agent
 
     # Working directory is always cwd
     project_dir: Path = Path.cwd()
 
     # Resolve model short name to full model ID
     model_id: str = AVAILABLE_MODELS[args.model]
+
+    print("Starting autonomous agent...")
+    print()
 
     # Run the agent
     try:

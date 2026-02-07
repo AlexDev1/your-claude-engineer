@@ -366,31 +366,40 @@ def check_python_packages() -> CheckResult:
     )
 
 
-def main() -> int:
-    """Run all preflight checks."""
+# List of all preflight checks (name, function)
+PREFLIGHT_CHECKS: list[tuple[str, callable]] = [
+    ("Claude SDK (anthropic)", check_claude_sdk),
+    ("Claude Agent SDK", check_claude_agent_sdk),
+    ("Task MCP Server", check_task_mcp_server),
+    ("Telegram MCP Server", check_telegram_mcp_server),
+    ("Playwright MCP", check_playwright_mcp),
+    ("Git Installation", check_git_installation),
+    ("Node.js / npm", check_node_npm),
+    ("Filesystem Permissions", check_filesystem_permissions),
+    ("Security Hooks", check_security_hooks),
+    ("Python Packages", check_python_packages),
+]
+
+
+def run_preflight_checks(fail_fast: bool = False) -> bool:
+    """
+    Run all preflight checks programmatically.
+
+    Args:
+        fail_fast: If True, stop on first failure. If False (default), run all checks.
+
+    Returns:
+        True if all checks passed, False if any check failed.
+    """
     print("=" * 70)
     print("  PREFLIGHT CHECKS")
     print("=" * 70)
 
-    checks = [
-        ("Claude SDK (anthropic)", check_claude_sdk),
-        ("Claude Agent SDK", check_claude_agent_sdk),
-        ("Task MCP Server", check_task_mcp_server),
-        ("Telegram MCP Server", check_telegram_mcp_server),
-        ("Playwright MCP", check_playwright_mcp),
-        ("Git Installation", check_git_installation),
-        ("Node.js / npm", check_node_npm),
-        ("Filesystem Permissions", check_filesystem_permissions),
-        ("Security Hooks", check_security_hooks),
-        ("Python Packages", check_python_packages),
-    ]
-
     passed = 0
     failed = 0
-    results: list[tuple[str, CheckResult]] = []
 
     print()
-    for name, check_func in checks:
+    for name, check_func in PREFLIGHT_CHECKS:
         try:
             result = check_func()
         except Exception as e:
@@ -399,13 +408,20 @@ def main() -> int:
                 message=f"Check raised exception: {e}",
             )
 
-        results.append((name, result))
         print_result(name, result)
 
         if result.passed:
             passed += 1
         else:
             failed += 1
+            if fail_fast:
+                print()
+                print("-" * 70)
+                print(f"  Results: {passed} passed, {failed} failed (stopped early)")
+                print("-" * 70)
+                print(f"\n  PREFLIGHT CHECK FAILED: {name}")
+                print("  Use --skip-preflight to bypass checks if needed.")
+                return False
 
     # Summary
     print()
@@ -416,11 +432,17 @@ def main() -> int:
     if failed == 0:
         print("\n  ALL PREFLIGHT CHECKS PASSED")
         print("  System is ready for agent operation.")
-        return 0
+        return True
     else:
         print(f"\n  {failed} CHECK(S) FAILED")
         print("  Please resolve the issues above before proceeding.")
-        return 1
+        return False
+
+
+def main() -> int:
+    """Run all preflight checks (CLI entry point)."""
+    all_passed = run_preflight_checks(fail_fast=False)
+    return 0 if all_passed else 1
 
 
 if __name__ == "__main__":
