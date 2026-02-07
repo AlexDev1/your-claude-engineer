@@ -3,7 +3,7 @@
 #
 # Test and development commands
 
-.PHONY: help test test-api test-e2e test-agent test-security test-all coverage lint format clean dev preflight
+.PHONY: help test test-api test-e2e test-agent test-security test-all coverage lint format clean dev preflight diagnose
 
 # Default target
 help:
@@ -20,10 +20,15 @@ help:
 	@echo "  dev           - Start development servers"
 	@echo "  install       - Install all dependencies"
 	@echo "  preflight     - Run preflight checks"
+	@echo "  diagnose      - Run self-diagnostics"
 
 # Run preflight checks
 preflight:
 	python preflight.py
+
+# Run self-diagnostics
+diagnose:
+	python self_diagnostics.py
 
 # Install dependencies
 install:
