@@ -1,6 +1,6 @@
 import React from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { BarChart3, Activity, ClipboardList, Settings as SettingsIcon } from 'lucide-react'
+import { BarChart3, Activity, ClipboardList, Settings as SettingsIcon, Upload, Download } from 'lucide-react'
 import ThemeToggle from './components/ThemeToggle'
 import { useTheme } from './context/ThemeContext'
 
@@ -11,6 +11,8 @@ function App() {
   const navItems = [
     { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { path: '/import', label: 'Import', icon: Upload },
+    { path: '/export', label: 'Export', icon: Download },
     { path: '/settings', label: 'Settings', icon: SettingsIcon },
   ]
 

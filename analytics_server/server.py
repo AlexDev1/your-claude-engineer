@@ -1057,6 +1057,726 @@ async def undo_last_operation() -> dict:
     return {"success": False, "message": "Unknown action type"}
 
 
+# =============================================================================
+# Data Import/Export Endpoints (ENG-48)
+# =============================================================================
+
+
+class ExportFormat(str, Enum):
+    """Export format options."""
+    JSON = "json"
+    CSV = "csv"
+    MARKDOWN = "markdown"
+
+
+class ImportConflictResolution(str, Enum):
+    """Conflict resolution strategies for import."""
+    SKIP = "skip"
+    UPDATE = "update"
+    DUPLICATE = "duplicate"
+
+
+class ImportPreviewRequest(BaseModel):
+    """Request for import preview."""
+    data: str  # JSON or CSV string
+    format: str = "json"
+    source: str = "generic"  # "generic", "linear", "github"
+
+
+class ImportExecuteRequest(BaseModel):
+    """Request to execute import."""
+    data: str
+    format: str = "json"
+    source: str = "generic"
+    conflict_resolution: ImportConflictResolution = ImportConflictResolution.SKIP
+    dry_run: bool = False
+
+
+class LinearImportRequest(BaseModel):
+    """Request for Linear import."""
+    data: str  # Linear export JSON string
+    conflict_resolution: ImportConflictResolution = ImportConflictResolution.SKIP
+    dry_run: bool = False
+
+
+class GitHubImportRequest(BaseModel):
+    """Request for GitHub import."""
+    owner: str
+    repo: str
+    labels: Optional[List[str]] = None
+    state: str = "open"  # "open", "closed", "all"
+    import_comments: bool = True
+    conflict_resolution: ImportConflictResolution = ImportConflictResolution.SKIP
+
+
+class BackupInfo(BaseModel):
+    """Backup metadata."""
+    filename: str
+    created_at: str
+    size_bytes: int
+    issue_count: int
+
+
+@app.get("/api/export/json")
+async def export_json(
+    team: str = Query("ENG", description="Team to filter by"),
+    include_comments: bool = Query(True, description="Include comments"),
+) -> dict:
+    """Export all issues as JSON with full fidelity."""
+    initialize_issues_store()
+
+    issues = [i for i in ISSUES_STORE.values() if i.get("team", "ENG") == team]
+
+    export_data = {
+        "version": "1.0.0",
+        "exported_at": datetime.now().isoformat(),
+        "team": team,
+        "projects": list(set(i.get("project") for i in issues if i.get("project"))),
+        "issue_count": len(issues),
+        "issues": issues if include_comments else [
+            {k: v for k, v in i.items() if k != "comments"} for i in issues
+        ],
+    }
+
+    return export_data
+
+
+@app.get("/api/export/csv")
+async def export_csv(
+    team: str = Query("ENG", description="Team to filter by"),
+) -> Response:
+    """Export issues as CSV (simplified format)."""
+    initialize_issues_store()
+
+    issues = [i for i in ISSUES_STORE.values() if i.get("team", "ENG") == team]
+
+    output = io.StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=["id", "title", "state", "priority", "created_at"],
+    )
+    writer.writeheader()
+
+    for issue in issues:
+        writer.writerow({
+            "id": issue.get("identifier", ""),
+            "title": issue.get("title", ""),
+            "state": issue.get("state", ""),
+            "priority": issue.get("priority", ""),
+            "created_at": issue.get("created_at", ""),
+        })
+
+    output.seek(0)
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=issues_{team}_{datetime.now().strftime('%Y%m%d')}.csv"
+        },
+    )
+
+
+@app.get("/api/export/markdown")
+async def export_markdown(
+    team: str = Query("ENG", description="Team to filter by"),
+) -> dict:
+    """Export issues as Markdown files (returns list of file contents)."""
+    initialize_issues_store()
+
+    issues = [i for i in ISSUES_STORE.values() if i.get("team", "ENG") == team]
+
+    markdown_files = []
+
+    for issue in issues:
+        md_content = f"""# {issue.get('identifier', 'Unknown')}: {issue.get('title', 'Untitled')}
+
+**State:** {issue.get('state', 'Unknown')}
+**Priority:** {issue.get('priority', 'none')}
+**Type:** {issue.get('issue_type', 'Task')}
+**Created:** {issue.get('created_at', 'Unknown')}
+**Updated:** {issue.get('updated_at', 'Unknown')}
+
+## Description
+
+{issue.get('description', 'No description provided.')}
+
+## Comments
+
+"""
+        comments = issue.get('comments', [])
+        if comments:
+            for comment in comments:
+                md_content += f"### {comment.get('author', 'Unknown')} - {comment.get('created_at', '')}\n\n"
+                md_content += f"{comment.get('content', '')}\n\n"
+        else:
+            md_content += "_No comments yet._\n"
+
+        markdown_files.append({
+            "filename": f"{issue.get('identifier', 'unknown')}.md",
+            "content": md_content,
+        })
+
+    return {
+        "exported_at": datetime.now().isoformat(),
+        "team": team,
+        "file_count": len(markdown_files),
+        "files": markdown_files,
+    }
+
+
+@app.post("/api/import/preview")
+async def import_preview(request: ImportPreviewRequest) -> dict:
+    """Preview import data before executing."""
+    initialize_issues_store()
+
+    try:
+        if request.format == "json":
+            data = json.loads(request.data)
+            issues = data.get("issues", data) if isinstance(data, dict) else data
+        elif request.format == "csv":
+            reader = csv.DictReader(io.StringIO(request.data))
+            issues = []
+            for row in reader:
+                issues.append({
+                    "identifier": row.get("id", ""),
+                    "title": row.get("title", ""),
+                    "state": row.get("state", "Todo"),
+                    "priority": row.get("priority", "medium"),
+                    "created_at": row.get("created_at", datetime.now().isoformat()),
+                })
+        else:
+            return {"error": f"Unsupported format: {request.format}"}
+
+        # Check for conflicts
+        existing_ids = set(ISSUES_STORE.keys())
+        new_issues = []
+        conflicts = []
+
+        for issue in issues:
+            issue_id = issue.get("identifier", "")
+            if issue_id in existing_ids:
+                conflicts.append({
+                    "id": issue_id,
+                    "existing_title": ISSUES_STORE[issue_id].get("title", ""),
+                    "new_title": issue.get("title", ""),
+                })
+            else:
+                new_issues.append(issue)
+
+        return {
+            "success": True,
+            "total_items": len(issues),
+            "new_items": len(new_issues),
+            "conflicts": len(conflicts),
+            "conflict_details": conflicts[:10],  # Limit for preview
+            "preview": issues[:5],  # First 5 for preview
+        }
+
+    except json.JSONDecodeError as e:
+        return {"success": False, "error": f"Invalid JSON: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/import/execute")
+async def import_execute(request: ImportExecuteRequest) -> dict:
+    """Execute the import with conflict resolution."""
+    global ISSUE_COUNTER
+    initialize_issues_store()
+
+    try:
+        if request.format == "json":
+            data = json.loads(request.data)
+            issues = data.get("issues", data) if isinstance(data, dict) else data
+        elif request.format == "csv":
+            reader = csv.DictReader(io.StringIO(request.data))
+            issues = []
+            for row in reader:
+                issues.append({
+                    "identifier": row.get("id", ""),
+                    "title": row.get("title", ""),
+                    "description": row.get("description", ""),
+                    "state": row.get("state", "Todo"),
+                    "priority": row.get("priority", "medium"),
+                    "issue_type": "Task",
+                    "team": "ENG",
+                    "project": None,
+                    "parent_id": None,
+                    "dependencies": [],
+                    "comments": [],
+                    "created_at": row.get("created_at", datetime.now().isoformat()),
+                    "updated_at": datetime.now().isoformat(),
+                    "completed_at": None,
+                })
+        else:
+            return {"error": f"Unsupported format: {request.format}"}
+
+        results = {"created": 0, "updated": 0, "skipped": 0, "errors": []}
+
+        for issue in issues:
+            issue_id = issue.get("identifier", "")
+
+            try:
+                if issue_id in ISSUES_STORE:
+                    if request.conflict_resolution == ImportConflictResolution.SKIP:
+                        results["skipped"] += 1
+                    elif request.conflict_resolution == ImportConflictResolution.UPDATE:
+                        if not request.dry_run:
+                            ISSUES_STORE[issue_id].update({
+                                "title": issue.get("title", ISSUES_STORE[issue_id]["title"]),
+                                "description": issue.get("description", ISSUES_STORE[issue_id].get("description", "")),
+                                "state": issue.get("state", ISSUES_STORE[issue_id]["state"]),
+                                "priority": issue.get("priority", ISSUES_STORE[issue_id]["priority"]),
+                                "updated_at": datetime.now().isoformat(),
+                            })
+                        results["updated"] += 1
+                    elif request.conflict_resolution == ImportConflictResolution.DUPLICATE:
+                        ISSUE_COUNTER += 1
+                        new_id = f"ENG-{ISSUE_COUNTER}"
+                        if not request.dry_run:
+                            issue["identifier"] = new_id
+                            issue["updated_at"] = datetime.now().isoformat()
+                            issue.setdefault("comments", [])
+                            issue.setdefault("dependencies", [])
+                            ISSUES_STORE[new_id] = issue
+                        results["created"] += 1
+                else:
+                    if not issue_id:
+                        ISSUE_COUNTER += 1
+                        issue_id = f"ENG-{ISSUE_COUNTER}"
+                        issue["identifier"] = issue_id
+
+                    if not request.dry_run:
+                        issue.setdefault("team", "ENG")
+                        issue.setdefault("project", None)
+                        issue.setdefault("parent_id", None)
+                        issue.setdefault("dependencies", [])
+                        issue.setdefault("comments", [])
+                        issue.setdefault("updated_at", datetime.now().isoformat())
+                        issue.setdefault("completed_at", None)
+                        ISSUES_STORE[issue_id] = issue
+                    results["created"] += 1
+
+            except Exception as e:
+                results["errors"].append({"id": issue_id, "error": str(e)})
+
+        return {
+            "success": True,
+            "dry_run": request.dry_run,
+            "results": results,
+            "total_issues_after": len(ISSUES_STORE),
+        }
+
+    except json.JSONDecodeError as e:
+        return {"success": False, "error": f"Invalid JSON: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/import/linear")
+async def import_linear(request: LinearImportRequest) -> dict:
+    """Import from Linear export JSON."""
+    global ISSUE_COUNTER
+    initialize_issues_store()
+
+    try:
+        data = json.loads(request.data)
+
+        # Linear exports issues in a specific format
+        linear_issues = data.get("issues", [])
+        if not linear_issues and isinstance(data, list):
+            linear_issues = data
+
+        # Linear state mapping
+        state_map = {
+            "backlog": "Todo",
+            "unstarted": "Todo",
+            "started": "In Progress",
+            "in_progress": "In Progress",
+            "completed": "Done",
+            "done": "Done",
+            "canceled": "Cancelled",
+            "cancelled": "Cancelled",
+        }
+
+        # Linear priority mapping (Linear uses 0-4 urgency)
+        priority_map = {
+            0: "none",
+            1: "urgent",
+            2: "high",
+            3: "medium",
+            4: "low",
+        }
+
+        results = {"created": 0, "updated": 0, "skipped": 0, "errors": []}
+
+        for linear_issue in linear_issues:
+            try:
+                # Map Linear fields to our format
+                linear_id = linear_issue.get("identifier") or linear_issue.get("id", "")
+
+                # Create issue ID (preserve Linear ID in metadata)
+                ISSUE_COUNTER += 1
+                issue_id = f"ENG-{ISSUE_COUNTER}"
+
+                # Map state
+                linear_state = (linear_issue.get("state", {}).get("name", "") or
+                               linear_issue.get("state", "") or "").lower()
+                mapped_state = state_map.get(linear_state, "Todo")
+
+                # Map priority
+                linear_priority = linear_issue.get("priority", 3)
+                if isinstance(linear_priority, dict):
+                    linear_priority = linear_priority.get("value", 3)
+                mapped_priority = priority_map.get(linear_priority, "medium")
+
+                # Map labels to priority if priority not set
+                labels = linear_issue.get("labels", [])
+                for label in labels:
+                    label_name = label.get("name", "").lower() if isinstance(label, dict) else label.lower()
+                    if label_name in ["urgent", "critical"]:
+                        mapped_priority = "urgent"
+                    elif label_name in ["high", "important"]:
+                        mapped_priority = "high"
+                    elif label_name in ["low", "minor"]:
+                        mapped_priority = "low"
+
+                issue = {
+                    "identifier": issue_id,
+                    "title": linear_issue.get("title", "Untitled"),
+                    "description": linear_issue.get("description", ""),
+                    "state": mapped_state,
+                    "priority": mapped_priority,
+                    "issue_type": "Task",
+                    "team": "ENG",
+                    "project": linear_issue.get("project", {}).get("name") if isinstance(linear_issue.get("project"), dict) else None,
+                    "parent_id": None,
+                    "dependencies": [],
+                    "comments": [],
+                    "created_at": linear_issue.get("createdAt", datetime.now().isoformat()),
+                    "updated_at": linear_issue.get("updatedAt", datetime.now().isoformat()),
+                    "completed_at": linear_issue.get("completedAt"),
+                    "metadata": {
+                        "linear_id": linear_id,
+                        "linear_url": linear_issue.get("url", ""),
+                        "imported_from": "linear",
+                        "imported_at": datetime.now().isoformat(),
+                    },
+                }
+
+                # Import comments
+                linear_comments = linear_issue.get("comments", [])
+                for lc in linear_comments:
+                    issue["comments"].append({
+                        "id": str(uuid.uuid4())[:8],
+                        "author": lc.get("user", {}).get("name", "Linear User") if isinstance(lc.get("user"), dict) else "Linear User",
+                        "content": lc.get("body", ""),
+                        "created_at": lc.get("createdAt", datetime.now().isoformat()),
+                    })
+
+                if not request.dry_run:
+                    ISSUES_STORE[issue_id] = issue
+                results["created"] += 1
+
+            except Exception as e:
+                results["errors"].append({"linear_id": linear_id, "error": str(e)})
+
+        return {
+            "success": True,
+            "dry_run": request.dry_run,
+            "source": "linear",
+            "results": results,
+            "total_issues_after": len(ISSUES_STORE),
+        }
+
+    except json.JSONDecodeError as e:
+        return {"success": False, "error": f"Invalid Linear JSON: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/import/github")
+async def import_github(request: GitHubImportRequest) -> dict:
+    """Import issues from GitHub repository."""
+    global ISSUE_COUNTER
+    initialize_issues_store()
+
+    github_token = os.environ.get("GITHUB_TOKEN", "")
+
+    if not github_token:
+        return {"success": False, "error": "GITHUB_TOKEN not configured"}
+
+    try:
+        headers = {
+            "Authorization": f"token {github_token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+
+        # Build API URL
+        url = f"https://api.github.com/repos/{request.owner}/{request.repo}/issues"
+        params = {"state": request.state, "per_page": 100}
+        if request.labels:
+            params["labels"] = ",".join(request.labels)
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers, params=params, timeout=30.0)
+
+            if response.status_code != 200:
+                return {
+                    "success": False,
+                    "error": f"GitHub API error: {response.status_code} - {response.text}",
+                }
+
+            github_issues = response.json()
+
+        # GitHub priority mapping (from labels)
+        priority_keywords = {
+            "urgent": "urgent",
+            "critical": "urgent",
+            "high": "high",
+            "important": "high",
+            "medium": "medium",
+            "low": "low",
+            "minor": "low",
+        }
+
+        results = {"created": 0, "updated": 0, "skipped": 0, "errors": []}
+
+        for gh_issue in github_issues:
+            # Skip pull requests
+            if "pull_request" in gh_issue:
+                continue
+
+            try:
+                gh_id = gh_issue.get("number", "")
+                gh_title = gh_issue.get("title", "Untitled")
+
+                # Check for existing import
+                existing = None
+                for eid, eissue in ISSUES_STORE.items():
+                    meta = eissue.get("metadata", {})
+                    if meta.get("github_number") == gh_id and meta.get("github_repo") == f"{request.owner}/{request.repo}":
+                        existing = eid
+                        break
+
+                if existing:
+                    if request.conflict_resolution == ImportConflictResolution.SKIP:
+                        results["skipped"] += 1
+                        continue
+                    elif request.conflict_resolution == ImportConflictResolution.UPDATE:
+                        # Update existing
+                        ISSUES_STORE[existing]["title"] = gh_title
+                        ISSUES_STORE[existing]["description"] = gh_issue.get("body", "") or ""
+                        ISSUES_STORE[existing]["updated_at"] = datetime.now().isoformat()
+                        results["updated"] += 1
+                        continue
+
+                # Determine priority from labels
+                priority = "medium"
+                gh_labels = gh_issue.get("labels", [])
+                for label in gh_labels:
+                    label_name = label.get("name", "").lower() if isinstance(label, dict) else label.lower()
+                    for keyword, prio in priority_keywords.items():
+                        if keyword in label_name:
+                            priority = prio
+                            break
+
+                # Map state
+                state = "Done" if gh_issue.get("state") == "closed" else "Todo"
+
+                ISSUE_COUNTER += 1
+                issue_id = f"ENG-{ISSUE_COUNTER}"
+
+                issue = {
+                    "identifier": issue_id,
+                    "title": gh_title,
+                    "description": gh_issue.get("body", "") or "",
+                    "state": state,
+                    "priority": priority,
+                    "issue_type": "Bug" if any("bug" in (l.get("name", "") if isinstance(l, dict) else l).lower() for l in gh_labels) else "Task",
+                    "team": "ENG",
+                    "project": f"{request.owner}/{request.repo}",
+                    "parent_id": None,
+                    "dependencies": [],
+                    "comments": [],
+                    "created_at": gh_issue.get("created_at", datetime.now().isoformat()),
+                    "updated_at": gh_issue.get("updated_at", datetime.now().isoformat()),
+                    "completed_at": gh_issue.get("closed_at"),
+                    "metadata": {
+                        "github_number": gh_id,
+                        "github_repo": f"{request.owner}/{request.repo}",
+                        "github_url": gh_issue.get("html_url", ""),
+                        "imported_from": "github",
+                        "imported_at": datetime.now().isoformat(),
+                    },
+                }
+
+                # Import comments if requested
+                if request.import_comments:
+                    comments_url = gh_issue.get("comments_url", "")
+                    if comments_url:
+                        async with httpx.AsyncClient() as client:
+                            comments_response = await client.get(comments_url, headers=headers, timeout=30.0)
+                            if comments_response.status_code == 200:
+                                gh_comments = comments_response.json()
+                                for gc in gh_comments:
+                                    issue["comments"].append({
+                                        "id": str(uuid.uuid4())[:8],
+                                        "author": gc.get("user", {}).get("login", "GitHub User"),
+                                        "content": gc.get("body", ""),
+                                        "created_at": gc.get("created_at", datetime.now().isoformat()),
+                                    })
+
+                ISSUES_STORE[issue_id] = issue
+                results["created"] += 1
+
+            except Exception as e:
+                results["errors"].append({"github_number": gh_id, "error": str(e)})
+
+        return {
+            "success": True,
+            "source": "github",
+            "repo": f"{request.owner}/{request.repo}",
+            "results": results,
+            "total_issues_after": len(ISSUES_STORE),
+        }
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# =============================================================================
+# Backup Endpoints
+# =============================================================================
+
+BACKUPS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backups")
+
+
+@app.get("/api/backups")
+async def list_backups() -> dict:
+    """List available backups."""
+    if not os.path.exists(BACKUPS_DIR):
+        return {"backups": [], "total": 0}
+
+    backups = []
+    for filename in os.listdir(BACKUPS_DIR):
+        if filename.endswith(".json"):
+            filepath = os.path.join(BACKUPS_DIR, filename)
+            stat = os.stat(filepath)
+
+            # Parse issue count from backup
+            try:
+                with open(filepath, "r") as f:
+                    backup_data = json.load(f)
+                    issue_count = backup_data.get("issue_count", 0)
+            except Exception:
+                issue_count = 0
+
+            backups.append({
+                "filename": filename,
+                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "size_bytes": stat.st_size,
+                "issue_count": issue_count,
+            })
+
+    # Sort by creation date, newest first
+    backups.sort(key=lambda x: x["created_at"], reverse=True)
+
+    return {"backups": backups, "total": len(backups)}
+
+
+@app.post("/api/backups/create")
+async def create_backup() -> dict:
+    """Create a new backup."""
+    initialize_issues_store()
+
+    os.makedirs(BACKUPS_DIR, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"backup_{timestamp}.json"
+    filepath = os.path.join(BACKUPS_DIR, filename)
+
+    backup_data = {
+        "version": "1.0.0",
+        "created_at": datetime.now().isoformat(),
+        "issue_count": len(ISSUES_STORE),
+        "issues": list(ISSUES_STORE.values()),
+    }
+
+    with open(filepath, "w") as f:
+        json.dump(backup_data, f, indent=2, default=str)
+
+    stat = os.stat(filepath)
+
+    return {
+        "success": True,
+        "backup": {
+            "filename": filename,
+            "created_at": backup_data["created_at"],
+            "size_bytes": stat.st_size,
+            "issue_count": backup_data["issue_count"],
+        },
+    }
+
+
+@app.post("/api/backups/restore/{filename}")
+async def restore_backup(filename: str) -> dict:
+    """Restore from a backup."""
+    global ISSUES_STORE, ISSUE_COUNTER
+
+    filepath = os.path.join(BACKUPS_DIR, filename)
+
+    if not os.path.exists(filepath):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Backup {filename} not found")
+
+    try:
+        with open(filepath, "r") as f:
+            backup_data = json.load(f)
+
+        issues = backup_data.get("issues", [])
+
+        # Clear and restore
+        ISSUES_STORE.clear()
+        max_id = 50
+
+        for issue in issues:
+            issue_id = issue.get("identifier", "")
+            ISSUES_STORE[issue_id] = issue
+
+            # Track max ID
+            try:
+                num = int(issue_id.split("-")[1])
+                max_id = max(max_id, num)
+            except (ValueError, IndexError):
+                pass
+
+        ISSUE_COUNTER = max_id
+
+        return {
+            "success": True,
+            "restored_issues": len(issues),
+            "backup_date": backup_data.get("created_at", "Unknown"),
+        }
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.delete("/api/backups/{filename}")
+async def delete_backup(filename: str) -> dict:
+    """Delete a backup file."""
+    filepath = os.path.join(BACKUPS_DIR, filename)
+
+    if not os.path.exists(filepath):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Backup {filename} not found")
+
+    os.remove(filepath)
+
+    return {"success": True, "deleted": filename}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8003)
