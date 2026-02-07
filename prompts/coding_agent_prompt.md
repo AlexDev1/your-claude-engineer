@@ -85,10 +85,9 @@ python scripts/generate_project_map.py
 ```
 This keeps `.agent/PROJECT_MAP.md` current for future sessions.
 
-### GitHub (when configured)
-- Branch: `agent/{issue-id}` from main
-- Push with `-u origin agent/{issue-id}`
-- Create PR on completion
+### Git Workflow
+- Commit directly to main (no feature branches)
+- Do NOT create branches or PRs
 
 ### Task Types
 

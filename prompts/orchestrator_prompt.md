@@ -110,10 +110,9 @@ Subtasks:
 - **Review required**: Always review before commit (except docs-only changes)
 - Auto-approve: Only .md files, <20 lines changed, config-only
 
-### GitHub (if GITHUB_TOKEN set)
-- Branch: `agent/{issue-id}` from main
-- Push after commit, create PR when marking Done
-- Pass PR URL to task agent
+### Git Workflow
+- Commit directly to main (no feature branches)
+- Do NOT create branches or PRs
 
 ### Telegram
 | Event | Message |
