@@ -25,6 +25,29 @@ task agent: List Todo and In Progress for {team}
 
 If no Todo/In Progress: telegram ":tada: All complete!" then `ALL_TASKS_DONE:` and stop.
 
+### 1.5 Check for Epic (ENG-27)
+
+After getting task, check if it's an Epic (decomposed task):
+- Look for comment starting with "Epic: This task has been decomposed"
+- If found, extract subtask IDs from the comment
+
+**If Task is Epic:**
+1. List all subtask IDs from Epic comment
+2. Check status of each subtask via task agent
+3. Find first subtask that is NOT Done
+4. If all subtasks Done:
+   - Mark Epic as Done
+   - telegram: ":white_check_mark: Epic completed: [title]"
+   - Return to Step 1 for next task
+5. If incomplete subtask found:
+   - Report Epic progress: "Epic [id]: 3/5 subtasks done"
+   - Continue with incomplete subtask as current task
+
+**If Task is NOT Epic:**
+- Check if Large task (see evaluate_task.md Step 1.5)
+- If Large and not yet decomposed: decompose it
+- Otherwise: continue normally
+
 ### 2. Start
 task agent: Transition to In Progress (if needed)
 telegram: ":construction: Starting: [title]" or ":repeat: Resuming: [title]"

@@ -8,6 +8,41 @@ task agent: "List Todo issues for {team}, return highest priority (urgent>high>m
 
 If no Todo: telegram ":tada: All tasks complete!" then output `ALL_TASKS_DONE:` and stop.
 
+### 1.5 Evaluate Task Size (ENG-27)
+
+Check if task is Large based on:
+- **Keywords**: "create service", "build dashboard", "implement pipeline", "full", "complete", "entire", "web app", "API server", "new project"
+- **Scope**: Multiple components, 5+ files expected, 300+ lines estimated
+
+**If Large Task → Decompose:**
+1. Analyze task description, break into 3-7 logical subtasks
+2. Create each subtask via task agent (Task_CreateIssue):
+   - Title: "[Parent Title]: [Subtask description]"
+   - Priority: Same as parent
+   - Description: Specific scope for this subtask
+3. Add comment to original task:
+   ```
+   Epic: This task has been decomposed into subtasks:
+   - [subtask-id-1]: [title]
+   - [subtask-id-2]: [title]
+   ...
+   Will mark Done when all subtasks complete.
+   ```
+4. Continue with first subtask as current task
+
+**Decomposition Example:**
+```
+Original: "Build Web Dashboard" (ENG-50)
+Subtasks created:
+- ENG-51: "Build Web Dashboard: REST API endpoints"
+- ENG-52: "Build Web Dashboard: React project setup"
+- ENG-53: "Build Web Dashboard: Projects list page"
+- ENG-54: "Build Web Dashboard: Kanban board component"
+- ENG-55: "Build Web Dashboard: Docker integration"
+```
+
+**If Small/Medium Task:** Continue to Step 2 (no decomposition needed).
+
 ### 2. Start
 task agent: Transition to In Progress
 telegram: ":construction: Starting: [title] ([id])"
