@@ -9,6 +9,7 @@ import Settings from './pages/Settings'
 import Import from './pages/Import'
 import Export from './pages/Export'
 import './styles/themes.css'
+import './styles/mobile.css'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(

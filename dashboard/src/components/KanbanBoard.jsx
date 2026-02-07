@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
-import { GripVertical, Flag, MessageSquare, Link2, Clock, CheckCircle2 } from 'lucide-react'
+import { GripVertical, Flag, MessageSquare, Link2, Clock, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
 import QuickActions from './QuickActions'
+import SwipeableCard from './SwipeableCard'
 
 const COLUMNS = [
   { id: 'Todo', label: 'Todo', color: '#6b7280' },
@@ -16,6 +17,14 @@ const PRIORITY_COLORS = {
   low: '#22c55e',
 }
 
+// State transition map for swipe actions
+const STATE_TRANSITIONS = {
+  'Todo': { left: 'In Progress', right: 'Cancelled' },
+  'In Progress': { left: 'Done', right: 'Todo' },
+  'Done': { left: null, right: 'In Progress' },
+  'Cancelled': { left: 'Todo', right: null },
+}
+
 function KanbanBoard({
   issues,
   onStateChange,
@@ -28,17 +37,32 @@ function KanbanBoard({
 }) {
   const [draggedIssue, setDraggedIssue] = useState(null)
   const [dragOverColumn, setDragOverColumn] = useState(null)
+  const [collapsedColumns, setCollapsedColumns] = useState({})
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
   const dragCounter = useRef(0)
+
+  // Check for mobile on resize
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const getIssuesByState = (state) => {
     return issues.filter(issue => issue.state === state)
+  }
+
+  const toggleColumnCollapse = (columnId) => {
+    setCollapsedColumns(prev => ({
+      ...prev,
+      [columnId]: !prev[columnId]
+    }))
   }
 
   const handleDragStart = (e, issue) => {
     setDraggedIssue(issue)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', issue.identifier)
-    // Add drag ghost styling
     e.target.style.opacity = '0.5'
   }
 
@@ -73,7 +97,6 @@ function KanbanBoard({
     setDragOverColumn(null)
 
     if (draggedIssue && draggedIssue.state !== columnId) {
-      // Check if transition is valid
       const validTransitions = {
         'Todo': ['In Progress', 'Cancelled'],
         'In Progress': ['Todo', 'Done', 'Cancelled'],
@@ -90,17 +113,28 @@ function KanbanBoard({
 
   const handleCardClick = (e, issue) => {
     if (e.shiftKey && selectedIssues.length > 0) {
-      // Shift+Click: select range
       onSelectMultiple(issue.identifier, true)
     } else if (e.ctrlKey || e.metaKey) {
-      // Ctrl/Cmd+Click: toggle selection
       onSelectIssue(issue.identifier)
     }
-    // Regular click is handled by QuickActions or double-click
   }
 
   const handleCardDoubleClick = (issue) => {
     onEdit(issue)
+  }
+
+  const handleSwipeLeft = (issue) => {
+    const nextState = STATE_TRANSITIONS[issue.state]?.left
+    if (nextState) {
+      onStateChange(issue.identifier, nextState)
+    }
+  }
+
+  const handleSwipeRight = (issue) => {
+    const nextState = STATE_TRANSITIONS[issue.state]?.right
+    if (nextState) {
+      onStateChange(issue.identifier, nextState)
+    }
   }
 
   const isValidDropTarget = (columnId) => {
@@ -117,17 +151,159 @@ function KanbanBoard({
     return validTransitions[draggedIssue.state]?.includes(columnId)
   }
 
+  const renderCard = (issue, column) => {
+    const isSelected = selectedIssues.includes(issue.identifier)
+    const priorityColor = PRIORITY_COLORS[issue.priority] || PRIORITY_COLORS.medium
+    const transitions = STATE_TRANSITIONS[issue.state]
+
+    const cardContent = (
+      <div
+        key={issue.identifier}
+        draggable={!isMobile}
+        onDragStart={(e) => handleDragStart(e, issue)}
+        onDragEnd={handleDragEnd}
+        onClick={(e) => handleCardClick(e, issue)}
+        onDoubleClick={() => handleCardDoubleClick(issue)}
+        className="group rounded-lg p-3 cursor-grab active:cursor-grabbing transition-all border touch-target"
+        style={{
+          backgroundColor: 'var(--color-cardBg)',
+          borderColor: isSelected
+            ? 'var(--color-accent)'
+            : 'transparent',
+          boxShadow: isSelected
+            ? '0 0 0 1px var(--color-accent)'
+            : 'none',
+          opacity: draggedIssue?.identifier === issue.identifier ? 0.5 : 1
+        }}
+        onMouseEnter={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.backgroundColor = 'var(--color-bgTertiary)'
+            e.currentTarget.style.borderColor = 'var(--color-border)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.backgroundColor = 'var(--color-cardBg)'
+            e.currentTarget.style.borderColor = 'transparent'
+          }
+        }}
+      >
+        {/* Card Header */}
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center space-x-2">
+            <GripVertical
+              className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block"
+              style={{ color: 'var(--color-textMuted)' }}
+            />
+            <span
+              className="text-xs"
+              style={{ color: 'var(--color-textSecondary)' }}
+            >
+              {issue.identifier}
+            </span>
+            <span
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: priorityColor }}
+              title={issue.priority}
+            />
+          </div>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <QuickActions
+              issue={issue}
+              onPriorityChange={onPriorityChange}
+              onStateChange={onStateChange}
+              onCommentAdd={onCommentAdd}
+              onEdit={onEdit}
+            />
+          </div>
+        </div>
+
+        {/* Card Title */}
+        <h4
+          className="text-sm font-medium mb-2 line-clamp-2"
+          style={{ color: 'var(--color-text)' }}
+        >
+          {issue.title}
+        </h4>
+
+        {/* Card Meta */}
+        <div
+          className="flex items-center justify-between text-xs"
+          style={{ color: 'var(--color-textSecondary)' }}
+        >
+          <div className="flex items-center space-x-2">
+            {issue.issue_type && (
+              <span
+                className="px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+              >
+                {issue.issue_type}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {issue.dependencies?.length > 0 && (
+              <span className="flex items-center" title={`${issue.dependencies.length} dependencies`}>
+                <Link2 className="w-3 h-3" />
+              </span>
+            )}
+            {issue.comments?.length > 0 && (
+              <span className="flex items-center" title={`${issue.comments.length} comments`}>
+                <MessageSquare className="w-3 h-3 mr-0.5" />
+                {issue.comments.length}
+              </span>
+            )}
+            {issue.state === 'Done' && issue.completed_at && (
+              <span className="flex items-center" style={{ color: '#22c55e' }} title="Completed">
+                <CheckCircle2 className="w-3 h-3" />
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile swipe hint */}
+        {isMobile && (transitions.left || transitions.right) && (
+          <div
+            className="flex items-center justify-center mt-2 pt-2 border-t text-xs"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-textMuted)' }}
+          >
+            {transitions.right && <span className="mr-2">Swipe right: {transitions.right}</span>}
+            {transitions.left && <span>Swipe left: {transitions.left}</span>}
+          </div>
+        )}
+      </div>
+    )
+
+    // Wrap in SwipeableCard for mobile
+    if (isMobile && (transitions.left || transitions.right)) {
+      return (
+        <SwipeableCard
+          key={issue.identifier}
+          onSwipeLeft={transitions.left ? () => handleSwipeLeft(issue) : undefined}
+          onSwipeRight={transitions.right ? () => handleSwipeRight(issue) : undefined}
+          leftLabel={transitions.left || ''}
+          rightLabel={transitions.right || ''}
+        >
+          {cardContent}
+        </SwipeableCard>
+      )
+    }
+
+    return cardContent
+  }
+
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className={`${isMobile ? 'flex flex-col gap-4' : 'flex gap-4 overflow-x-auto'} pb-4`}>
       {COLUMNS.map(column => {
         const columnIssues = getIssuesByState(column.id)
         const isDropTarget = isValidDropTarget(column.id)
         const isDragOver = dragOverColumn === column.id
+        const isCollapsed = collapsedColumns[column.id]
 
         return (
           <div
             key={column.id}
-            className="flex-1 min-w-[280px] max-w-[350px] rounded-xl border transition-all"
+            className={`${isMobile ? 'w-full' : 'flex-1 min-w-[280px] max-w-[350px]'} rounded-xl border transition-all`}
             style={{
               backgroundColor: isDragOver && isDropTarget
                 ? 'var(--color-bgTertiary)'
@@ -143,8 +319,9 @@ function KanbanBoard({
             onDrop={(e) => handleDrop(e, column.id)}
           >
             {/* Column Header */}
-            <div
-              className="flex items-center justify-between p-3 border-b"
+            <button
+              onClick={() => isMobile && toggleColumnCollapse(column.id)}
+              className="flex items-center justify-between w-full p-3 border-b"
               style={{ borderColor: 'var(--color-border)' }}
             >
               <div className="flex items-center space-x-2">
@@ -168,136 +345,33 @@ function KanbanBoard({
                   {columnIssues.length}
                 </span>
               </div>
-            </div>
+              {isMobile && (
+                <span style={{ color: 'var(--color-textMuted)' }}>
+                  {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </span>
+              )}
+            </button>
 
             {/* Cards */}
-            <div className="p-2 space-y-2 min-h-[200px] max-h-[600px] overflow-y-auto">
-              {columnIssues.map(issue => {
-                const isSelected = selectedIssues.includes(issue.identifier)
-                const priorityColor = PRIORITY_COLORS[issue.priority] || PRIORITY_COLORS.medium
+            {(!isMobile || !isCollapsed) && (
+              <div className={`p-2 space-y-2 ${isMobile ? '' : 'min-h-[200px] max-h-[600px] overflow-y-auto'}`}>
+                {columnIssues.map(issue => renderCard(issue, column))}
 
-                return (
+                {/* Empty State */}
+                {columnIssues.length === 0 && (
                   <div
-                    key={issue.identifier}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, issue)}
-                    onDragEnd={handleDragEnd}
-                    onClick={(e) => handleCardClick(e, issue)}
-                    onDoubleClick={() => handleCardDoubleClick(issue)}
-                    className="group rounded-lg p-3 cursor-grab active:cursor-grabbing transition-all border"
-                    style={{
-                      backgroundColor: 'var(--color-cardBg)',
-                      borderColor: isSelected
-                        ? 'var(--color-accent)'
-                        : 'transparent',
-                      boxShadow: isSelected
-                        ? '0 0 0 1px var(--color-accent)'
-                        : 'none',
-                      opacity: draggedIssue?.identifier === issue.identifier ? 0.5 : 1
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bgTertiary)'
-                        e.currentTarget.style.borderColor = 'var(--color-border)'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = 'var(--color-cardBg)'
-                        e.currentTarget.style.borderColor = 'transparent'
-                      }
-                    }}
+                    className="flex items-center justify-center h-32 text-sm"
+                    style={{ color: 'var(--color-textMuted)' }}
                   >
-                    {/* Card Header */}
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <GripVertical
-                          className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                          style={{ color: 'var(--color-textMuted)' }}
-                        />
-                        <span
-                          className="text-xs"
-                          style={{ color: 'var(--color-textSecondary)' }}
-                        >
-                          {issue.identifier}
-                        </span>
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: priorityColor }}
-                          title={issue.priority}
-                        />
-                      </div>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <QuickActions
-                          issue={issue}
-                          onPriorityChange={onPriorityChange}
-                          onStateChange={onStateChange}
-                          onCommentAdd={onCommentAdd}
-                          onEdit={onEdit}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Card Title */}
-                    <h4
-                      className="text-sm font-medium mb-2 line-clamp-2"
-                      style={{ color: 'var(--color-text)' }}
-                    >
-                      {issue.title}
-                    </h4>
-
-                    {/* Card Meta */}
-                    <div
-                      className="flex items-center justify-between text-xs"
-                      style={{ color: 'var(--color-textSecondary)' }}
-                    >
-                      <div className="flex items-center space-x-2">
-                        {issue.issue_type && (
-                          <span
-                            className="px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-                          >
-                            {issue.issue_type}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {issue.dependencies?.length > 0 && (
-                          <span className="flex items-center" title={`${issue.dependencies.length} dependencies`}>
-                            <Link2 className="w-3 h-3" />
-                          </span>
-                        )}
-                        {issue.comments?.length > 0 && (
-                          <span className="flex items-center" title={`${issue.comments.length} comments`}>
-                            <MessageSquare className="w-3 h-3 mr-0.5" />
-                            {issue.comments.length}
-                          </span>
-                        )}
-                        {issue.state === 'Done' && issue.completed_at && (
-                          <span className="flex items-center" style={{ color: '#22c55e' }} title="Completed">
-                            <CheckCircle2 className="w-3 h-3" />
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    {draggedIssue && isDropTarget ? (
+                      <span>Drop here to move</span>
+                    ) : (
+                      <span>No issues</span>
+                    )}
                   </div>
-                )
-              })}
-
-              {/* Empty State */}
-              {columnIssues.length === 0 && (
-                <div
-                  className="flex items-center justify-center h-32 text-sm"
-                  style={{ color: 'var(--color-textMuted)' }}
-                >
-                  {draggedIssue && isDropTarget ? (
-                    <span>Drop here to move</span>
-                  ) : (
-                    <span>No issues</span>
-                  )}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )
       })}

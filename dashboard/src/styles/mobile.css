@@ -1,0 +1,409 @@
+/* Mobile-first responsive styles */
+
+/* Touch-friendly tap targets */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Pull to refresh indicator */
+.pull-to-refresh {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: transform 0.2s ease;
+}
+
+.pull-to-refresh.pulling {
+  transform: translateX(-50%) translateY(60px);
+}
+
+.pull-to-refresh.refreshing {
+  transform: translateX(-50%) translateY(60px);
+}
+
+/* Swipe gesture feedback */
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.2s ease;
+}
+
+.swipe-actions-left {
+  left: 0;
+  padding-left: 16px;
+  background: linear-gradient(to right, var(--color-accent), transparent);
+}
+
+.swipe-actions-right {
+  right: 0;
+  padding-right: 16px;
+  background: linear-gradient(to left, var(--color-accent), transparent);
+}
+
+/* Mobile card layout for tables */
+@media (max-width: 639px) {
+  .mobile-card-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mobile-card-layout .table-row {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border-radius: 12px;
+    background-color: var(--color-cardBg);
+    border: 1px solid var(--color-cardBorder);
+  }
+
+  .mobile-card-layout .table-row .row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .mobile-card-layout .table-row .row-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* Mobile Kanban - single column scroll */
+@media (max-width: 639px) {
+  .kanban-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-x: hidden;
+  }
+
+  .kanban-mobile .kanban-column {
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
+  }
+
+  /* Horizontal scroll hint */
+  .kanban-mobile .column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .kanban-mobile .column-header .collapse-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--color-textMuted);
+  }
+}
+
+/* Simplified mobile charts */
+@media (max-width: 639px) {
+  .chart-container {
+    height: 200px !important;
+    min-height: 200px !important;
+  }
+
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .chart-legend-item {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: var(--color-bgTertiary);
+  }
+}
+
+/* Mobile header adjustments */
+@media (max-width: 767px) {
+  .mobile-header {
+    padding: 12px 16px;
+  }
+
+  .mobile-header .desktop-nav {
+    display: none;
+  }
+
+  .mobile-header .logo-text {
+    font-size: 16px;
+  }
+}
+
+/* Safe area handling for notched devices */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .safe-area-bottom {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .safe-area-left {
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
+
+  .safe-area-right {
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+}
+
+/* Bottom navigation space compensation */
+@media (max-width: 767px) {
+  .main-content-mobile {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Mobile quick actions */
+.mobile-quick-actions {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 40;
+}
+
+.mobile-quick-actions button {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-quick-actions button:active {
+  transform: scale(0.95);
+}
+
+.mobile-quick-actions button.primary {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.mobile-quick-actions button.secondary {
+  background-color: var(--color-cardBg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+/* Swipeable issue card */
+.swipeable-card {
+  position: relative;
+  transition: transform 0.2s ease;
+  touch-action: pan-y;
+}
+
+.swipeable-card.swiping-left {
+  background: linear-gradient(to left, rgba(34, 197, 94, 0.2), transparent);
+}
+
+.swipeable-card.swiping-right {
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.2), transparent);
+}
+
+.swipe-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.swipe-indicator.visible {
+  opacity: 1;
+}
+
+.swipe-indicator.left {
+  left: 8px;
+  background-color: rgba(34, 197, 94, 0.9);
+  color: white;
+}
+
+.swipe-indicator.right {
+  right: 8px;
+  background-color: rgba(239, 68, 68, 0.9);
+  color: white;
+}
+
+/* Mobile status summary card */
+.mobile-status-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background-color: var(--color-cardBg);
+  border: 1px solid var(--color-cardBorder);
+}
+
+.mobile-status-summary .current-task {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.mobile-status-summary .progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background-color: var(--color-bgTertiary);
+  overflow: hidden;
+}
+
+.mobile-status-summary .progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background-color: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.mobile-status-summary .recent-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-status-summary .recent-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-textSecondary);
+}
+
+/* Offline indicator */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 100;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.offline-indicator.visible {
+  transform: translateY(0);
+}
+
+.offline-indicator.offline {
+  background-color: #ef4444;
+  color: white;
+}
+
+.offline-indicator.online {
+  background-color: #22c55e;
+  color: white;
+}
+
+/* PWA install banner */
+.pwa-install-banner {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px) + 16px);
+  left: 16px;
+  right: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background-color: var(--color-cardBg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  animation: slideUp 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .pwa-install-banner {
+    display: none;
+  }
+}
+
+.pwa-install-banner .close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px;
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--color-textMuted);
+}
+
+/* Responsive typography */
+@media (max-width: 639px) {
+  .text-responsive-sm {
+    font-size: 12px;
+  }
+
+  .text-responsive-base {
+    font-size: 14px;
+  }
+
+  .text-responsive-lg {
+    font-size: 16px;
+  }
+
+  .text-responsive-xl {
+    font-size: 18px;
+  }
+
+  .text-responsive-2xl {
+    font-size: 20px;
+  }
+}
+
+/* Hide scrollbar on mobile */
+@media (max-width: 767px) {
+  .hide-scrollbar-mobile {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar-mobile::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Haptic feedback simulation */
+@keyframes haptic {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.haptic-feedback {
+  animation: haptic 0.1s ease-in-out;
+}
