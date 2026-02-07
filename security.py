@@ -70,10 +70,30 @@ ALLOWED_COMMANDS: set[str] = {
     "pkill",  # For killing dev servers; validated separately
     # Script execution
     "init.sh",  # Init scripts; validated separately
+    # Code quality tools (ENG-19)
+    "tsc",  # TypeScript type checker (npx tsc --noEmit)
+    "eslint",  # JavaScript/TypeScript linter (npx eslint)
+    "ruff",  # Python linter (ruff check)
+    "mypy",  # Python type checker
+    "black",  # Python formatter
+    "prettier",  # JS/TS/CSS formatter
+    "check-complexity.sh",  # Complexity guard script; validated separately
+    "lint-gate.sh",  # Post-commit linting gate; validated separately
+    # Shell interpreters (for running scripts)
+    "bash",  # For running shell scripts
+    "sh",  # For running shell scripts
 }
 
 # Commands that need additional validation even when in the allowlist
-COMMANDS_NEEDING_EXTRA_VALIDATION: set[str] = {"pkill", "chmod", "init.sh", "rm"}
+COMMANDS_NEEDING_EXTRA_VALIDATION: set[str] = {
+    "pkill",
+    "chmod",
+    "init.sh",
+    "rm",
+    "git",
+    "check-complexity.sh",
+    "lint-gate.sh",
+}
 
 
 def split_command_segments(command_string: str) -> list[str]:
@@ -328,6 +348,106 @@ def validate_init_script(command_string: str) -> ValidationResult:
     )
 
 
+def validate_git_command(command_string: str) -> ValidationResult:
+    """
+    Validate git commands - allow safe operations, block dangerous ones.
+
+    Blocked:
+    - git push --force to main/master (dangerous)
+    - git reset --hard (can destroy work)
+    - git clean -f (can destroy work)
+    - git checkout . (discards all changes)
+    - git restore . (discards all changes)
+
+    Allowed:
+    - All other git commands including push (for GitHub integration)
+
+    Args:
+        command_string: The git command to validate
+
+    Returns:
+        ValidationResult with allowed status and reason if blocked
+    """
+    try:
+        tokens: list[str] = shlex.split(command_string)
+    except ValueError:
+        return ValidationResult(allowed=False, reason="Could not parse git command")
+
+    if not tokens or tokens[0] != "git":
+        return ValidationResult(allowed=False, reason="Not a git command")
+
+    # Get the git subcommand
+    if len(tokens) < 2:
+        return ValidationResult(allowed=True)  # Just "git" is harmless
+
+    subcommand: str = tokens[1]
+
+    # Block dangerous operations
+    if subcommand == "push":
+        # Check for force push to main/master
+        has_force = "--force" in tokens or "-f" in tokens
+        targets_main = "main" in tokens or "master" in tokens
+
+        if has_force and targets_main:
+            return ValidationResult(
+                allowed=False,
+                reason="Force push to main/master is not allowed",
+            )
+
+    elif subcommand == "reset":
+        if "--hard" in tokens:
+            return ValidationResult(
+                allowed=False,
+                reason="git reset --hard is not allowed (can destroy work)",
+            )
+
+    elif subcommand == "clean":
+        if "-f" in tokens or "--force" in tokens:
+            return ValidationResult(
+                allowed=False,
+                reason="git clean -f is not allowed (can destroy untracked files)",
+            )
+
+    elif subcommand == "checkout":
+        # Block "git checkout ." which discards all changes
+        if "." in tokens:
+            # Check if it's just "git checkout ." without a branch/file
+            non_flag_args = [t for t in tokens[2:] if not t.startswith("-")]
+            if non_flag_args == ["."]:
+                return ValidationResult(
+                    allowed=False,
+                    reason="git checkout . is not allowed (discards all changes)",
+                )
+
+    elif subcommand == "restore":
+        # Block "git restore ." which discards all changes
+        if "." in tokens:
+            non_flag_args = [t for t in tokens[2:] if not t.startswith("-")]
+            if non_flag_args == ["."]:
+                return ValidationResult(
+                    allowed=False,
+                    reason="git restore . is not allowed (discards all changes)",
+                )
+
+    elif subcommand == "branch":
+        # Block git branch -D (force delete)
+        if "-D" in tokens:
+            # Allow if it's an agent branch
+            agent_branch = False
+            for token in tokens:
+                if token.startswith("agent/"):
+                    agent_branch = True
+                    break
+            if not agent_branch:
+                return ValidationResult(
+                    allowed=False,
+                    reason="git branch -D is only allowed for agent/* branches",
+                )
+
+    # All other git commands are allowed
+    return ValidationResult(allowed=True)
+
+
 def validate_rm_command(command_string: str) -> ValidationResult:
     """
     Validate rm commands - prevent dangerous deletions.
@@ -424,6 +544,55 @@ def validate_rm_command(command_string: str) -> ValidationResult:
     return ValidationResult(allowed=True)
 
 
+def validate_lint_script(command_string: str) -> ValidationResult:
+    """
+    Validate lint-gate.sh and check-complexity.sh script execution.
+
+    Only allow execution from scripts/ directory with safe arguments.
+
+    Args:
+        command_string: The script command to validate
+
+    Returns:
+        ValidationResult with allowed status and reason if blocked
+    """
+    try:
+        tokens: list[str] = shlex.split(command_string)
+    except ValueError:
+        return ValidationResult(
+            allowed=False, reason="Could not parse lint script command"
+        )
+
+    if not tokens:
+        return ValidationResult(allowed=False, reason="Empty command")
+
+    script: str = tokens[0]
+
+    # Allow ./scripts/lint-gate.sh, scripts/lint-gate.sh, or absolute paths ending in scripts/lint-gate.sh
+    # Same for check-complexity.sh
+    allowed_scripts = ("lint-gate.sh", "check-complexity.sh")
+
+    script_name = os.path.basename(script)
+    if script_name not in allowed_scripts:
+        return ValidationResult(
+            allowed=False,
+            reason=f"Only lint-gate.sh and check-complexity.sh are allowed, got: {script}",
+        )
+
+    # Ensure it's from scripts directory or current directory
+    if script.startswith("./scripts/") or script.startswith("scripts/"):
+        return ValidationResult(allowed=True)
+    if "/scripts/" in script and script.endswith(script_name):
+        return ValidationResult(allowed=True)
+    if script == f"./{script_name}" or script == script_name:
+        return ValidationResult(allowed=True)
+
+    return ValidationResult(
+        allowed=False,
+        reason=f"Script must be run from scripts/ directory: {script}",
+    )
+
+
 def get_command_for_validation(cmd: str, segments: list[str]) -> str:
     """
     Find the specific command segment that contains the given command.
@@ -509,6 +678,14 @@ async def bash_security_hook(
                     return SyncHookJSONOutput(decision="block", reason=result.reason)
             elif cmd == "rm":
                 result = validate_rm_command(cmd_segment)
+                if not result.allowed:
+                    return SyncHookJSONOutput(decision="block", reason=result.reason)
+            elif cmd == "git":
+                result = validate_git_command(cmd_segment)
+                if not result.allowed:
+                    return SyncHookJSONOutput(decision="block", reason=result.reason)
+            elif cmd in ("check-complexity.sh", "lint-gate.sh"):
+                result = validate_lint_script(cmd_segment)
                 if not result.allowed:
                     return SyncHookJSONOutput(decision="block", reason=result.reason)
 
