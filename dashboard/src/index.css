@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base styles using CSS variables */
 body {
-  @apply bg-gray-900 text-gray-100;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure smooth transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 0.15s;
+  transition-timing-function: ease;
+}
+
+/* Disable transitions for elements that shouldn't animate */
+*:focus,
+button:active,
+a:active {
+  transition-duration: 0s;
 }

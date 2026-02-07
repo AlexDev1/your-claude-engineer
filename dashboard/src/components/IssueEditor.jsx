@@ -2,17 +2,17 @@ import React, { useState, useEffect, useRef } from 'react'
 import { X, Save, Trash2, MessageSquare, Link2, Flag, ChevronDown } from 'lucide-react'
 
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent', color: 'bg-red-500' },
-  { value: 'high', label: 'High', color: 'bg-orange-500' },
-  { value: 'medium', label: 'Medium', color: 'bg-yellow-500' },
-  { value: 'low', label: 'Low', color: 'bg-green-500' },
+  { value: 'urgent', label: 'Urgent', color: '#ef4444' },
+  { value: 'high', label: 'High', color: '#f97316' },
+  { value: 'medium', label: 'Medium', color: '#eab308' },
+  { value: 'low', label: 'Low', color: '#22c55e' },
 ]
 
 const STATE_OPTIONS = [
-  { value: 'Todo', label: 'Todo', color: 'bg-gray-500' },
-  { value: 'In Progress', label: 'In Progress', color: 'bg-blue-500' },
-  { value: 'Done', label: 'Done', color: 'bg-green-500' },
-  { value: 'Cancelled', label: 'Cancelled', color: 'bg-red-500' },
+  { value: 'Todo', label: 'Todo', color: '#6b7280' },
+  { value: 'In Progress', label: 'In Progress', color: '#3b82f6' },
+  { value: 'Done', label: 'Done', color: '#22c55e' },
+  { value: 'Cancelled', label: 'Cancelled', color: '#ef4444' },
 ]
 
 const VALID_TRANSITIONS = {
@@ -101,33 +101,56 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
   const renderMarkdown = (text) => {
     if (!text) return ''
     return text
-      .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold text-white mt-4 mb-2">$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-semibold text-white mt-4 mb-2">$1</h2>')
-      .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-white mt-4 mb-2">$1</h1>')
+      .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2" style="color: var(--color-text)">$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-semibold mt-4 mb-2" style="color: var(--color-text)">$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold mt-4 mb-2" style="color: var(--color-text)">$1</h1>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code class="bg-gray-700 px-1 rounded">$1</code>')
+      .replace(/`(.+?)`/g, '<code style="background-color: var(--color-bgTertiary); padding: 0.125rem 0.25rem; border-radius: 0.25rem;">$1</code>')
       .replace(/\n/g, '<br/>')
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 flex items-center justify-center z-50 p-4"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+    >
+      <div
+        className="rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ backgroundColor: 'var(--color-cardBg)' }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div
+          className="flex items-center justify-between p-4 border-b"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-400">{issue?.identifier || 'New Issue'}</span>
+            <span
+              className="text-sm"
+              style={{ color: 'var(--color-textSecondary)' }}
+            >
+              {issue?.identifier || 'New Issue'}
+            </span>
             {issue?.issue_type && (
-              <span className="px-2 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">
+              <span
+                className="px-2 py-0.5 text-xs rounded"
+                style={{
+                  backgroundColor: 'var(--color-bgTertiary)',
+                  color: 'var(--color-textSecondary)'
+                }}
+              >
                 {issue.issue_type}
               </span>
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-700 rounded transition-colors"
+            className="p-1 rounded transition-colors"
+            style={{ color: 'var(--color-textSecondary)' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bgTertiary)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -140,18 +163,31 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
             value={formData.title}
             onChange={(e) => handleChange('title', e.target.value)}
             placeholder="Issue title"
-            className="w-full bg-transparent text-xl font-semibold text-white placeholder-gray-500 border-none outline-none focus:ring-0"
+            className="w-full bg-transparent text-xl font-semibold border-none outline-none focus:ring-0"
+            style={{
+              color: 'var(--color-text)'
+            }}
           />
 
           {/* State & Priority Row */}
           <div className="flex items-center space-x-4">
             {/* State Dropdown */}
             <div className="flex-1">
-              <label className="block text-xs text-gray-400 mb-1">State</label>
+              <label
+                className="block text-xs mb-1"
+                style={{ color: 'var(--color-textSecondary)' }}
+              >
+                State
+              </label>
               <select
                 value={formData.state}
                 onChange={(e) => handleChange('state', e.target.value)}
-                className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg px-3 py-2 text-sm border"
+                style={{
+                  backgroundColor: 'var(--color-inputBg)',
+                  borderColor: 'var(--color-inputBorder)',
+                  color: 'var(--color-text)'
+                }}
               >
                 {STATE_OPTIONS.map(option => (
                   <option
@@ -167,11 +203,21 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
 
             {/* Priority Dropdown */}
             <div className="flex-1">
-              <label className="block text-xs text-gray-400 mb-1">Priority</label>
+              <label
+                className="block text-xs mb-1"
+                style={{ color: 'var(--color-textSecondary)' }}
+              >
+                Priority
+              </label>
               <select
                 value={formData.priority}
                 onChange={(e) => handleChange('priority', e.target.value)}
-                className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg px-3 py-2 text-sm border"
+                style={{
+                  backgroundColor: 'var(--color-inputBg)',
+                  borderColor: 'var(--color-inputBorder)',
+                  color: 'var(--color-text)'
+                }}
               >
                 {PRIORITY_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
@@ -185,36 +231,61 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
           {/* Description */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs text-gray-400">Description (Markdown)</label>
+              <label
+                className="text-xs"
+                style={{ color: 'var(--color-textSecondary)' }}
+              >
+                Description (Markdown)
+              </label>
               <button
                 onClick={() => setIsPreviewMode(!isPreviewMode)}
-                className="text-xs text-blue-400 hover:text-blue-300"
+                className="text-xs"
+                style={{ color: 'var(--color-accent)' }}
               >
                 {isPreviewMode ? 'Edit' : 'Preview'}
               </button>
             </div>
             {isPreviewMode ? (
               <div
-                className="w-full bg-gray-700/50 rounded-lg p-3 min-h-[120px] text-gray-200 prose prose-invert prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(formData.description) || '<span class="text-gray-500">No description</span>' }}
+                className="w-full rounded-lg p-3 min-h-[120px] prose prose-invert prose-sm max-w-none"
+                style={{
+                  backgroundColor: 'var(--color-bgSecondary)',
+                  color: 'var(--color-textSecondary)'
+                }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(formData.description) || '<span style="color: var(--color-textMuted)">No description</span>' }}
               />
             ) : (
               <textarea
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
                 placeholder="Add a description... (Markdown supported)"
-                className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-h-[120px] resize-y"
+                className="w-full rounded-lg px-3 py-2 text-sm border min-h-[120px] resize-y"
+                style={{
+                  backgroundColor: 'var(--color-inputBg)',
+                  borderColor: 'var(--color-inputBorder)',
+                  color: 'var(--color-text)'
+                }}
               />
             )}
           </div>
 
           {/* Parent Issue */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Parent Issue</label>
+            <label
+              className="block text-xs mb-1"
+              style={{ color: 'var(--color-textSecondary)' }}
+            >
+              Parent Issue
+            </label>
             <select
               value={formData.parent_id || ''}
               onChange={(e) => handleChange('parent_id', e.target.value || null)}
-              className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg px-3 py-2 text-sm border"
+              style={{
+                backgroundColor: 'var(--color-inputBg)',
+                borderColor: 'var(--color-inputBorder)',
+                color: 'var(--color-text)'
+              }}
             >
               <option value="">None</option>
               {potentialParents.map(i => (
@@ -227,18 +298,30 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
 
           {/* Dependencies */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Dependencies</label>
+            <label
+              className="block text-xs mb-1"
+              style={{ color: 'var(--color-textSecondary)' }}
+            >
+              Dependencies
+            </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {formData.dependencies.map(dep => (
                 <span
                   key={dep}
-                  className="inline-flex items-center bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded"
+                  className="inline-flex items-center text-xs px-2 py-1 rounded"
+                  style={{
+                    backgroundColor: 'var(--color-bgTertiary)',
+                    color: 'var(--color-textSecondary)'
+                  }}
                 >
                   <Link2 className="w-3 h-3 mr-1" />
                   {dep}
                   <button
                     onClick={() => handleChange('dependencies', formData.dependencies.filter(d => d !== dep))}
-                    className="ml-1 hover:text-red-400"
+                    className="ml-1"
+                    style={{ color: 'var(--color-textMuted)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-textMuted)'}
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -252,7 +335,12 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                   handleChange('dependencies', [...formData.dependencies, e.target.value])
                 }
               }}
-              className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg px-3 py-2 text-sm border"
+              style={{
+                backgroundColor: 'var(--color-inputBg)',
+                borderColor: 'var(--color-inputBorder)',
+                color: 'var(--color-text)'
+              }}
             >
               <option value="">Add dependency...</option>
               {potentialParents
@@ -268,20 +356,35 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
           {/* Comments Section */}
           {issue && (
             <div>
-              <label className="block text-xs text-gray-400 mb-2">
+              <label
+                className="block text-xs mb-2"
+                style={{ color: 'var(--color-textSecondary)' }}
+              >
                 <MessageSquare className="w-3 h-3 inline mr-1" />
                 Comments ({issue.comments?.length || 0})
               </label>
               <div className="space-y-2 mb-2 max-h-32 overflow-y-auto">
                 {(issue.comments || []).map(comment => (
-                  <div key={comment.id} className="bg-gray-700/50 rounded p-2 text-sm">
+                  <div
+                    key={comment.id}
+                    className="rounded p-2 text-sm"
+                    style={{ backgroundColor: 'var(--color-bgSecondary)' }}
+                  >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-gray-400 text-xs">{comment.author}</span>
-                      <span className="text-gray-500 text-xs">
+                      <span
+                        className="text-xs"
+                        style={{ color: 'var(--color-textSecondary)' }}
+                      >
+                        {comment.author}
+                      </span>
+                      <span
+                        className="text-xs"
+                        style={{ color: 'var(--color-textMuted)' }}
+                      >
                         {new Date(comment.created_at).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-gray-200">{comment.content}</p>
+                    <p style={{ color: 'var(--color-text)' }}>{comment.content}</p>
                   </div>
                 ))}
               </div>
@@ -291,13 +394,22 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Add a comment..."
-                  className="flex-1 bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500"
+                  className="flex-1 rounded-lg px-3 py-2 text-sm border"
+                  style={{
+                    backgroundColor: 'var(--color-inputBg)',
+                    borderColor: 'var(--color-inputBorder)',
+                    color: 'var(--color-text)'
+                  }}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
                 />
                 <button
                   onClick={handleAddComment}
                   disabled={!newComment.trim()}
-                  className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm disabled:opacity-50"
+                  className="px-3 py-2 rounded-lg text-sm disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'var(--color-bgTertiary)',
+                    color: 'var(--color-textSecondary)'
+                  }}
                 >
                   Add
                 </button>
@@ -307,16 +419,22 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-gray-700 bg-gray-800/80">
+        <div
+          className="flex items-center justify-between p-4 border-t"
+          style={{
+            borderColor: 'var(--color-border)',
+            backgroundColor: 'var(--color-bgSecondary)'
+          }}
+        >
           <div>
             {issue && (
               <button
                 onClick={handleDelete}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  showDeleteConfirm
-                    ? 'bg-red-600 text-white'
-                    : 'text-red-400 hover:bg-red-500/20'
-                }`}
+                className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm transition-colors"
+                style={{
+                  backgroundColor: showDeleteConfirm ? '#ef4444' : 'transparent',
+                  color: showDeleteConfirm ? 'white' : '#ef4444'
+                }}
               >
                 <Trash2 className="w-4 h-4" />
                 <span>{showDeleteConfirm ? 'Confirm Delete' : 'Delete'}</span>
@@ -326,14 +444,19 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
           <div className="flex items-center space-x-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              className="px-4 py-2 transition-colors"
+              style={{ color: 'var(--color-textSecondary)' }}
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={!formData.title.trim()}
-              className="flex items-center space-x-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-1 px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: 'var(--color-accent)',
+                color: 'white'
+              }}
             >
               <Save className="w-4 h-4" />
               <span>Save</span>

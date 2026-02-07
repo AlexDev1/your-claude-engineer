@@ -5,7 +5,7 @@ const ISSUE_TEMPLATES = [
   {
     type: 'Bug',
     icon: Bug,
-    color: 'bg-red-500',
+    color: '#ef4444',
     description: 'Something is broken',
     defaults: {
       priority: 'high',
@@ -15,7 +15,7 @@ const ISSUE_TEMPLATES = [
   {
     type: 'Feature',
     icon: Lightbulb,
-    color: 'bg-blue-500',
+    color: '#3b82f6',
     description: 'New functionality',
     defaults: {
       priority: 'medium',
@@ -25,7 +25,7 @@ const ISSUE_TEMPLATES = [
   {
     type: 'Task',
     icon: CheckSquare,
-    color: 'bg-gray-500',
+    color: '#6b7280',
     description: 'General work item',
     defaults: {
       priority: 'medium',
@@ -35,7 +35,7 @@ const ISSUE_TEMPLATES = [
   {
     type: 'Epic',
     icon: Layers,
-    color: 'bg-purple-500',
+    color: '#a855f7',
     description: 'Large feature container',
     defaults: {
       priority: 'medium',
@@ -120,18 +120,33 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
   const potentialParents = allIssues.filter(i => i.issue_type === 'Epic' || !i.parent_id)
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 flex items-center justify-center z-50 p-4"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+    >
+      <div
+        className="rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+        style={{ backgroundColor: 'var(--color-cardBg)' }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h2 className="text-lg font-semibold text-white">
+        <div
+          className="flex items-center justify-between p-4 border-b"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <h2
+            className="text-lg font-semibold"
+            style={{ color: 'var(--color-text)' }}
+          >
             {step === 'template' ? 'Create New Issue' : `New ${formData.issue_type}`}
           </h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-700 rounded transition-colors"
+            className="p-1 rounded transition-colors"
+            style={{ color: 'var(--color-textSecondary)' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bgTertiary)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -139,7 +154,12 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
         <div className="flex-1 overflow-y-auto p-4">
           {step === 'template' ? (
             <div className="space-y-3">
-              <p className="text-gray-400 text-sm mb-4">Choose a template to get started:</p>
+              <p
+                className="text-sm mb-4"
+                style={{ color: 'var(--color-textSecondary)' }}
+              >
+                Choose a template to get started:
+              </p>
               <div className="grid grid-cols-2 gap-3">
                 {ISSUE_TEMPLATES.map(template => {
                   const Icon = template.icon
@@ -147,13 +167,38 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                     <button
                       key={template.type}
                       onClick={() => handleTemplateSelect(template)}
-                      className="flex flex-col items-center p-4 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 hover:border-gray-500 rounded-lg transition-all group"
+                      className="flex flex-col items-center p-4 border rounded-lg transition-all group"
+                      style={{
+                        backgroundColor: 'var(--color-bgSecondary)',
+                        borderColor: 'var(--color-border)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bgTertiary)'
+                        e.currentTarget.style.borderColor = template.color
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bgSecondary)'
+                        e.currentTarget.style.borderColor = 'var(--color-border)'
+                      }}
                     >
-                      <div className={`p-2 rounded-lg ${template.color} mb-2`}>
+                      <div
+                        className="p-2 rounded-lg mb-2"
+                        style={{ backgroundColor: template.color }}
+                      >
                         <Icon className="w-5 h-5 text-white" />
                       </div>
-                      <span className="text-white font-medium">{template.type}</span>
-                      <span className="text-gray-400 text-xs mt-1">{template.description}</span>
+                      <span
+                        className="font-medium"
+                        style={{ color: 'var(--color-text)' }}
+                      >
+                        {template.type}
+                      </span>
+                      <span
+                        className="text-xs mt-1"
+                        style={{ color: 'var(--color-textSecondary)' }}
+                      >
+                        {template.description}
+                      </span>
                     </button>
                   )
                 })}
@@ -164,7 +209,8 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   setFormData(prev => ({ ...prev, issue_type: 'Task' }))
                   setStep('form')
                 }}
-                className="w-full mt-4 text-sm text-gray-400 hover:text-white transition-colors"
+                className="w-full mt-4 text-sm transition-colors"
+                style={{ color: 'var(--color-textSecondary)' }}
               >
                 Skip template, create blank issue
               </button>
@@ -173,7 +219,12 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Title */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Title *</label>
+                <label
+                  className="block text-xs mb-1"
+                  style={{ color: 'var(--color-textSecondary)' }}
+                >
+                  Title *
+                </label>
                 <input
                   ref={titleRef}
                   type="text"
@@ -181,18 +232,33 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   onChange={(e) => handleChange('title', e.target.value)}
                   placeholder="Issue title"
                   required
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="w-full rounded-lg px-3 py-2 text-sm border"
+                  style={{
+                    backgroundColor: 'var(--color-inputBg)',
+                    borderColor: 'var(--color-inputBorder)',
+                    color: 'var(--color-text)'
+                  }}
                 />
               </div>
 
               {/* Team & Project Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Team</label>
+                  <label
+                    className="block text-xs mb-1"
+                    style={{ color: 'var(--color-textSecondary)' }}
+                  >
+                    Team
+                  </label>
                   <select
                     value={formData.team}
                     onChange={(e) => handleChange('team', e.target.value)}
-                    className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500"
+                    className="w-full rounded-lg px-3 py-2 text-sm border"
+                    style={{
+                      backgroundColor: 'var(--color-inputBg)',
+                      borderColor: 'var(--color-inputBorder)',
+                      color: 'var(--color-text)'
+                    }}
                   >
                     {TEAM_OPTIONS.map(team => (
                       <option key={team} value={team}>{team}</option>
@@ -200,11 +266,21 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Project</label>
+                  <label
+                    className="block text-xs mb-1"
+                    style={{ color: 'var(--color-textSecondary)' }}
+                  >
+                    Project
+                  </label>
                   <select
                     value={formData.project || ''}
                     onChange={(e) => handleChange('project', e.target.value || null)}
-                    className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500"
+                    className="w-full rounded-lg px-3 py-2 text-sm border"
+                    style={{
+                      backgroundColor: 'var(--color-inputBg)',
+                      borderColor: 'var(--color-inputBorder)',
+                      color: 'var(--color-text)'
+                    }}
                   >
                     <option value="">None</option>
                     {PROJECT_OPTIONS.map(project => (
@@ -216,18 +292,24 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
 
               {/* Priority */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Priority</label>
+                <label
+                  className="block text-xs mb-1"
+                  style={{ color: 'var(--color-textSecondary)' }}
+                >
+                  Priority
+                </label>
                 <div className="flex space-x-2">
                   {PRIORITY_OPTIONS.map(option => (
                     <button
                       key={option.value}
                       type="button"
                       onClick={() => handleChange('priority', option.value)}
-                      className={`flex-1 py-2 px-3 text-sm rounded-lg border transition-colors ${
-                        formData.priority === option.value
-                          ? 'border-blue-500 bg-blue-500/20 text-white'
-                          : 'border-gray-600 bg-gray-700 text-gray-300 hover:border-gray-500'
-                      }`}
+                      className="flex-1 py-2 px-3 text-sm rounded-lg border transition-colors"
+                      style={{
+                        borderColor: formData.priority === option.value ? 'var(--color-accent)' : 'var(--color-border)',
+                        backgroundColor: formData.priority === option.value ? 'rgba(96, 165, 250, 0.2)' : 'var(--color-inputBg)',
+                        color: formData.priority === option.value ? 'var(--color-text)' : 'var(--color-textSecondary)'
+                      }}
                     >
                       {option.label}
                     </button>
@@ -237,22 +319,42 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
 
               {/* Description */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Description (Markdown)</label>
+                <label
+                  className="block text-xs mb-1"
+                  style={{ color: 'var(--color-textSecondary)' }}
+                >
+                  Description (Markdown)
+                </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => handleChange('description', e.target.value)}
                   placeholder="Add a description..."
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500 min-h-[120px] resize-y font-mono"
+                  className="w-full rounded-lg px-3 py-2 text-sm border min-h-[120px] resize-y font-mono"
+                  style={{
+                    backgroundColor: 'var(--color-inputBg)',
+                    borderColor: 'var(--color-inputBorder)',
+                    color: 'var(--color-text)'
+                  }}
                 />
               </div>
 
               {/* Parent Issue */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Parent Issue (Optional)</label>
+                <label
+                  className="block text-xs mb-1"
+                  style={{ color: 'var(--color-textSecondary)' }}
+                >
+                  Parent Issue (Optional)
+                </label>
                 <select
                   value={formData.parent_id || ''}
                   onChange={(e) => handleChange('parent_id', e.target.value || null)}
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500"
+                  className="w-full rounded-lg px-3 py-2 text-sm border"
+                  style={{
+                    backgroundColor: 'var(--color-inputBg)',
+                    borderColor: 'var(--color-inputBorder)',
+                    color: 'var(--color-text)'
+                  }}
                 >
                   <option value="">None</option>
                   {potentialParents.map(i => (
@@ -265,7 +367,12 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
 
               {/* Dependencies */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Dependencies (Optional)</label>
+                <label
+                  className="block text-xs mb-1"
+                  style={{ color: 'var(--color-textSecondary)' }}
+                >
+                  Dependencies (Optional)
+                </label>
                 <select
                   value=""
                   onChange={(e) => {
@@ -273,7 +380,12 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                       handleChange('dependencies', [...formData.dependencies, e.target.value])
                     }
                   }}
-                  className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-blue-500"
+                  className="w-full rounded-lg px-3 py-2 text-sm border"
+                  style={{
+                    backgroundColor: 'var(--color-inputBg)',
+                    borderColor: 'var(--color-inputBorder)',
+                    color: 'var(--color-text)'
+                  }}
                 >
                   <option value="">Add dependency...</option>
                   {allIssues
@@ -289,13 +401,20 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                     {formData.dependencies.map(dep => (
                       <span
                         key={dep}
-                        className="inline-flex items-center bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded"
+                        className="inline-flex items-center text-xs px-2 py-1 rounded"
+                        style={{
+                          backgroundColor: 'var(--color-bgTertiary)',
+                          color: 'var(--color-textSecondary)'
+                        }}
                       >
                         {dep}
                         <button
                           type="button"
                           onClick={() => handleChange('dependencies', formData.dependencies.filter(d => d !== dep))}
-                          className="ml-1 hover:text-red-400"
+                          className="ml-1"
+                          style={{ color: 'var(--color-textMuted)' }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-textMuted)'}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -310,24 +429,36 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
 
         {/* Footer */}
         {step === 'form' && (
-          <div className="flex items-center justify-between p-4 border-t border-gray-700 bg-gray-800/80">
+          <div
+            className="flex items-center justify-between p-4 border-t"
+            style={{
+              borderColor: 'var(--color-border)',
+              backgroundColor: 'var(--color-bgSecondary)'
+            }}
+          >
             <button
               onClick={() => setStep('template')}
-              className="text-gray-400 hover:text-white text-sm transition-colors"
+              className="text-sm transition-colors"
+              style={{ color: 'var(--color-textSecondary)' }}
             >
               Back to templates
             </button>
             <div className="flex items-center space-x-2">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-2 transition-colors"
+                style={{ color: 'var(--color-textSecondary)' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={!formData.title.trim()}
-                className="flex items-center space-x-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center space-x-1 px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: 'var(--color-accent)',
+                  color: 'white'
+                }}
               >
                 <Plus className="w-4 h-4" />
                 <span>Create Issue</span>

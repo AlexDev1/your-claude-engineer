@@ -3,17 +3,17 @@ import { GripVertical, Flag, MessageSquare, Link2, Clock, CheckCircle2 } from 'l
 import QuickActions from './QuickActions'
 
 const COLUMNS = [
-  { id: 'Todo', label: 'Todo', color: 'border-gray-500', bg: 'bg-gray-500' },
-  { id: 'In Progress', label: 'In Progress', color: 'border-blue-500', bg: 'bg-blue-500' },
-  { id: 'Done', label: 'Done', color: 'border-green-500', bg: 'bg-green-500' },
-  { id: 'Cancelled', label: 'Cancelled', color: 'border-red-500', bg: 'bg-red-500' },
+  { id: 'Todo', label: 'Todo', color: '#6b7280' },
+  { id: 'In Progress', label: 'In Progress', color: '#3b82f6' },
+  { id: 'Done', label: 'Done', color: '#22c55e' },
+  { id: 'Cancelled', label: 'Cancelled', color: '#ef4444' },
 ]
 
 const PRIORITY_COLORS = {
-  urgent: 'bg-red-500',
-  high: 'bg-orange-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-green-500',
+  urgent: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#22c55e',
 }
 
 function KanbanBoard({
@@ -127,22 +127,44 @@ function KanbanBoard({
         return (
           <div
             key={column.id}
-            className={`flex-1 min-w-[280px] max-w-[350px] bg-gray-800/50 rounded-xl border transition-all ${
-              isDragOver && isDropTarget
-                ? `${column.color} border-2 bg-gray-700/50`
-                : 'border-gray-700'
-            }`}
+            className="flex-1 min-w-[280px] max-w-[350px] rounded-xl border transition-all"
+            style={{
+              backgroundColor: isDragOver && isDropTarget
+                ? 'var(--color-bgTertiary)'
+                : 'var(--color-bgSecondary)',
+              borderColor: isDragOver && isDropTarget
+                ? column.color
+                : 'var(--color-border)',
+              borderWidth: isDragOver && isDropTarget ? '2px' : '1px'
+            }}
             onDragEnter={(e) => handleDragEnter(e, column.id)}
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, column.id)}
           >
             {/* Column Header */}
-            <div className="flex items-center justify-between p-3 border-b border-gray-700">
+            <div
+              className="flex items-center justify-between p-3 border-b"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
               <div className="flex items-center space-x-2">
-                <span className={`w-3 h-3 rounded-full ${column.bg}`} />
-                <span className="font-medium text-white">{column.label}</span>
-                <span className="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded-full">
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: column.color }}
+                />
+                <span
+                  className="font-medium"
+                  style={{ color: 'var(--color-text)' }}
+                >
+                  {column.label}
+                </span>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: 'var(--color-bgTertiary)',
+                    color: 'var(--color-textSecondary)'
+                  }}
+                >
                   {columnIssues.length}
                 </span>
               </div>
@@ -162,18 +184,48 @@ function KanbanBoard({
                     onDragEnd={handleDragEnd}
                     onClick={(e) => handleCardClick(e, issue)}
                     onDoubleClick={() => handleCardDoubleClick(issue)}
-                    className={`group bg-gray-700 hover:bg-gray-600 rounded-lg p-3 cursor-grab active:cursor-grabbing transition-all border ${
-                      isSelected
-                        ? 'border-blue-500 ring-1 ring-blue-500'
-                        : 'border-transparent hover:border-gray-500'
-                    } ${draggedIssue?.identifier === issue.identifier ? 'opacity-50' : ''}`}
+                    className="group rounded-lg p-3 cursor-grab active:cursor-grabbing transition-all border"
+                    style={{
+                      backgroundColor: 'var(--color-cardBg)',
+                      borderColor: isSelected
+                        ? 'var(--color-accent)'
+                        : 'transparent',
+                      boxShadow: isSelected
+                        ? '0 0 0 1px var(--color-accent)'
+                        : 'none',
+                      opacity: draggedIssue?.identifier === issue.identifier ? 0.5 : 1
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = 'var(--color-bgTertiary)'
+                        e.currentTarget.style.borderColor = 'var(--color-border)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = 'var(--color-cardBg)'
+                        e.currentTarget.style.borderColor = 'transparent'
+                      }
+                    }}
                   >
                     {/* Card Header */}
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <GripVertical className="w-4 h-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span className="text-xs text-gray-400">{issue.identifier}</span>
-                        <span className={`w-2 h-2 rounded-full ${priorityColor}`} title={issue.priority} />
+                        <GripVertical
+                          className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ color: 'var(--color-textMuted)' }}
+                        />
+                        <span
+                          className="text-xs"
+                          style={{ color: 'var(--color-textSecondary)' }}
+                        >
+                          {issue.identifier}
+                        </span>
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: priorityColor }}
+                          title={issue.priority}
+                        />
                       </div>
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                         <QuickActions
@@ -187,15 +239,24 @@ function KanbanBoard({
                     </div>
 
                     {/* Card Title */}
-                    <h4 className="text-sm text-white font-medium mb-2 line-clamp-2">
+                    <h4
+                      className="text-sm font-medium mb-2 line-clamp-2"
+                      style={{ color: 'var(--color-text)' }}
+                    >
                       {issue.title}
                     </h4>
 
                     {/* Card Meta */}
-                    <div className="flex items-center justify-between text-xs text-gray-400">
+                    <div
+                      className="flex items-center justify-between text-xs"
+                      style={{ color: 'var(--color-textSecondary)' }}
+                    >
                       <div className="flex items-center space-x-2">
                         {issue.issue_type && (
-                          <span className="bg-gray-600 px-1.5 py-0.5 rounded">
+                          <span
+                            className="px-1.5 py-0.5 rounded"
+                            style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+                          >
                             {issue.issue_type}
                           </span>
                         )}
@@ -213,7 +274,7 @@ function KanbanBoard({
                           </span>
                         )}
                         {issue.state === 'Done' && issue.completed_at && (
-                          <span className="flex items-center text-green-400" title="Completed">
+                          <span className="flex items-center" style={{ color: '#22c55e' }} title="Completed">
                             <CheckCircle2 className="w-3 h-3" />
                           </span>
                         )}
@@ -225,7 +286,10 @@ function KanbanBoard({
 
               {/* Empty State */}
               {columnIssues.length === 0 && (
-                <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
+                <div
+                  className="flex items-center justify-center h-32 text-sm"
+                  style={{ color: 'var(--color-textMuted)' }}
+                >
                   {draggedIssue && isDropTarget ? (
                     <span>Drop here to move</span>
                   ) : (

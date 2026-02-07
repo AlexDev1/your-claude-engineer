@@ -186,8 +186,16 @@ function TaskManager() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Task Manager</h2>
-          <p className="text-gray-400 mt-1">
+          <h2
+            className="text-2xl font-bold"
+            style={{ color: 'var(--color-text)' }}
+          >
+            Task Manager
+          </h2>
+          <p
+            className="mt-1"
+            style={{ color: 'var(--color-textSecondary)' }}
+          >
             Manage and track your issues
           </p>
         </div>
@@ -195,13 +203,21 @@ function TaskManager() {
         <div className="flex items-center space-x-3">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+              style={{ color: 'var(--color-textMuted)' }}
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search issues..."
-              className="w-48 bg-gray-800 text-white text-sm pl-9 pr-3 py-2 rounded-lg border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-48 text-sm pl-9 pr-3 py-2 rounded-lg border focus:ring-1"
+              style={{
+                backgroundColor: 'var(--color-inputBg)',
+                borderColor: 'var(--color-inputBorder)',
+                color: 'var(--color-text)'
+              }}
             />
           </div>
 
@@ -209,7 +225,12 @@ function TaskManager() {
           <select
             value={priorityFilter || ''}
             onChange={(e) => setPriorityFilter(e.target.value || null)}
-            className="bg-gray-800 text-white text-sm px-3 py-2 rounded-lg border border-gray-700 focus:border-blue-500"
+            className="text-sm px-3 py-2 rounded-lg border"
+            style={{
+              backgroundColor: 'var(--color-inputBg)',
+              borderColor: 'var(--color-inputBorder)',
+              color: 'var(--color-text)'
+            }}
           >
             <option value="">All Priorities</option>
             <option value="urgent">Urgent</option>
@@ -219,17 +240,28 @@ function TaskManager() {
           </select>
 
           {/* View Toggle */}
-          <div className="flex bg-gray-800 rounded-lg p-1">
+          <div
+            className="flex rounded-lg p-1"
+            style={{ backgroundColor: 'var(--color-cardBg)' }}
+          >
             <button
               onClick={() => setViewMode('kanban')}
-              className={`p-2 rounded ${viewMode === 'kanban' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}
+              className="p-2 rounded transition-colors"
+              style={{
+                backgroundColor: viewMode === 'kanban' ? 'var(--color-bgTertiary)' : 'transparent',
+                color: viewMode === 'kanban' ? 'var(--color-text)' : 'var(--color-textMuted)'
+              }}
               title="Kanban view"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}
+              className="p-2 rounded transition-colors"
+              style={{
+                backgroundColor: viewMode === 'list' ? 'var(--color-bgTertiary)' : 'transparent',
+                color: viewMode === 'list' ? 'var(--color-text)' : 'var(--color-textMuted)'
+              }}
               title="List view"
             >
               <List className="w-4 h-4" />
@@ -240,16 +272,24 @@ function TaskManager() {
           <button
             onClick={refetch}
             disabled={loading}
-            className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--color-cardBg)',
+              color: 'var(--color-textSecondary)'
+            }}
             title="Refresh"
           >
-            <RefreshCw className={`w-5 h-5 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           {/* Create Issue */}
           <button
             onClick={() => setShowCreateForm(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors"
+            style={{
+              backgroundColor: 'var(--color-accent)',
+              color: 'white'
+            }}
           >
             <Plus className="w-4 h-4" />
             <span>New Issue</span>
@@ -259,17 +299,29 @@ function TaskManager() {
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
+        <div
+          className="rounded-lg p-4 border"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            borderColor: 'rgba(239, 68, 68, 0.2)',
+            color: '#f87171'
+          }}
+        >
           <p className="font-medium">Error loading issues</p>
           <p className="text-sm mt-1">{error}</p>
-          <p className="text-sm mt-2 text-gray-400">Showing demo data instead.</p>
+          <p className="text-sm mt-2" style={{ color: 'var(--color-textSecondary)' }}>
+            Showing demo data instead.
+          </p>
         </div>
       )}
 
       {/* Loading State */}
       {loading && issues.length === 0 && (
         <div className="flex items-center justify-center h-64">
-          <div className="flex items-center space-x-3 text-gray-400">
+          <div
+            className="flex items-center space-x-3"
+            style={{ color: 'var(--color-textSecondary)' }}
+          >
             <RefreshCw className="w-6 h-6 animate-spin" />
             <span>Loading issues...</span>
           </div>
@@ -302,17 +354,71 @@ function TaskManager() {
       ) : null}
 
       {/* Keyboard Shortcuts Help */}
-      <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-        <h4 className="text-sm font-medium text-white mb-2">Keyboard Shortcuts</h4>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-400">
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">N</kbd> New issue</div>
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">E</kbd> Edit selected</div>
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">1-4</kbd> Set priority</div>
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Ctrl+Z</kbd> Undo</div>
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Esc</kbd> Cancel/Clear</div>
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Del</kbd> Delete selected</div>
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Shift+Click</kbd> Select range</div>
-          <div><kbd className="bg-gray-700 px-1.5 py-0.5 rounded">Ctrl+Click</kbd> Multi-select</div>
+      <div
+        className="rounded-xl p-4 border"
+        style={{
+          backgroundColor: 'var(--color-cardBg)',
+          borderColor: 'var(--color-cardBorder)'
+        }}
+      >
+        <h4
+          className="text-sm font-medium mb-2"
+          style={{ color: 'var(--color-text)' }}
+        >
+          Keyboard Shortcuts
+        </h4>
+        <div
+          className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"
+          style={{ color: 'var(--color-textSecondary)' }}
+        >
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >N</kbd> New issue
+          </div>
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >E</kbd> Edit selected
+          </div>
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >1-4</kbd> Set priority
+          </div>
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >Ctrl+Z</kbd> Undo
+          </div>
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >Esc</kbd> Cancel/Clear
+          </div>
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >Del</kbd> Delete selected
+          </div>
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >Shift+Click</kbd> Select range
+          </div>
+          <div>
+            <kbd
+              className="px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bgTertiary)' }}
+            >Ctrl+Click</kbd> Multi-select
+          </div>
         </div>
       </div>
 
@@ -362,48 +468,77 @@ function ListView({ issues, onStateChange, onPriorityChange, onEdit, selectedIss
   }
 
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+    <div
+      className="rounded-xl border overflow-hidden"
+      style={{
+        backgroundColor: 'var(--color-cardBg)',
+        borderColor: 'var(--color-cardBorder)'
+      }}
+    >
       <table className="w-full">
         <thead>
-          <tr className="bg-gray-800/50 border-b border-gray-700">
-            <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3 w-8">
-              <input type="checkbox" className="rounded bg-gray-700 border-gray-600" disabled />
+          <tr
+            className="border-b"
+            style={{
+              backgroundColor: 'var(--color-bgSecondary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <th
+              className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3 w-8"
+              style={{ color: 'var(--color-textMuted)' }}
+            >
+              <input type="checkbox" className="rounded" disabled style={{ backgroundColor: 'var(--color-inputBg)' }} />
             </th>
-            <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">ID</th>
-            <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">Title</th>
-            <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">State</th>
-            <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">Priority</th>
-            <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">Type</th>
-            <th className="text-left text-xs font-medium text-gray-400 uppercase tracking-wider px-4 py-3">Actions</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>ID</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Title</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>State</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Priority</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Type</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-700">
+        <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
           {issues.map(issue => {
             const isSelected = selectedIssues.includes(issue.identifier)
             return (
               <tr
                 key={issue.identifier}
                 onClick={() => onSelectIssue(issue.identifier)}
-                className={`hover:bg-gray-700/50 cursor-pointer transition-colors ${
-                  isSelected ? 'bg-blue-500/10' : ''
-                }`}
+                className="cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: isSelected ? 'rgba(96, 165, 250, 0.1)' : 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--color-bgSecondary)'
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'
+                }}
               >
                 <td className="px-4 py-3">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => onSelectIssue(issue.identifier)}
-                    className="rounded bg-gray-700 border-gray-600 text-blue-500"
+                    className="rounded"
+                    style={{
+                      backgroundColor: 'var(--color-inputBg)',
+                      borderColor: 'var(--color-inputBorder)'
+                    }}
                   />
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-400">{issue.identifier}</td>
+                <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-textSecondary)' }}>{issue.identifier}</td>
                 <td className="px-4 py-3">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       onEdit(issue)
                     }}
-                    className="text-sm text-white hover:text-blue-400 transition-colors text-left"
+                    className="text-sm text-left transition-colors"
+                    style={{ color: 'var(--color-text)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text)'}
                   >
                     {issue.title}
                   </button>
@@ -416,14 +551,15 @@ function ListView({ issues, onStateChange, onPriorityChange, onEdit, selectedIss
                 <td className="px-4 py-3">
                   <span className={`inline-block w-3 h-3 rounded-full ${PRIORITY_COLORS[issue.priority] || 'bg-gray-500'}`} title={issue.priority} />
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-400">{issue.issue_type}</td>
+                <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-textSecondary)' }}>{issue.issue_type}</td>
                 <td className="px-4 py-3">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       onEdit(issue)
                     }}
-                    className="text-sm text-blue-400 hover:text-blue-300"
+                    className="text-sm transition-colors"
+                    style={{ color: 'var(--color-accent)' }}
                   >
                     Edit
                   </button>
@@ -434,7 +570,10 @@ function ListView({ issues, onStateChange, onPriorityChange, onEdit, selectedIss
         </tbody>
       </table>
       {issues.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
+        <div
+          className="text-center py-12"
+          style={{ color: 'var(--color-textSecondary)' }}
+        >
           No issues found
         </div>
       )}
