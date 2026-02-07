@@ -3,9 +3,13 @@ Agent Session Logic
 ===================
 
 Core agent interaction functions for running autonomous coding sessions.
+<<<<<<< HEAD
 Integrates with context_manager for token budget tracking.
 Integrates with session_state for granular error recovery (ENG-35).
 Implements context window management with compact mode and graceful shutdown (ENG-29).
+=======
+Integrates with session_state for phase tracking and crash recovery (ENG-66).
+>>>>>>> agent/ENG-66
 """
 
 import asyncio
@@ -42,6 +46,7 @@ from session_state import (
     SessionRecovery,
     SessionState,
     SessionStateManager,
+<<<<<<< HEAD
     get_session_recovery,
     get_session_state_manager,
 )
@@ -123,6 +128,16 @@ async def wait_while_paused(project_dir: Path) -> bool:
         print(f"Note: Could not send Telegram notification: {e}")
 
     return was_paused
+=======
+    clear_session_state,
+    get_session_recovery,
+    get_session_state_manager,
+    load_session_state,
+    save_session_state,
+    set_default_project_dir,
+    transition_phase,
+)
+>>>>>>> agent/ENG-66
 
 
 # Configuration
@@ -326,10 +341,18 @@ async def run_autonomous_agent(
     max_iterations: int | None = None,
 ) -> None:
     """
+<<<<<<< HEAD
     Run the autonomous agent loop with granular error recovery.
 
     Features (ENG-35):
     - Crash recovery from .agent/session_state.json
+=======
+    Run the autonomous agent loop with session state tracking and crash recovery.
+
+    Features (ENG-66):
+    - Session phase tracking with persistence to .agent/session_state.json
+    - Crash recovery from persisted state on startup
+>>>>>>> agent/ENG-66
     - Phase-level retry with smart restart logic
     - Graceful degradation for MCP/Playwright failures
     - Exponential backoff on rate limits
@@ -358,6 +381,7 @@ async def run_autonomous_agent(
         print("Max iterations: Unlimited (will run until all tasks done)")
     print()
 
+<<<<<<< HEAD
     # Generate/update project map on startup (ENG-33)
     print("Generating project map...")
     project_map = ensure_project_map(project_dir)
@@ -367,6 +391,12 @@ async def run_autonomous_agent(
         print("No project map available")
 
     # Initialize session state manager and check for crash recovery
+=======
+    # Set default project dir for standalone session state functions (ENG-66)
+    set_default_project_dir(project_dir)
+
+    # Initialize session state manager and check for crash recovery (ENG-66)
+>>>>>>> agent/ENG-66
     state_manager = get_session_state_manager(project_dir)
     recovery = get_session_recovery(project_dir)
 
@@ -376,7 +406,11 @@ async def run_autonomous_agent(
 
     if recovery_needed and saved_state:
         print("\n" + "-" * 70)
+<<<<<<< HEAD
         print(f"  CRASH RECOVERY: Resuming from interrupted session")
+=======
+        print("  CRASH RECOVERY: Resuming from interrupted session")
+>>>>>>> agent/ENG-66
         print(f"  Issue: {saved_state.issue_id}")
         print(f"  Last phase: {saved_state.phase.phase_name}")
         if saved_state.uncommitted_changes:
@@ -421,9 +455,15 @@ async def run_autonomous_agent(
 
         if iteration == 1:
             prompt: str = get_execute_task_with_memory(team, project_dir)
+<<<<<<< HEAD
             print("(Loading project map and memory from .agent/)")
 
             # If recovering, add context about resume phase
+=======
+            print("(Loading agent memory from .agent/MEMORY.md)")
+
+            # If recovering, add context about resume phase (ENG-66)
+>>>>>>> agent/ENG-66
             if resume_phase:
                 prompt += f"\n\n[RECOVERY MODE: Resuming from phase '{resume_phase.phase_name}']"
                 if saved_state and saved_state.uncommitted_changes:
@@ -434,6 +474,7 @@ async def run_autonomous_agent(
             print("(Using continuation prompt - will check previous session context)")
             print("(Loading project map and memory from .agent/)")
 
+<<<<<<< HEAD
         # Track prompt tokens
         ctx_manager.set_system_prompt(prompt)
         stats = ctx_manager.get_stats()
@@ -445,11 +486,15 @@ async def run_autonomous_agent(
             print("(COMPACT MODE: Using minimal context for issue details)")
 
         # Run session with error recovery
+=======
+        # Run session with error recovery (ENG-66)
+>>>>>>> agent/ENG-66
         result: SessionResult = SessionResult(status=SESSION_ERROR, response="uninitialized")
         error_type_detected: ErrorType | None = None
 
         try:
             async with client:
+<<<<<<< HEAD
                 result = await run_agent_session(client, prompt, project_dir, ctx_manager)
 
             # Success - clear session state
@@ -472,6 +517,14 @@ async def run_autonomous_agent(
                 await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
                 continue
 
+=======
+                result = await run_agent_session(client, prompt, project_dir)
+
+            # Success - clear session state (ENG-66)
+            if result.status == SESSION_COMPLETE:
+                state_manager.clear_state()
+
+>>>>>>> agent/ENG-66
         except ConnectionError as e:
             print(f"\nNetwork error during agent session: {e}")
             print("Check your internet connection and try again.")
@@ -509,6 +562,7 @@ async def run_autonomous_agent(
         elif result.status == SESSION_ERROR:
             print("\nSession encountered an error")
 
+<<<<<<< HEAD
             # Calculate backoff delay based on error type
             if error_type_detected:
                 current_phase = state_manager.current_state.phase if state_manager.current_state else SessionPhase.ORIENT
@@ -519,13 +573,42 @@ async def run_autonomous_agent(
                 if not state_manager.get_phase_attempt(current_phase).can_retry:
                     if GracefulDegradation.should_skip_service(error_type_detected, current_phase):
                         msg = GracefulDegradation.get_degradation_message(error_type_detected, current_phase)
+=======
+            # Calculate backoff delay based on error type (ENG-66)
+            if error_type_detected:
+                current_phase = (
+                    state_manager.current_state.phase
+                    if state_manager.current_state
+                    else SessionPhase.ORIENT
+                )
+                attempt = state_manager.get_phase_attempt(current_phase).attempt
+                delay = GracefulDegradation.get_backoff_delay(
+                    attempt, error_type_detected
+                )
+
+                # Check for graceful degradation
+                if not state_manager.get_phase_attempt(current_phase).can_retry:
+                    if GracefulDegradation.should_skip_service(
+                        error_type_detected, current_phase
+                    ):
+                        msg = GracefulDegradation.get_degradation_message(
+                            error_type_detected, current_phase
+                        )
+>>>>>>> agent/ENG-66
                         print(f"Graceful degradation: {msg}")
                         state_manager.mark_degraded(current_phase.phase_name)
                         # Continue to next iteration
                         delay = AUTO_CONTINUE_DELAY_SECONDS
                     else:
                         # Save changes if git error during commit
+<<<<<<< HEAD
                         if error_type_detected == ErrorType.GIT_ERROR and current_phase == SessionPhase.COMMIT:
+=======
+                        if (
+                            error_type_detected == ErrorType.GIT_ERROR
+                            and current_phase == SessionPhase.COMMIT
+                        ):
+>>>>>>> agent/ENG-66
                             print("Attempting to save uncommitted changes...")
                             diff_file = await recovery.save_git_diff_to_file()
                             if diff_file:

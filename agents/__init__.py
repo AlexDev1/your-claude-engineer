@@ -10,6 +10,7 @@ from agents.definitions import (
     TASK_AGENT,
     TELEGRAM_AGENT,
     CODING_AGENT,
+    REVIEWER_AGENT,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "TASK_AGENT",
     "TELEGRAM_AGENT",
     "CODING_AGENT",
+    "REVIEWER_AGENT",
 ]

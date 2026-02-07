@@ -9,6 +9,7 @@ Agents:
 - task: Manages tasks, projects, and session tracking (replaces Linear)
 - coding: Writes code, tests with Playwright, handles git operations
 - telegram: Sends notifications via Telegram (replaces Slack)
+- reviewer: Reviews code diffs before commit (automated code review gate)
 """
 
 import os
@@ -21,6 +22,7 @@ from mcp_config import (
     get_task_tools,
     get_telegram_tools,
     get_coding_tools,
+    get_reviewer_tools,
 )
 
 # File tools needed by multiple agents
@@ -39,6 +41,7 @@ DEFAULT_MODELS: Final[dict[str, ModelOption]] = {
     "task": "haiku",
     "coding": "sonnet",
     "telegram": "haiku",
+    "reviewer": "haiku",
 }
 
 
@@ -148,6 +151,7 @@ def create_agent_definitions() -> dict[str, AgentDefinition]:
     - task: Project/issue management via Task MCP Server (replaces Linear)
     - coding: Code implementation + Playwright testing + local git
     - telegram: Notifications via Telegram Bot API (replaces Slack)
+    - reviewer: Automated code review before commit (ENG-42)
     """
     return {
         "task": AgentDefinition(
@@ -168,6 +172,12 @@ def create_agent_definitions() -> dict[str, AgentDefinition]:
             tools=get_coding_tools(),
             model=_get_model("coding"),
         ),
+        "reviewer": AgentDefinition(
+            description="Reviews code diffs before commit. Checks for security issues, code quality, and best practices. Returns APPROVE or REQUEST_CHANGES verdict.",
+            prompt=_load_prompt("reviewer_prompt"),
+            tools=get_reviewer_tools(),
+            model=_get_model("reviewer"),
+        ),
     }
 
 
@@ -178,3 +188,4 @@ AGENT_DEFINITIONS: dict[str, AgentDefinition] = create_agent_definitions()
 TASK_AGENT = AGENT_DEFINITIONS["task"]
 TELEGRAM_AGENT = AGENT_DEFINITIONS["telegram"]
 CODING_AGENT = AGENT_DEFINITIONS["coding"]
+REVIEWER_AGENT = AGENT_DEFINITIONS["reviewer"]

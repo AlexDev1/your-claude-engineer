@@ -222,5 +222,10 @@ def get_coding_tools() -> list[str]:
 
 
 def get_reviewer_tools() -> list[str]:
+<<<<<<< HEAD
     """Get tools for reviewer agent (read-only + git diff)."""
     return ["Read", "Grep", "Bash"]
+=======
+    """Get tools for reviewer agent (read-only file ops + git diff)."""
+    return ["Read", "Glob", "Grep", "Bash"]
+>>>>>>> agent/ENG-66
