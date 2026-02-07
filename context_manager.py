@@ -8,11 +8,16 @@ Reduces token usage while maintaining quality through:
 - Incremental context loading
 - Token budget monitoring
 - Auto-summarization when approaching limits
+- Compact mode for context pressure (ENG-29)
+- Graceful shutdown at critical threshold (ENG-29)
+- Tool output truncation (ENG-29)
 """
 
 import ast
+import os
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
@@ -20,14 +25,32 @@ from typing import Callable
 # Token estimation: ~4 chars per token for English/code
 CHARS_PER_TOKEN = 4
 
-# Default context budget (Claude's context window)
-DEFAULT_MAX_TOKENS = 200_000
+# Default context budget - configurable via MAX_CONTEXT_TOKENS env var
+# Default: 180000 for claude-3-5-sonnet (leaves headroom from 200k limit)
+DEFAULT_MAX_TOKENS = int(os.environ.get("MAX_CONTEXT_TOKENS", "180000"))
 
-# Warning threshold as percentage of max
-WARNING_THRESHOLD = 0.8
+# Warning threshold: 70% - triggers compact mode (ENG-29)
+WARNING_THRESHOLD = 0.70
+
+# Critical threshold: 85% - triggers graceful shutdown (ENG-29)
+CRITICAL_THRESHOLD = 0.85
+
+# Tool output truncation limits (ENG-29)
+TOOL_OUTPUT_MAX_CHARS = 5000
+TOOL_OUTPUT_TRUNCATE_FIRST = 2000
+TOOL_OUTPUT_TRUNCATE_LAST = 2000
+GIT_DIFF_MAX_CHARS = 3000
 
 # Categories for context breakdown
-CONTEXT_CATEGORIES = ["system_prompt", "files", "history", "memory", "issue"]
+CONTEXT_CATEGORIES = ["system_prompt", "files", "history", "memory", "issue", "tool_outputs"]
+
+
+class ContextMode:
+    """Context mode flags for orchestrator behavior (ENG-29)."""
+
+    NORMAL = "normal"
+    COMPACT = "compact"  # 70%+ usage - minimal context
+    CRITICAL = "critical"  # 85%+ usage - trigger graceful shutdown
 
 
 @dataclass
@@ -41,6 +64,7 @@ class ContextBudget:
         "history": 0,
         "memory": 0,
         "issue": 0,
+        "tool_outputs": 0,
     })
 
     @property
@@ -59,9 +83,28 @@ class ContextBudget:
         return (self.total_used / self.max_tokens) * 100
 
     @property
+    def usage_ratio(self) -> float:
+        """Usage as decimal ratio (0.0 to 1.0)."""
+        return self.total_used / self.max_tokens
+
+    @property
     def is_warning(self) -> bool:
-        """True if usage exceeds warning threshold."""
-        return self.total_used >= (self.max_tokens * WARNING_THRESHOLD)
+        """True if usage exceeds warning threshold (70%)."""
+        return self.usage_ratio >= WARNING_THRESHOLD
+
+    @property
+    def is_critical(self) -> bool:
+        """True if usage exceeds critical threshold (85%)."""
+        return self.usage_ratio >= CRITICAL_THRESHOLD
+
+    @property
+    def mode(self) -> str:
+        """Get current context mode based on usage (ENG-29)."""
+        if self.is_critical:
+            return ContextMode.CRITICAL
+        elif self.is_warning:
+            return ContextMode.COMPACT
+        return ContextMode.NORMAL
 
     def add(self, category: str, tokens: int) -> None:
         """Add tokens to a category."""
@@ -80,7 +123,10 @@ class ContextBudget:
             "total_used": self.total_used,
             "remaining": self.remaining,
             "usage_percent": round(self.usage_percent, 1),
+            "usage_ratio": round(self.usage_ratio, 3),
             "is_warning": self.is_warning,
+            "is_critical": self.is_critical,
+            "mode": self.mode,
             "breakdown": self.breakdown.copy(),
         }
 
@@ -90,7 +136,13 @@ class ContextBudget:
         filled = int((self.usage_percent / 100) * bar_width)
         bar = "[" + "=" * filled + " " * (bar_width - filled) + "]"
 
-        status = " WARNING" if self.is_warning else ""
+        if self.is_critical:
+            status = " CRITICAL"
+        elif self.is_warning:
+            status = " COMPACT MODE"
+        else:
+            status = ""
+
         lines = [
             f"Context Budget: {self.total_used:,} / {self.max_tokens:,} tokens ({self.usage_percent:.1f}%){status}",
             bar,
@@ -107,6 +159,142 @@ def estimate_tokens(text: str) -> int:
     if not text:
         return 0
     return len(text) // CHARS_PER_TOKEN
+
+
+def truncate_tool_output(output: str, tool_name: str = "") -> tuple[str, bool]:
+    """
+    Truncate tool output if it exceeds limits (ENG-29).
+
+    Args:
+        output: Raw tool output string
+        tool_name: Optional tool name for specialized truncation
+
+    Returns:
+        Tuple of (truncated_output, was_truncated)
+    """
+    if not output:
+        return output, False
+
+    # Special handling for git diff - show stat + first files
+    if tool_name.lower() in ("git", "bash") and "diff" in output.lower():
+        return truncate_git_diff(output)
+
+    # Special handling for screenshots - only keep path, not base64
+    if "base64" in output.lower() or "data:image" in output.lower():
+        return truncate_screenshot_output(output)
+
+    # General truncation for long outputs
+    if len(output) <= TOOL_OUTPUT_MAX_CHARS:
+        return output, False
+
+    first_part = output[:TOOL_OUTPUT_TRUNCATE_FIRST]
+    last_part = output[-TOOL_OUTPUT_TRUNCATE_LAST:]
+    truncated_chars = len(output) - TOOL_OUTPUT_TRUNCATE_FIRST - TOOL_OUTPUT_TRUNCATE_LAST
+
+    truncated = (
+        f"{first_part}\n\n"
+        f"[...truncated {truncated_chars:,} chars, showing first {TOOL_OUTPUT_TRUNCATE_FIRST} and last {TOOL_OUTPUT_TRUNCATE_LAST} chars]\n\n"
+        f"{last_part}"
+    )
+
+    return truncated, True
+
+
+def truncate_git_diff(diff_output: str) -> tuple[str, bool]:
+    """
+    Truncate git diff to show stat + first changed files (ENG-29).
+
+    Args:
+        diff_output: Raw git diff output
+
+    Returns:
+        Tuple of (truncated_output, was_truncated)
+    """
+    if len(diff_output) <= GIT_DIFF_MAX_CHARS:
+        return diff_output, False
+
+    lines = diff_output.split("\n")
+    result_lines = []
+    char_count = 0
+    file_count = 0
+    in_diff = False
+
+    for line in lines:
+        # Track diff file headers
+        if line.startswith("diff --git"):
+            file_count += 1
+            in_diff = True
+
+        # Stop if we exceed limit
+        if char_count + len(line) > GIT_DIFF_MAX_CHARS - 200:  # Leave room for summary
+            break
+
+        result_lines.append(line)
+        char_count += len(line) + 1
+
+    total_files = diff_output.count("diff --git")
+    remaining = total_files - file_count
+
+    if remaining > 0:
+        result_lines.append("")
+        result_lines.append(f"[...truncated, showing {file_count}/{total_files} files, {len(diff_output) - char_count:,} more chars]")
+
+    return "\n".join(result_lines), True
+
+
+def truncate_screenshot_output(output: str) -> tuple[str, bool]:
+    """
+    Remove base64 image data from screenshot outputs (ENG-29).
+
+    Keeps only the file path, not the embedded image data.
+
+    Args:
+        output: Raw output that may contain base64 image data
+
+    Returns:
+        Tuple of (cleaned_output, was_truncated)
+    """
+    import re
+
+    # Pattern to match base64 data URLs
+    base64_pattern = r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+'
+
+    # Check if there's base64 data
+    if not re.search(base64_pattern, output):
+        return output, False
+
+    # Replace base64 data with placeholder
+    cleaned = re.sub(
+        base64_pattern,
+        "[base64 image data removed - see screenshot path]",
+        output
+    )
+
+    return cleaned, True
+
+
+def get_compact_issue_context(issue: dict) -> dict:
+    """
+    Get minimal issue context for compact mode (ENG-29).
+
+    When at 70%+ context usage, orchestrator uses this instead of full issue details.
+
+    Args:
+        issue: Full issue dictionary
+
+    Returns:
+        Minimal issue dict with only essential fields
+    """
+    # Only keep: id, title, first line of description
+    description = issue.get("description", "")
+    first_line = description.split("\n")[0][:100] if description else ""
+
+    return {
+        "id": issue.get("id", ""),
+        "title": issue.get("title", ""),
+        "description": first_line + ("..." if len(description) > 100 else ""),
+        "_compact_mode": True,
+    }
 
 
 class FileCache:
@@ -348,14 +536,150 @@ def get_file_summary(file_path: str | Path, cache: FileCache | None = None) -> s
     return "\n".join(lines)
 
 
+@dataclass
+class InterruptedSession:
+    """Checkpoint for interrupted session recovery (ENG-29)."""
+
+    interrupted_at: str
+    issue_id: str
+    step: str
+    context_usage_percent: float
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def to_dict(self) -> dict:
+        """Serialize for storage."""
+        return {
+            "interrupted_at": self.interrupted_at,
+            "issue_id": self.issue_id,
+            "step": self.step,
+            "context_usage_percent": self.context_usage_percent,
+            "timestamp": self.timestamp,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "InterruptedSession":
+        """Deserialize from storage."""
+        return cls(
+            interrupted_at=data.get("interrupted_at", "unknown"),
+            issue_id=data.get("issue_id", ""),
+            step=data.get("step", "unknown"),
+            context_usage_percent=data.get("context_usage_percent", 0.0),
+            timestamp=data.get("timestamp", datetime.now().isoformat()),
+        )
+
+
 class ContextManager:
-    """Manages context loading and budget tracking."""
+    """Manages context loading and budget tracking.
+
+    Enhanced with ENG-29 features:
+    - Compact mode at 70% usage
+    - Graceful shutdown at 85% usage
+    - Tool output truncation
+    - Interrupted session checkpointing
+    """
 
     def __init__(self, max_tokens: int = DEFAULT_MAX_TOKENS):
         self.budget = ContextBudget(max_tokens=max_tokens)
         self.cache = FileCache()
         self._loaded_files: set[str] = set()
         self._history: list[dict] = []
+        self._current_issue_id: str = ""
+        self._current_step: str = ""
+        self._interrupted_session: InterruptedSession | None = None
+
+    @property
+    def is_compact_mode(self) -> bool:
+        """Check if compact mode is active (70%+ usage)."""
+        return self.budget.is_warning
+
+    @property
+    def is_critical(self) -> bool:
+        """Check if critical threshold reached (85%+ usage)."""
+        return self.budget.is_critical
+
+    @property
+    def mode(self) -> str:
+        """Get current context mode."""
+        return self.budget.mode
+
+    def set_current_issue(self, issue_id: str) -> None:
+        """Set the current issue being worked on."""
+        self._current_issue_id = issue_id
+
+    def set_current_step(self, step: str) -> None:
+        """Set the current step in the workflow."""
+        self._current_step = step
+
+    def track_tool_output(self, tool_name: str, output: str) -> str:
+        """
+        Track and optionally truncate tool output (ENG-29).
+
+        Args:
+            tool_name: Name of the tool
+            output: Raw tool output
+
+        Returns:
+            Processed (possibly truncated) output
+        """
+        processed, was_truncated = truncate_tool_output(output, tool_name)
+        tokens = estimate_tokens(processed)
+        self.budget.add("tool_outputs", tokens)
+
+        if was_truncated:
+            print(f"   [Truncated: {len(output):,} -> {len(processed):,} chars]", flush=True)
+
+        return processed
+
+    def create_checkpoint(self) -> InterruptedSession:
+        """
+        Create a checkpoint for session continuation (ENG-29).
+
+        Called before graceful shutdown at 85% context usage.
+        """
+        checkpoint = InterruptedSession(
+            interrupted_at=f"step_{self._current_step}",
+            issue_id=self._current_issue_id,
+            step=self._current_step,
+            context_usage_percent=round(self.budget.usage_percent, 1),
+        )
+        self._interrupted_session = checkpoint
+        return checkpoint
+
+    def should_trigger_shutdown(self) -> bool:
+        """
+        Check if graceful shutdown should be triggered (ENG-29).
+
+        Returns True at 85%+ context usage.
+        """
+        return self.budget.is_critical
+
+    def should_use_compact_mode(self) -> bool:
+        """
+        Check if compact mode should be used (ENG-29).
+
+        Returns True at 70%+ context usage.
+        """
+        return self.budget.is_warning
+
+    def get_compact_context_instructions(self) -> str:
+        """
+        Get instructions for compact mode operation (ENG-29).
+
+        Returns instructions string for orchestrator when in compact mode.
+        """
+        if not self.is_compact_mode:
+            return ""
+
+        return """
+## COMPACT MODE ACTIVE (70%+ context usage)
+
+To preserve context budget:
+- Use ONLY: issue_id + title + 1-line description
+- Do NOT request full issue descriptions
+- Do NOT request META issue history
+- Pass minimal context to Coding Agent
+- Skip verbose logging and explanations
+"""
 
     def load_file(self, file_path: str | Path, full: bool = False) -> str:
         """Load file content with smart selection.
@@ -465,18 +789,87 @@ class ContextManager:
 
     def get_stats(self) -> dict:
         """Get current context statistics."""
-        return {
+        stats = {
             **self.budget.to_dict(),
             "files_loaded": len(self._loaded_files),
             "history_messages": len(self._history),
+            "current_issue_id": self._current_issue_id,
+            "current_step": self._current_step,
         }
+
+        if self._interrupted_session:
+            stats["interrupted_session"] = self._interrupted_session.to_dict()
+
+        return stats
+
+    def prepare_graceful_shutdown(self, memory_path: Path | None = None) -> dict:
+        """
+        Prepare for graceful shutdown at 85% context (ENG-29).
+
+        Steps:
+        1. Create checkpoint
+        2. Write interrupted session info to memory
+        3. Return shutdown info for session state
+
+        Args:
+            memory_path: Path to memory file for flushing context
+
+        Returns:
+            Dict with shutdown info for session continuation
+        """
+        checkpoint = self.create_checkpoint()
+
+        shutdown_info = {
+            "reason": "context_limit_85_percent",
+            "checkpoint": checkpoint.to_dict(),
+            "context_stats": self.get_stats(),
+            "recommendation": "Continue in next session with this checkpoint",
+        }
+
+        # Append to memory file if provided
+        if memory_path and memory_path.exists():
+            try:
+                memory_content = memory_path.read_text()
+                checkpoint_note = f"""
+
+---
+
+### Context Limit Shutdown ({checkpoint.timestamp})
+- Issue: {checkpoint.issue_id}
+- Interrupted at: {checkpoint.interrupted_at}
+- Context usage: {checkpoint.context_usage_percent}%
+- **Resume from step: {checkpoint.step}**
+"""
+                memory_path.write_text(memory_content + checkpoint_note)
+            except IOError:
+                pass  # Non-critical, continue with shutdown
+
+        return shutdown_info
+
+    def load_interrupted_session(self, session_data: dict) -> InterruptedSession | None:
+        """
+        Load interrupted session checkpoint for continuation (ENG-29).
+
+        Args:
+            session_data: Data from session_state.json
+
+        Returns:
+            InterruptedSession if found, None otherwise
+        """
+        if "checkpoint" in session_data:
+            self._interrupted_session = InterruptedSession.from_dict(session_data["checkpoint"])
+            return self._interrupted_session
+        return None
 
     def reset(self) -> None:
         """Reset manager state for new session."""
         self.budget = ContextBudget(max_tokens=self.budget.max_tokens)
         self._loaded_files.clear()
         self._history.clear()
+        self._current_issue_id = ""
+        self._current_step = ""
         # Keep cache for efficiency across sessions
+        # Keep interrupted_session for continuation
 
 
 # Global instance for convenience

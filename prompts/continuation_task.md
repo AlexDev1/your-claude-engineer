@@ -9,11 +9,18 @@ Return: what was done, failures, files, next step, context
 
 Use to: resume work, skip analyzed files, avoid failed approaches.
 
+### 0.1 Check for Interrupted Session (ENG-29)
+Check .agent/MEMORY.md for "Context Limit Shutdown" entry.
+If found:
+- Note the interrupted issue ID and step
+- Resume from that exact step, don't restart from zero
+- The previous work is still valid, just continue
+
 ## Flow
 
 ### 1. Get Task
 task agent: List Todo and In Progress for {team}
-- If In Progress: resume it
+- If In Progress: resume it (check if context-limit interrupted)
 - Else: highest priority Todo
 
 If no Todo/In Progress: telegram ":tada: All complete!" then `ALL_TASKS_DONE:` and stop.
@@ -26,6 +33,12 @@ telegram: ":construction: Starting: [title]" or ":repeat: Resuming: [title]"
 coding agent with FULL context + previous context:
 - ID, Title, Description, Test Steps
 - Previous Context (if resuming)
+- Interrupted step (if context-limit recovery)
+
+**If COMPACT MODE active (70%+ context):**
+- Use only: ID + Title + 1-line description
+- Skip META issue history lookup
+- Pass minimal context to coding agent
 
 ### 4. Commit
 coding agent: Commit with task ID
@@ -40,8 +53,26 @@ telegram: ":white_check_mark: Completed: [title]"
 coding agent: Update .agent/MEMORY.md
 task agent: Session summary to META issue
 
+## Context Limit Recovery (ENG-29)
+
+If session was interrupted by context limit:
+1. Check MEMORY.md for "Context Limit Shutdown" note
+2. Find the interrupted_at step
+3. Resume from that step (don't re-do completed work)
+4. The issue is likely still In Progress
+
+Example MEMORY.md entry:
+```
+### Context Limit Shutdown (2024-01-15T10:30:00)
+- Issue: ENG-29
+- Interrupted at: step_implement
+- Resume from step: implement
+```
+
 ## Rules
 - Check previous context first
+- Check for context-limit interruption
 - No Done without screenshots
 - One issue per session
 - Memory flush before ending
+- In COMPACT MODE: minimal context only

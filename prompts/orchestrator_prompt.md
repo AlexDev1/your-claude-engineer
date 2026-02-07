@@ -17,6 +17,32 @@ coding agent -> files/screenshots -> YOU -> task agent (mark Done)
 ```
 **Pass full context between agents - they share no memory.**
 
+### Context Budget Management (ENG-29)
+
+Monitor context usage. The system tracks tokens automatically.
+
+**Normal Mode (0-70%)**
+- Full issue descriptions
+- Complete META issue history
+- Detailed context to coding agent
+
+**Compact Mode (70-85%)**
+When you see "[COMPACT MODE]" in context stats:
+- Use ONLY: issue_id + title + 1-line description
+- Do NOT request META issue history
+- Pass minimal context to Coding Agent
+- Skip verbose explanations
+
+**Critical (85%+)**
+- System triggers graceful shutdown automatically
+- Memory flush happens before shutdown
+- Session continues with fresh context
+
+**If approaching limit:**
+1. Complete current task quickly
+2. Skip optional steps (detailed reviews, verbose logging)
+3. Output `CONTEXT_LIMIT_REACHED:` to trigger graceful shutdown
+
 ### Workflow
 
 1. **Get task**: task agent lists Todo issues, returns highest priority

@@ -4,9 +4,11 @@ Claude SDK Client Configuration
 
 Functions for creating and configuring the Claude Agent SDK client.
 Uses self-hosted Task MCP and Telegram MCP servers for integration.
+Implements tool output truncation middleware (ENG-29).
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Literal, TypedDict, cast
 
@@ -17,6 +19,12 @@ load_dotenv()
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, McpServerConfig
 from claude_agent_sdk.types import HookCallback, HookMatcher
 
+from context_manager import (
+    get_context_manager,
+    truncate_tool_output,
+    truncate_git_diff,
+    TOOL_OUTPUT_MAX_CHARS,
+)
 from mcp_config import (
     ALL_MCP_TOOLS,
     TASK_TOOLS_PERMISSION,
@@ -84,6 +92,42 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 def load_orchestrator_prompt() -> str:
     """Load the orchestrator system prompt."""
     return (PROMPTS_DIR / "orchestrator_prompt.md").read_text()
+
+
+def tool_output_truncation_hook(tool_name: str, tool_input: dict, tool_output: str) -> str:
+    """
+    Post-tool hook to truncate long tool outputs (ENG-29).
+
+    This middleware runs after each tool execution and truncates
+    outputs that exceed the configured limit to save context budget.
+
+    Args:
+        tool_name: Name of the tool that was executed
+        tool_input: Input parameters passed to the tool
+        tool_output: Raw output from the tool
+
+    Returns:
+        Possibly truncated tool output
+    """
+    if not tool_output or len(tool_output) <= TOOL_OUTPUT_MAX_CHARS:
+        return tool_output
+
+    # Special handling for git/bash commands
+    if tool_name.lower() == "bash":
+        command = tool_input.get("command", "")
+        if "diff" in command.lower():
+            truncated, _ = truncate_git_diff(tool_output)
+            return truncated
+
+    # General truncation
+    truncated, was_truncated = truncate_tool_output(tool_output, tool_name)
+
+    if was_truncated:
+        # Track in context manager
+        ctx_manager = get_context_manager()
+        ctx_manager.track_tool_output(tool_name, truncated)
+
+    return truncated
 
 
 def create_security_settings() -> SecuritySettings:
@@ -183,10 +227,18 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     security_settings: SecuritySettings = create_security_settings()
     settings_file: Path = write_security_settings(project_dir, security_settings)
 
+    # Get context budget info (ENG-29)
+    ctx_manager = get_context_manager()
+    max_tokens = ctx_manager.budget.max_tokens
+
     print(f"Created security settings at {settings_file}")
     print("   - Sandbox enabled (OS-level bash isolation)")
     print(f"   - Filesystem restricted to: {project_dir.resolve()}")
     print("   - Bash commands restricted to allowlist (see security.py)")
+    print(f"   - Context budget: {max_tokens:,} tokens (MAX_CONTEXT_TOKENS)")
+    print(f"   - Compact mode: 70% ({int(max_tokens * 0.7):,} tokens)")
+    print(f"   - Graceful shutdown: 85% ({int(max_tokens * 0.85):,} tokens)")
+    print(f"   - Tool output limit: {TOOL_OUTPUT_MAX_CHARS:,} chars")
     print(f"   - MCP servers:")
     print(f"       - playwright (browser automation)")
     print(f"       - task ({task_config['url']})")

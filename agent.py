@@ -5,6 +5,7 @@ Agent Session Logic
 Core agent interaction functions for running autonomous coding sessions.
 Integrates with context_manager for token budget tracking.
 Integrates with session_state for granular error recovery (ENG-35).
+Implements context window management with compact mode and graceful shutdown (ENG-29).
 """
 
 import asyncio
@@ -22,7 +23,12 @@ from claude_agent_sdk import (
 )
 
 from client import create_client
-from context_manager import ContextManager, estimate_tokens, get_context_manager
+from context_manager import (
+    ContextManager,
+    ContextMode,
+    estimate_tokens,
+    get_context_manager,
+)
 from progress import print_session_header
 from prompts import (
     ensure_project_map,
@@ -46,15 +52,19 @@ AUTO_CONTINUE_DELAY_SECONDS: int = 3
 
 
 # Type-safe literal union - no runtime overhead
-SessionStatus = Literal["continue", "error", "complete"]
+SessionStatus = Literal["continue", "error", "complete", "context_limit"]
 
 # Constants for code clarity
 SESSION_CONTINUE: SessionStatus = "continue"
 SESSION_ERROR: SessionStatus = "error"
 SESSION_COMPLETE: SessionStatus = "complete"
+SESSION_CONTEXT_LIMIT: SessionStatus = "context_limit"
 
 # Completion signal that orchestrator outputs when all tasks are done
 COMPLETION_SIGNAL = "ALL_TASKS_DONE:"
+
+# Context limit signal that triggers graceful shutdown (ENG-29)
+CONTEXT_LIMIT_SIGNAL = "CONTEXT_LIMIT_REACHED:"
 
 
 class SessionResult(NamedTuple):
@@ -65,6 +75,7 @@ class SessionResult(NamedTuple):
             - "continue": Normal completion, agent can continue with more work
             - "error": Exception occurred, will retry with fresh session
             - "complete": All tasks done, orchestrator signaled ALL_TASKS_DONE
+            - "context_limit": Context budget exceeded, graceful shutdown (ENG-29)
         response: Response text from the agent, or error message if status is "error"
     """
 
@@ -76,6 +87,7 @@ async def run_agent_session(
     client: ClaudeSDKClient,
     message: str,
     project_dir: Path,
+    ctx_manager: ContextManager | None = None,
 ) -> SessionResult:
     """
     Run a single agent session using Claude Agent SDK.
@@ -84,14 +96,20 @@ async def run_agent_session(
         client: Claude SDK client
         message: The prompt to send
         project_dir: Project directory path
+        ctx_manager: Optional context manager for token tracking (ENG-29)
 
     Returns:
         SessionResult with status and response text:
         - status=CONTINUE: Normal completion, agent can continue
         - status=ERROR: Exception occurred, will retry with fresh session
         - status=COMPLETE: All tasks done, ALL_TASKS_DONE signal detected
+        - status=CONTEXT_LIMIT: Context budget exceeded, graceful shutdown
     """
     print("Sending prompt to Claude Agent SDK...\n")
+
+    # Use provided context manager or get global one
+    if ctx_manager is None:
+        ctx_manager = get_context_manager()
 
     try:
         # Send the query
@@ -99,14 +117,19 @@ async def run_agent_session(
 
         # Collect response text and show tool use
         response_text: str = ""
+        tool_call_count: int = 0
+
         async for msg in client.receive_response():
             # Handle AssistantMessage (text and tool use)
             if isinstance(msg, AssistantMessage):
                 for block in msg.content:
                     if isinstance(block, TextBlock):
                         response_text += block.text
+                        # Track response tokens
+                        ctx_manager.budget.add("history", estimate_tokens(block.text))
                         print(block.text, end="", flush=True)
                     elif isinstance(block, ToolUseBlock):
+                        tool_call_count += 1
                         print(f"\n[Tool: {block.name}]", flush=True)
                         input_str: str = str(block.input)
                         if len(input_str) > 200:
@@ -118,25 +141,57 @@ async def run_agent_session(
             elif isinstance(msg, UserMessage):
                 for block in msg.content:
                     if isinstance(block, ToolResultBlock):
-                        result_content = block.content
+                        result_content = str(block.content)
                         is_error: bool = bool(block.is_error) if block.is_error else False
 
+                        # Track and truncate tool output (ENG-29)
+                        processed_output = ctx_manager.track_tool_output(
+                            tool_name="tool_result",
+                            output=result_content,
+                        )
+
                         # Check if command was blocked by security hook
-                        if "blocked" in str(result_content).lower():
+                        if "blocked" in result_content.lower():
                             print(f"   [BLOCKED] {result_content}", flush=True)
                         elif is_error:
                             # Show errors (truncated)
-                            error_str: str = str(result_content)[:500]
+                            error_str: str = result_content[:500]
                             print(f"   [Error] {error_str}", flush=True)
                         else:
                             # Tool succeeded - just show brief confirmation
                             print("   [Done]", flush=True)
 
+            # Check context budget after each message (ENG-29)
+            if ctx_manager.should_trigger_shutdown():
+                print("\n" + "!" * 70)
+                print("  CONTEXT LIMIT WARNING: 85%+ context used")
+                print("  Triggering graceful shutdown...")
+                print("!" * 70 + "\n")
+
+                # Prepare shutdown checkpoint
+                memory_path = project_dir / ".agent" / "MEMORY.md"
+                shutdown_info = ctx_manager.prepare_graceful_shutdown(memory_path)
+
+                return SessionResult(
+                    status=SESSION_CONTEXT_LIMIT,
+                    response=f"{CONTEXT_LIMIT_SIGNAL} {shutdown_info}"
+                )
+
         print("\n" + "-" * 70 + "\n")
+
+        # Show context usage summary
+        stats = ctx_manager.get_stats()
+        mode_indicator = f" [{stats['mode'].upper()}]" if stats['mode'] != "normal" else ""
+        print(f"Context: {stats['usage_percent']:.1f}% used ({stats['total_used']:,} / {stats['max_tokens']:,}){mode_indicator}")
+        print(f"Tool calls: {tool_call_count}")
 
         # Check for completion signal from orchestrator
         if COMPLETION_SIGNAL in response_text:
             return SessionResult(status=SESSION_COMPLETE, response=response_text)
+
+        # Check for context limit signal from orchestrator (self-reported)
+        if CONTEXT_LIMIT_SIGNAL in response_text:
+            return SessionResult(status=SESSION_CONTEXT_LIMIT, response=response_text)
 
         return SessionResult(status=SESSION_CONTINUE, response=response_text)
 
@@ -301,7 +356,12 @@ async def run_autonomous_agent(
         # Track prompt tokens
         ctx_manager.set_system_prompt(prompt)
         stats = ctx_manager.get_stats()
-        print(f"(Context budget: {stats['total_used']:,} / {stats['max_tokens']:,} tokens)")
+        mode_info = f" [{stats['mode'].upper()}]" if stats['mode'] != "normal" else ""
+        print(f"(Context budget: {stats['total_used']:,} / {stats['max_tokens']:,} tokens{mode_info})")
+
+        # Show compact mode instructions if active
+        if ctx_manager.is_compact_mode:
+            print("(COMPACT MODE: Using minimal context for issue details)")
 
         # Run session with error recovery
         result: SessionResult = SessionResult(status=SESSION_ERROR, response="uninitialized")
@@ -309,11 +369,27 @@ async def run_autonomous_agent(
 
         try:
             async with client:
-                result = await run_agent_session(client, prompt, project_dir)
+                result = await run_agent_session(client, prompt, project_dir, ctx_manager)
 
             # Success - clear session state
             if result.status == SESSION_COMPLETE:
                 state_manager.clear_state()
+
+            # Context limit - trigger graceful shutdown with memory flush (ENG-29)
+            if result.status == SESSION_CONTEXT_LIMIT:
+                print("\n" + "=" * 70)
+                print("  GRACEFUL SHUTDOWN: Context limit reached (85%)")
+                print("=" * 70)
+                print("\nCheckpoint saved. Session will resume from this point.")
+
+                # Prepare for continuation
+                memory_path = project_dir / ".agent" / "MEMORY.md"
+                ctx_manager.prepare_graceful_shutdown(memory_path)
+
+                # Let the loop continue to next iteration with fresh context
+                print(f"\nWill start fresh session in {AUTO_CONTINUE_DELAY_SECONDS}s...")
+                await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
+                continue
 
         except ConnectionError as e:
             print(f"\nNetwork error during agent session: {e}")
