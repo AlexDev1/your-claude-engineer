@@ -1,11 +1,11 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, BarChart3, Settings, Menu, X } from 'lucide-react'
+import { Radio, ClipboardList, BarChart3, Settings, Menu, X } from 'lucide-react'
 
 const NAV_ITEMS = [
+  { path: '/live', label: 'Live', icon: Radio, isHome: true },
   { path: '/tasks', label: 'Tasks', icon: ClipboardList },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard, isHome: true },
   { path: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -14,7 +14,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
 
   const isActive = (path, isHome) => {
     if (isHome) {
-      return location.pathname === '/' || location.pathname === '/tasks'
+      return location.pathname === '/' || location.pathname === '/live'
     }
     return location.pathname === path
   }
@@ -36,7 +36,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
             return (
               <Link
                 key={path}
-                to={isHome ? '/tasks' : path}
+                to={isHome ? '/live' : path}
                 className="flex flex-col items-center justify-center min-w-touch min-h-touch px-3 py-2 transition-colors"
                 style={{
                   color: active ? 'var(--color-accent)' : 'var(--color-textMuted)'

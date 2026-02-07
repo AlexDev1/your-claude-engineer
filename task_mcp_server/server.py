@@ -9,6 +9,9 @@ MCP Tools:
 - Task_GetProjectStats: Get comprehensive project statistics
 - Task_GetSessionReport: Get session timeline from META issue
 
+SSE Endpoints:
+- /api/session/live: Real-time session progress, activity stream, notifications
+
 Run:
     python -m task_mcp_server.server
 
@@ -17,11 +20,15 @@ Or with uvicorn:
 """
 
 import os
+import json
+import asyncio
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, AsyncGenerator
+from dataclasses import dataclass, field, asdict
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .database import (
@@ -316,6 +323,248 @@ async def sse_endpoint():
             },
         ],
     }
+
+
+# =============================================================================
+# Live Session SSE Endpoint (for Dashboard Real-time Progress)
+# =============================================================================
+
+
+@dataclass
+class SessionProgress:
+    """Current session progress state."""
+    current_task: Optional[str] = None
+    stage: str = "idle"  # idle, analysis, coding, testing, commit
+    percentage: float = 0.0
+    elapsed_time: int = 0  # seconds
+    estimated_completion: Optional[str] = None
+
+
+@dataclass
+class ActivityEvent:
+    """Activity stream event."""
+    id: str = ""
+    activity_type: str = "default"
+    title: str = ""
+    description: str = ""
+    timestamp: str = ""
+    task_id: Optional[str] = None
+    details: Optional[dict] = None
+
+
+@dataclass
+class SessionState:
+    """Complete session state for SSE streaming."""
+    session_id: Optional[str] = None
+    session_number: int = 0
+    status: str = "idle"  # idle, active, paused
+    start_time: Optional[str] = None
+    progress: SessionProgress = field(default_factory=SessionProgress)
+    activities: list = field(default_factory=list)
+    sessions_today: list = field(default_factory=list)
+
+
+# Global session state (in production, this would be in Redis or similar)
+_session_state = SessionState()
+_sse_clients: list = []
+
+
+def update_session_state(
+    current_task: Optional[str] = None,
+    stage: Optional[str] = None,
+    percentage: Optional[float] = None,
+    activity: Optional[dict] = None,
+    session_status: Optional[str] = None,
+) -> None:
+    """
+    Update the global session state.
+
+    Call this from the agent/orchestrator to push updates to connected clients.
+    """
+    global _session_state
+
+    if current_task is not None:
+        _session_state.progress.current_task = current_task
+
+    if stage is not None:
+        _session_state.progress.stage = stage
+
+    if percentage is not None:
+        _session_state.progress.percentage = percentage
+
+    if session_status is not None:
+        _session_state.status = session_status
+        if session_status == "active" and not _session_state.start_time:
+            _session_state.start_time = datetime.now().isoformat()
+            _session_state.session_number += 1
+
+    if activity is not None:
+        event = ActivityEvent(
+            id=activity.get("id", str(datetime.now().timestamp())),
+            activity_type=activity.get("type", "default"),
+            title=activity.get("title", ""),
+            description=activity.get("description", ""),
+            timestamp=activity.get("timestamp", datetime.now().isoformat()),
+            task_id=activity.get("task_id"),
+            details=activity.get("details"),
+        )
+        _session_state.activities.insert(0, event)
+        # Keep only last 50 activities
+        _session_state.activities = _session_state.activities[:50]
+
+
+def get_session_state() -> dict:
+    """Get current session state as dictionary."""
+    return {
+        "session_id": _session_state.session_id,
+        "session_number": _session_state.session_number,
+        "status": _session_state.status,
+        "start_time": _session_state.start_time,
+        "progress": {
+            "currentTask": _session_state.progress.current_task,
+            "stage": _session_state.progress.stage,
+            "percentage": _session_state.progress.percentage,
+            "elapsedTime": _session_state.progress.elapsed_time,
+            "estimatedCompletion": _session_state.progress.estimated_completion,
+        },
+        "activities": [
+            {
+                "id": a.id,
+                "activityType": a.activity_type,
+                "title": a.title,
+                "description": a.description,
+                "timestamp": a.timestamp,
+                "taskId": a.task_id,
+                "details": a.details,
+            }
+            for a in _session_state.activities
+        ],
+        "sessions": _session_state.sessions_today,
+    }
+
+
+async def session_event_generator() -> AsyncGenerator[str, None]:
+    """
+    Generate SSE events for session state updates.
+
+    Yields events in the format:
+    event: <event_type>
+    data: <json_data>
+    """
+    try:
+        # Send initial state
+        initial_state = get_session_state()
+        yield f"event: session\ndata: {json.dumps(initial_state)}\n\n"
+
+        # Heartbeat and state updates
+        last_state_hash = hash(json.dumps(initial_state))
+
+        while True:
+            await asyncio.sleep(1)  # Check every second
+
+            # Update elapsed time if session is active
+            if _session_state.status == "active" and _session_state.start_time:
+                start = datetime.fromisoformat(_session_state.start_time)
+                _session_state.progress.elapsed_time = int(
+                    (datetime.now() - start).total_seconds()
+                )
+
+            current_state = get_session_state()
+            current_hash = hash(json.dumps(current_state))
+
+            if current_hash != last_state_hash:
+                # State changed, send update
+                yield f"event: session\ndata: {json.dumps(current_state)}\n\n"
+                last_state_hash = current_hash
+            else:
+                # Send heartbeat every 30 seconds
+                yield f"event: heartbeat\ndata: {json.dumps({'timestamp': datetime.now().isoformat()})}\n\n"
+                await asyncio.sleep(29)  # Total 30 seconds between heartbeats
+
+    except asyncio.CancelledError:
+        # Client disconnected
+        pass
+
+
+@app.get("/api/session/live")
+async def session_live_endpoint():
+    """
+    SSE endpoint for live session progress.
+
+    Streams real-time updates for:
+    - Session progress (current task, stage, percentage)
+    - Activity stream (tool calls, file changes, test results)
+    - Session timeline updates
+    - Notifications
+
+    Event types:
+    - session: Full session state update
+    - activity: New activity event
+    - progress: Progress update only
+    - notification: Toast notification
+    - heartbeat: Connection keep-alive
+
+    Usage:
+        const eventSource = new EventSource('/api/session/live')
+        eventSource.addEventListener('session', (e) => {
+            const state = JSON.parse(e.data)
+            console.log(state)
+        })
+    """
+    return StreamingResponse(
+        session_event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
+
+
+@app.post("/api/session/activity")
+async def post_activity(
+    activity_type: str = Query("default", description="Activity type"),
+    title: str = Query(..., description="Activity title"),
+    description: str = Query("", description="Activity description"),
+    task_id: Optional[str] = Query(None, description="Related task ID"),
+) -> dict:
+    """
+    Post a new activity to the session stream.
+
+    Used by agents/orchestrator to push activities to the dashboard.
+    """
+    activity = {
+        "id": str(datetime.now().timestamp()),
+        "type": activity_type,
+        "title": title,
+        "description": description,
+        "timestamp": datetime.now().isoformat(),
+        "task_id": task_id,
+    }
+    update_session_state(activity=activity)
+    return {"success": True, "activity": activity}
+
+
+@app.post("/api/session/progress")
+async def update_progress(
+    current_task: Optional[str] = Query(None, description="Current task ID"),
+    stage: Optional[str] = Query(None, description="Current stage"),
+    percentage: Optional[float] = Query(None, description="Progress percentage"),
+    status: Optional[str] = Query(None, description="Session status"),
+) -> dict:
+    """
+    Update session progress.
+
+    Used by agents/orchestrator to update the progress bar.
+    """
+    update_session_state(
+        current_task=current_task,
+        stage=stage,
+        percentage=percentage,
+        session_status=status,
+    )
+    return {"success": True, "state": get_session_state()}
 
 
 # =============================================================================

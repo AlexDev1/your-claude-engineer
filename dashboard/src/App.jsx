@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { BarChart3, Activity, ClipboardList, Settings as SettingsIcon, Upload, Download } from 'lucide-react'
+import { BarChart3, Activity, ClipboardList, Settings as SettingsIcon, Upload, Download, Radio } from 'lucide-react'
 import ThemeToggle from './components/ThemeToggle'
 import MobileNav from './components/MobileNav'
 import { useTheme } from './context/ThemeContext'
@@ -14,6 +14,7 @@ function App() {
   const [showInstallBanner, setShowInstallBanner] = useState(false)
 
   const navItems = [
+    { path: '/live', label: 'Live', icon: Radio },
     { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/import', label: 'Import', icon: Upload },
@@ -82,7 +83,7 @@ function App() {
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-2 mr-4">
               {navItems.map(({ path, label, icon: Icon }) => {
-                const isActive = location.pathname === path || (location.pathname === '/' && path === '/tasks')
+                const isActive = location.pathname === path || (location.pathname === '/' && path === '/live')
                 return (
                   <Link
                     key={path}

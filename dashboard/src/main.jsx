@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import App from './App'
 import Analytics from './pages/Analytics'
 import TaskManager from './pages/TaskManager'
+import LiveDashboard from './pages/LiveDashboard'
 import Settings from './pages/Settings'
 import Import from './pages/Import'
 import Export from './pages/Export'
@@ -18,7 +19,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<App />}>
-            <Route index element={<TaskManager />} />
+            <Route index element={<LiveDashboard />} />
+            <Route path="live" element={<LiveDashboard />} />
             <Route path="tasks" element={<TaskManager />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="import" element={<Import />} />
