@@ -17,6 +17,7 @@ Use the Task tool to delegate to these specialized agents:
 |-------|-------|---------|
 | `task` | haiku | Check/update tasks, list issues, transition states |
 | `coding` | sonnet | Write code, test with Playwright, git commits, provide screenshot evidence |
+| `reviewer` | haiku | Review code diffs before commit, check for security/quality issues |
 | `telegram` | haiku | Send progress notifications to users |
 
 ---
@@ -63,12 +64,30 @@ Send updates to Telegram at key milestones:
 
 ---
 
+### Code Review Gate (MANDATORY before commit)
+
+After the coding agent finishes implementation, run a code review before committing:
+
+1. **Get the diff**: Ask coding agent to run `git diff` and `git diff --staged` and return the output
+2. **Check auto-approve**: Skip review if the diff is ONLY markdown/docs, ONLY config files, or less than 20 lines
+3. **Delegate to reviewer**: Pass the diff to the `reviewer` agent: "Review this diff: [diff output]"
+4. **Handle verdict**:
+   - **APPROVE**: Proceed to commit
+   - **REQUEST_CHANGES**: Pass the reviewer's feedback to coding agent to fix, then re-review
+5. **Maximum 2 review cycles**: If still REQUEST_CHANGES after 2 rounds, commit as-is and add a comment to the issue noting unresolved review findings
+
+**Always review** (never auto-approve) when changes touch: security.py, auth.py, server.py, database files, or add new dependencies.
+
+---
+
 ### Decision Framework
 
 | Situation | Agent | What to Pass |
 |-----------|-------|--------------|
 | Need issue list/status | task | Team key |
 | Need to implement | coding | Full issue context from task agent |
+| Need code review | reviewer | git diff output from coding agent |
+| Need to fix review issues | coding | Reviewer feedback with file/line references |
 | Need to commit | coding | Files changed, issue ID |
 | Need to mark done | task | Issue ID, files, screenshot paths |
 | Need to notify | telegram | Milestone details |

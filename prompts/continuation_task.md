@@ -77,6 +77,38 @@ Requirements:
 4. Take screenshot evidence (mandatory)
 5. Report: files_changed, screenshot_evidence, test_results"
 
+### Step 4b: Code Review Gate
+Before committing, run an automated code review.
+
+**Auto-approve check** (skip reviewer if ALL true):
+- Only .md or documentation files changed
+- OR only config files changed (package.json, .env.example, tsconfig.json, .gitignore)
+- OR diff is less than 20 lines of actual code changes
+
+**If auto-approve does NOT apply:**
+
+1. Delegate to `coding` agent:
+   "Run `git diff` and return the full output. Also run `git diff --stat` for a summary."
+
+2. Delegate to `reviewer` agent with the diff:
+   "Review this diff for security issues, code quality, and best practices:
+   [paste the diff output from coding agent]
+
+   Check for: hardcoded secrets, SQL injection, unused imports, missing error handling,
+   debug print statements, TODO without issue ID, missing type hints/docstrings."
+
+3. **If verdict is APPROVE**: Proceed to Step 5 (commit)
+
+4. **If verdict is REQUEST_CHANGES**:
+   - Pass the reviewer's issues to `coding` agent:
+     "Fix these code review issues:
+     [paste reviewer's issues list with file, line, and suggestion]
+     Then run `git diff` again and return the updated diff."
+   - Send the updated diff to `reviewer` agent for a second review
+   - If APPROVE on second review: Proceed to Step 5
+   - If still REQUEST_CHANGES after 2 review cycles: Proceed to Step 5 anyway,
+     but include the unresolved findings in the issue comment (Step 6)
+
 ### Step 5: Commit
 Delegate to `coding` agent:
 "Commit changes for [issue title]. Include task ID in commit message."

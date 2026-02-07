@@ -196,3 +196,8 @@ def get_coding_tools() -> list[str]:
     """Get tools for coding agent (file ops + Playwright + git)."""
     builtin_tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
     return builtin_tools + PLAYWRIGHT_TOOLS
+
+
+def get_reviewer_tools() -> list[str]:
+    """Get tools for reviewer agent (read-only file ops + git diff)."""
+    return ["Read", "Glob", "Grep", "Bash"]

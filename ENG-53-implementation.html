@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENG-53: Telegram_PollCommands Implementation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            border-bottom: 3px solid #764ba2;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            color: #764ba2;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .code-block {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            overflow-x: auto;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 10px;
+            margin: 8px 0;
+            background: #f0f0f0;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        .feature-list li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .return-structure {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .status.implemented {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .file-path {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ENG-53: Telegram_PollCommands Implementation</h1>
+
+        <div class="status implemented">✓ IMPLEMENTATION COMPLETE</div>
+
+        <div class="file-path">
+            Location: /home/dev/work/AxonCode/axon-mcp/telegram_mcp_server/server.py (lines 387-466)
+        </div>
+
+        <div class="section">
+            <div class="section-title">Tool Overview</div>
+            <p>
+                <strong>Telegram_PollCommands</strong> is an MCP tool that polls for unprocessed user commands from Telegram.
+                It maintains a command queue ensuring commands are never lost or duplicated, and returns detailed information
+                about each command including the command name, arguments, chat ID, and user metadata.
+            </p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Key Features</div>
+            <ul class="feature-list">
+                <li>Polls Telegram Bot API for new updates using offset tracking</li>
+                <li>Maintains global <code>_last_update_id</code> state to prevent duplicates</li>
+                <li>Extracts and parses commands (text starting with /)</li>
+                <li>Handles bot mentions in commands (e.g., /status@MyBot → /status)</li>
+                <li>Returns command name, arguments, chat ID, and user information</li>
+                <li>Error handling for missing bot token and API failures</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Function Signature</div>
+            <div class="code-block">
+@mcp.tool()
+async def Telegram_PollCommands() -> dict[str, Any]:
+    """
+    Poll for unprocessed user commands from Telegram.
+
+    Returns list of commands sent to the bot since last poll.
+    Maintains command queue so commands are never lost or duplicated.
+
+    For the bot to receive commands, users must first send /start to the bot.
+
+    Returns:
+        List of commands with command name, args, chat_id, user info.
+    """
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Return Structure</div>
+            <div class="return-structure">
+                <pre>{
+    "commands": [
+        {
+            "command": "/status",
+            "args": "arg1 arg2",
+            "chat_id": "123456789",
+            "user": {
+                "id": 987654321,
+                "username": "john_doe",
+                "first_name": "John"
+            },
+            "date": 1670000000,
+            "message_id": 42
+        },
+        ...
+    ],
+    "count": 1,
+    "last_update_id": 123456
+}</pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Implementation Details</div>
+            <div class="code-block" style="height: 400px; overflow-y: auto;">
+global _last_update_id
+
+if not TELEGRAM_BOT_TOKEN:
+    return {
+        "commands": [],
+        "count": 0,
+        "error": "TELEGRAM_BOT_TOKEN not configured",
+    }
+
+# Use offset = last_id + 1 to only fetch new updates
+offset = _last_update_id + 1 if _last_update_id > 0 else 0
+result = await get_updates(offset=offset)
+
+if not result.get("ok"):
+    return {
+        "commands": [],
+        "count": 0,
+        "error": result.get("error", result.get("description", "Unknown error")),
+    }
+
+updates = result.get("result", [])
+commands: list[dict[str, Any]] = []
+max_update_id = _last_update_id
+
+for update in updates:
+    update_id = update.get("update_id", 0)
+    if update_id > max_update_id:
+        max_update_id = update_id
+
+    message = update.get("message")
+    if not message:
+        continue
+
+    text = message.get("text", "")
+    if not text.startswith("/"):
+        continue
+
+    # Parse command and arguments
+    parts = text.split(maxsplit=1)
+    command_name = parts[0]
+    # Strip bot mention from command
+    if "@" in command_name:
+        command_name = command_name.split("@")[0]
+    args = parts[1] if len(parts) > 1 else ""
+
+    from_user = message.get("from", {})
+    commands.append({
+        "command": command_name,
+        "args": args,
+        "chat_id": str(message.get("chat", {}).get("id", "")),
+        "user": {
+            "id": from_user.get("id"),
+            "username": from_user.get("username"),
+            "first_name": from_user.get("first_name"),
+        },
+        "date": message.get("date"),
+        "message_id": message.get("message_id"),
+    })
+
+# Advance the offset so next poll skips these updates
+_last_update_id = max_update_id
+
+return {
+    "commands": commands,
+    "count": len(commands),
+    "last_update_id": _last_update_id,
+}
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">How It Works</div>
+            <ol style="padding-left: 20px;">
+                <li><strong>Token Validation:</strong> Checks if TELEGRAM_BOT_TOKEN is configured</li>
+                <li><strong>Offset Tracking:</strong> Uses <code>_last_update_id + 1</code> to fetch only new updates</li>
+                <li><strong>Polling:</strong> Calls Telegram Bot API <code>getUpdates</code> method</li>
+                <li><strong>Filtering:</strong> Filters messages to extract only those starting with "/" (commands)</li>
+                <li><strong>Parsing:</strong> Parses command name and arguments, handles bot mentions</li>
+                <li><strong>State Update:</strong> Advances <code>_last_update_id</code> to prevent duplicates on next poll</li>
+                <li><strong>Response:</strong> Returns list of parsed commands with full metadata</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Error Handling</div>
+            <ul class="feature-list">
+                <li>Missing TELEGRAM_BOT_TOKEN returns empty commands with error message</li>
+                <li>API errors from Telegram return empty commands with error description</li>
+                <li>Gracefully handles missing or malformed Telegram API responses</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Integration</div>
+            <p>
+                This tool is registered with the FastMCP server and available to agents as <code>Telegram_PollCommands</code>.
+                It is used by the autonomous agent to receive and process user commands sent via Telegram, enabling interactive
+                task management and feedback loops through the Telegram Bot API.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

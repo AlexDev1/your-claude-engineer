@@ -3,6 +3,7 @@ Agent Session Logic
 ===================
 
 Core agent interaction functions for running autonomous coding sessions.
+Integrates with session_state for phase tracking and crash recovery (ENG-66).
 """
 
 import asyncio
@@ -24,6 +25,21 @@ from progress import print_session_header
 from prompts import (
     get_continuation_task_with_memory,
     get_execute_task_with_memory,
+)
+from session_state import (
+    ErrorType,
+    GracefulDegradation,
+    SessionPhase,
+    SessionRecovery,
+    SessionState,
+    SessionStateManager,
+    clear_session_state,
+    get_session_recovery,
+    get_session_state_manager,
+    load_session_state,
+    save_session_state,
+    set_default_project_dir,
+    transition_phase,
 )
 
 
@@ -179,7 +195,14 @@ async def run_autonomous_agent(
     max_iterations: int | None = None,
 ) -> None:
     """
-    Run the autonomous agent loop.
+    Run the autonomous agent loop with session state tracking and crash recovery.
+
+    Features (ENG-66):
+    - Session phase tracking with persistence to .agent/session_state.json
+    - Crash recovery from persisted state on startup
+    - Phase-level retry with smart restart logic
+    - Graceful degradation for MCP/Playwright failures
+    - Exponential backoff on rate limits
 
     Args:
         project_dir: Working directory for the project
@@ -205,6 +228,35 @@ async def run_autonomous_agent(
         print("Max iterations: Unlimited (will run until all tasks done)")
     print()
 
+    # Set default project dir for standalone session state functions (ENG-66)
+    set_default_project_dir(project_dir)
+
+    # Initialize session state manager and check for crash recovery (ENG-66)
+    state_manager = get_session_state_manager(project_dir)
+    recovery = get_session_recovery(project_dir)
+
+    # Check for interrupted session on startup
+    recovery_needed, saved_state = await recovery.check_recovery()
+    resume_phase: SessionPhase | None = None
+
+    if recovery_needed and saved_state:
+        print("\n" + "-" * 70)
+        print("  CRASH RECOVERY: Resuming from interrupted session")
+        print(f"  Issue: {saved_state.issue_id}")
+        print(f"  Last phase: {saved_state.phase.phase_name}")
+        if saved_state.uncommitted_changes:
+            print("  Status: Uncommitted changes detected")
+        if saved_state.degraded_services:
+            print(f"  Degraded services: {', '.join(saved_state.degraded_services)}")
+        print("-" * 70 + "\n")
+
+        # Determine resume point
+        resume_phase = state_manager.get_resume_phase(saved_state)
+        print(f"Resuming at phase: {resume_phase.phase_name}")
+
+        # Restore state
+        state_manager._current_state = saved_state
+
     iteration: int = 0
 
     while True:
@@ -228,25 +280,50 @@ async def run_autonomous_agent(
         if iteration == 1:
             prompt: str = get_execute_task_with_memory(team, project_dir)
             print("(Loading agent memory from .agent/MEMORY.md)")
+
+            # If recovering, add context about resume phase (ENG-66)
+            if resume_phase:
+                prompt += f"\n\n[RECOVERY MODE: Resuming from phase '{resume_phase.phase_name}']"
+                if saved_state and saved_state.uncommitted_changes:
+                    prompt += "\n[Note: Uncommitted changes detected - check git status]"
+                resume_phase = None  # Clear after first use
         else:
             prompt = get_continuation_task_with_memory(team, project_dir)
             print("(Using continuation prompt - will check previous session context)")
             print("(Loading agent memory from .agent/MEMORY.md)")
 
-        # Run session
+        # Run session with error recovery (ENG-66)
         result: SessionResult = SessionResult(status=SESSION_ERROR, response="uninitialized")
+        error_type_detected: ErrorType | None = None
+
         try:
             async with client:
                 result = await run_agent_session(client, prompt, project_dir)
+
+            # Success - clear session state (ENG-66)
+            if result.status == SESSION_COMPLETE:
+                state_manager.clear_state()
+
         except ConnectionError as e:
-            print(f"\nFailed to connect to Claude SDK: {e}")
-            print("Check your authentication and network connection.")
+            print(f"\nNetwork error during agent session: {e}")
+            print("Check your internet connection and try again.")
             traceback.print_exc()
+            error_type_detected = recovery.classify_error(e)
+            state_manager.record_error(e, error_type_detected)
             result = SessionResult(status=SESSION_ERROR, response=str(e))
+
+        except TimeoutError as e:
+            print(f"\nTimeout during agent session: {e}")
+            error_type_detected = ErrorType.MCP_TIMEOUT
+            state_manager.record_error(e, error_type_detected)
+            result = SessionResult(status=SESSION_ERROR, response=str(e))
+
         except Exception as e:
-            error_type: str = type(e).__name__
-            print(f"\nUnexpected error in session context ({error_type}): {e}")
+            error_type_name: str = type(e).__name__
+            print(f"\nUnexpected error in session context ({error_type_name}): {e}")
             traceback.print_exc()
+            error_type_detected = recovery.classify_error(e)
+            state_manager.record_error(e, error_type_detected)
             result = SessionResult(status=SESSION_ERROR, response=str(e))
 
         # Handle status
@@ -255,12 +332,57 @@ async def run_autonomous_agent(
             print("  ALL TASKS DONE")
             print("=" * 70)
             print("\nNo remaining tasks in Todo.")
+            state_manager.clear_state()
             break
+
         elif result.status == SESSION_CONTINUE:
             print(f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s...")
+
         elif result.status == SESSION_ERROR:
             print("\nSession encountered an error")
-            print("Will retry with a fresh session...")
+
+            # Calculate backoff delay based on error type (ENG-66)
+            if error_type_detected:
+                current_phase = (
+                    state_manager.current_state.phase
+                    if state_manager.current_state
+                    else SessionPhase.ORIENT
+                )
+                attempt = state_manager.get_phase_attempt(current_phase).attempt
+                delay = GracefulDegradation.get_backoff_delay(
+                    attempt, error_type_detected
+                )
+
+                # Check for graceful degradation
+                if not state_manager.get_phase_attempt(current_phase).can_retry:
+                    if GracefulDegradation.should_skip_service(
+                        error_type_detected, current_phase
+                    ):
+                        msg = GracefulDegradation.get_degradation_message(
+                            error_type_detected, current_phase
+                        )
+                        print(f"Graceful degradation: {msg}")
+                        state_manager.mark_degraded(current_phase.phase_name)
+                        # Continue to next iteration
+                        delay = AUTO_CONTINUE_DELAY_SECONDS
+                    else:
+                        # Save changes if git error during commit
+                        if (
+                            error_type_detected == ErrorType.GIT_ERROR
+                            and current_phase == SessionPhase.COMMIT
+                        ):
+                            print("Attempting to save uncommitted changes...")
+                            diff_file = await recovery.save_git_diff_to_file()
+                            if diff_file:
+                                print(f"Changes saved to: {diff_file}")
+                            else:
+                                await recovery.stash_changes()
+
+                print(f"Will retry with backoff delay of {delay:.1f}s...")
+                await asyncio.sleep(delay)
+                continue
+            else:
+                print("Will retry with a fresh session...")
 
         # Always wait before next iteration
         await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)

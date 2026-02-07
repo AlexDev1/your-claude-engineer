@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Rich Reports Demo (ENG-31)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.8);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .report-card {
+            background: #1a1a2e;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .report-header {
+            background: #16213e;
+            padding: 12px 16px;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        .report-type {
+            color: #00d9ff;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .telegram-bubble {
+            background: #2b5278;
+            margin: 16px;
+            padding: 16px;
+            border-radius: 12px 12px 12px 0;
+            color: white;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .telegram-bubble b {
+            font-weight: 600;
+        }
+
+        .telegram-bubble i {
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        .telegram-bubble code {
+            background: rgba(0,0,0,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.9em;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .feature-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .feature-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .feature-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .feature-desc {
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+
+        .progress-bar-demo {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .progress-bar-demo h3 {
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .progress-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 12px;
+            color: white;
+        }
+
+        .progress-label {
+            width: 120px;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            font-family: 'SF Mono', monospace;
+            font-size: 16px;
+            letter-spacing: 1px;
+        }
+
+        .progress-percent {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Telegram Rich Reports</h1>
+        <p class="subtitle">ENG-31: Daily digest, session metrics, structured alerts, and weekly summaries</p>
+
+        <div class="reports-grid">
+            <!-- Daily Digest -->
+            <div class="report-card">
+                <div class="report-header">
+                    <span class="report-type">Daily Digest</span>
+                </div>
+                <div class="telegram-bubble"><b>📊 Daily Digest — 2026-02-07</b>
+
+<b>Progress:</b> ███░░░░░░░░░ 31%
+
+<b>Tasks:</b>
+  ✅ Completed: 5
+  🔄 In Progress: 2
+  📋 Todo: 8
+  ⚠️ Blocked: 1
+
+<b>Sessions:</b>
+  ⏱️ Count: 3
+  ⏰ Duration: 1h 35m
+
+<b>Git:</b>
+  📝 Commits: 12
+  📁 Files: 34
+  <code>+1245 / -456</code>
+
+<b>Usage:</b>
+  🎫 Tokens: 125,000
+  💵 Cost: $0.42
+
+<b>Highlights:</b>
+  • Added auth system
+  • Fixed login bug
+  • Dashboard improvements</div>
+            </div>
+
+            <!-- Session Summary -->
+            <div class="report-card">
+                <div class="report-header">
+                    <span class="report-type">Session Summary</span>
+                </div>
+                <div class="telegram-bubble"><b>📋 Session Summary</b>
+
+<b>Issue:</b> ENG-123
+<b>Title:</b> Add user authentication
+<b>Status:</b> ✅ Completed
+
+<b>Duration:</b> ⏱️ 45m
+<b>Tokens:</b> 🎫 20,234
+  <code>↓12,000 ↑8,234</code>
+<b>Cost:</b> 💵 $0.0521
+
+<b>Commits:</b>
+  <code>•</code> feat: Add login component
+  <code>•</code> feat: Add auth middleware
+
+<b>Files Changed:</b> 3
+  <code>•</code> src/Login.tsx
+  <code>•</code> src/auth.ts
+  <code>•</code> src/App.tsx</div>
+            </div>
+
+            <!-- Error Alert -->
+            <div class="report-card">
+                <div class="report-header">
+                    <span class="report-type">Error Alert</span>
+                </div>
+                <div class="telegram-bubble"><b>💥 Error Alert</b>
+
+<b>Type:</b> RUNTIME
+<b>Issue:</b> ENG-123
+<b>Phase:</b> implement
+
+<b>Location:</b>
+  📁 <code>src/components/Login.tsx</code>
+  📍 Line 45
+  🔧 <code>handleSubmit()</code>
+
+<b>Error:</b>
+<code>TypeError: Cannot read property 'email' of undefined</code>
+
+<b>Retry Status:</b>
+  🔄 Attempt: 2/3
+  ⏳ Will retry automatically
+
+<i>🕐 14:32:15</i></div>
+            </div>
+
+            <!-- Weekly Summary -->
+            <div class="report-card">
+                <div class="report-header">
+                    <span class="report-type">Weekly Summary</span>
+                </div>
+                <div class="telegram-bubble"><b>📅 Weekly Summary</b>
+<i>Jan 31 - Feb 07, 2026</i>
+
+<b>📊 Tasks:</b>
+  ✅ Completed: 24
+  ➕ Created: 28
+  ⏱️ Avg Time: 1.2h
+
+<b>📈 Velocity:</b>
+  Current: 3.4 tasks/day
+  📈 +17% vs last week
+
+<b>Daily:</b> <code>▅▇█▄▇▅▅</code>
+<i>       Mon→Sun</i>
+
+<b>💰 Cost:</b>
+  This week: $12.45
+  Tokens: 4,125,000
+  📉 -8% vs last week
+
+<b>🔄 Sessions:</b>
+  Count: 42
+  Total Time: 18.5h
+  Avg Session: 26m
+
+<b>📝 Git:</b>
+  Commits: 86
+  Files: 234
+  <code>+8,456 / -2,123</code>
+
+<b>🏆 Top Issues:</b>
+  • <b>ENG-145</b>: Auth system
+  • <b>ENG-148</b>: Dashboard
+  • <b>ENG-152</b>: API optimization</div>
+            </div>
+        </div>
+
+        <!-- Progress Bar Demo -->
+        <div class="progress-bar-demo">
+            <h3>📊 Progress Bar Visualization</h3>
+            <div class="progress-item">
+                <span class="progress-label">0% Complete</span>
+                <span class="progress-bar">░░░░░░░░░░</span>
+                <span class="progress-percent">0%</span>
+            </div>
+            <div class="progress-item">
+                <span class="progress-label">25% Complete</span>
+                <span class="progress-bar">██░░░░░░░░</span>
+                <span class="progress-percent">25%</span>
+            </div>
+            <div class="progress-item">
+                <span class="progress-label">50% Complete</span>
+                <span class="progress-bar">█████░░░░░</span>
+                <span class="progress-percent">50%</span>
+            </div>
+            <div class="progress-item">
+                <span class="progress-label">75% Complete</span>
+                <span class="progress-bar">███████░░░</span>
+                <span class="progress-percent">75%</span>
+            </div>
+            <div class="progress-item">
+                <span class="progress-label">100% Complete</span>
+                <span class="progress-bar">██████████</span>
+                <span class="progress-percent">100%</span>
+            </div>
+        </div>
+
+        <!-- Feature List -->
+        <div class="feature-list">
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <div class="feature-title">Daily Digest</div>
+                <div class="feature-desc">Statistics and progress bar showing daily completion</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📋</div>
+                <div class="feature-title">Session Summary</div>
+                <div class="feature-desc">Time, tokens spent, and git commits per session</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">💥</div>
+                <div class="feature-title">Error Alerts</div>
+                <div class="feature-desc">File, line number, and attempt count context</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📅</div>
+                <div class="feature-title">Weekly Summary</div>
+                <div class="feature-desc">Cost and velocity trends with sparkline charts</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📈</div>
+                <div class="feature-title">Progress Bars</div>
+                <div class="feature-desc">Visual percentage completion display</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🎨</div>
+                <div class="feature-title">HTML Formatting</div>
+                <div class="feature-desc">Renders correctly in Telegram with proper styling</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
