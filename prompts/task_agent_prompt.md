@@ -13,8 +13,9 @@ urgent > high > medium > low (lowest ID breaks ties)
 
 ### List Issues
 ```
-Task_ListIssues(team, state="Todo")
+Task_ListIssues(team, state="Todo", project="<project-slug>", limit=10)
 ```
+**IMPORTANT:** Always use `project` parameter to filter by project and `limit=10` to avoid exceeding token limits.
 Return:
 ```
 status: {done: X, in_progress: Y, todo: Z}

@@ -8,6 +8,7 @@ Supports loading project map from .agent/PROJECT_MAP.md (ENG-33).
 Integrates with context_manager for token budget tracking.
 """
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,28 @@ if TYPE_CHECKING:
 
 PROMPTS_DIR: Path = Path(__file__).parent / "prompts"
 AGENT_DIR: Path = Path(__file__).parent / ".agent"
+
+
+def load_project_config(project_dir: Path | None = None) -> dict:
+    """
+    Load project config from .project.json.
+
+    Returns dict with keys: id, slug, name, team.
+    Returns empty dict if file doesn't exist or is invalid.
+    """
+    if project_dir is None:
+        project_dir = Path(__file__).parent
+
+    config_path = project_dir / ".project.json"
+
+    if not config_path.exists():
+        return {}
+
+    try:
+        data = json.loads(config_path.read_text())
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, IOError):
+        return {}
 
 
 def load_prompt(name: str) -> str:
@@ -62,7 +85,9 @@ def get_execute_task(team: str) -> str:
         Task message with team and cwd substituted
     """
     template = load_prompt("execute_task")
-    return template.format(team=team, cwd=Path.cwd())
+    project_config = load_project_config()
+    project_slug = project_config.get("slug", "")
+    return template.format(team=team, cwd=Path.cwd(), project=project_slug)
 
 
 def get_continuation_task(team: str) -> str:
@@ -79,7 +104,9 @@ def get_continuation_task(team: str) -> str:
         Continuation task message with team and cwd substituted
     """
     template = load_prompt("continuation_task")
-    return template.format(team=team, cwd=Path.cwd())
+    project_config = load_project_config()
+    project_slug = project_config.get("slug", "")
+    return template.format(team=team, cwd=Path.cwd(), project=project_slug)
 
 
 def load_agent_memory(project_dir: Path | None = None) -> str:
@@ -237,7 +264,9 @@ def get_execute_task_with_memory(team: str, project_dir: Path | None = None) -> 
         Task message with team, cwd, memory, and project map context
     """
     template = load_prompt("execute_task")
-    base_prompt = template.format(team=team, cwd=Path.cwd())
+    project_config = load_project_config(project_dir)
+    project_slug = project_config.get("slug", "")
+    base_prompt = template.format(team=team, cwd=Path.cwd(), project=project_slug)
 
     sections = []
 
@@ -269,7 +298,9 @@ def get_continuation_task_with_memory(team: str, project_dir: Path | None = None
         Continuation task message with team, cwd, memory, and project map context
     """
     template = load_prompt("continuation_task")
-    base_prompt = template.format(team=team, cwd=Path.cwd())
+    project_config = load_project_config(project_dir)
+    project_slug = project_config.get("slug", "")
+    base_prompt = template.format(team=team, cwd=Path.cwd(), project=project_slug)
 
     sections = []
 

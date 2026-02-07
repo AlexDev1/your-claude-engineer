@@ -119,11 +119,15 @@ issues_found: none or [list]
 5. Run lint-gate
 
 ### Playwright Testing (MANDATORY)
+
+**CRITICAL: browser_take_screenshot MUST always use `filename` parameter!**
+Without `filename`, the screenshot returns as base64 inline in JSON, which exceeds the SDK 1MB buffer limit and crashes the session.
+
 ```
 browser_navigate(url="http://localhost:3000")
 browser_snapshot()  # Get element refs
 browser_click(ref="button[Start]")
-browser_take_screenshot()
+browser_take_screenshot(filename="screenshots/ENG-XX-description.png")
 ```
 
 ### Quality
