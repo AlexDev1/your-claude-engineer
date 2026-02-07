@@ -3,7 +3,7 @@
 #
 # Test and development commands
 
-.PHONY: help test test-api test-e2e test-agent test-security test-all coverage lint format clean dev
+.PHONY: help test test-api test-e2e test-agent test-security test-all coverage lint format clean dev preflight
 
 # Default target
 help:
@@ -19,6 +19,11 @@ help:
 	@echo "  clean         - Clean up temporary files"
 	@echo "  dev           - Start development servers"
 	@echo "  install       - Install all dependencies"
+	@echo "  preflight     - Run preflight checks"
+
+# Run preflight checks
+preflight:
+	python preflight.py
 
 # Install dependencies
 install:
