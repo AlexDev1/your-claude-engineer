@@ -1860,6 +1860,147 @@ async def get_session_timeline_endpoint(meta_issue_id: str) -> dict:
     return timeline.to_dict()
 
 
+# =============================================================================
+# Telegram Status Command Endpoint (ENG-51)
+# =============================================================================
+
+
+@app.get("/api/telegram/status")
+async def get_telegram_status(
+    team: str = Query("ENG", description="Team identifier"),
+    format_html: bool = Query(True, description="Return HTML formatted for Telegram"),
+) -> dict:
+    """
+    Get current status for Telegram /status command (ENG-51).
+
+    Returns task counts (Todo, In Progress, Done), current task info,
+    and session information formatted for Telegram.
+
+    This endpoint is designed to be called by the Telegram MCP server
+    to respond to /status commands from users.
+
+    Args:
+        team: Team identifier (default: ENG)
+        format_html: If True, returns HTML formatted message for Telegram
+
+    Returns:
+        dict with:
+        - message: HTML-formatted status message (if format_html=True)
+        - data: Raw status data
+        - counts: Task counts by state
+    """
+    initialize_issues_store()
+
+    # Get issues from store
+    issues = [i for i in ISSUES_STORE.values() if i.get("team", "ENG") == team]
+
+    # Count by state
+    todo_count = len([i for i in issues if i.get("state") == "Todo"])
+    in_progress_count = len([i for i in issues if i.get("state") == "In Progress"])
+    done_count = len([i for i in issues if i.get("state") == "Done"])
+
+    # Find current in-progress task (most recently updated)
+    in_progress_tasks = [i for i in issues if i.get("state") == "In Progress"]
+    current_task_id = ""
+    current_task_title = ""
+
+    if in_progress_tasks:
+        # Sort by updated_at to get most recent
+        in_progress_tasks.sort(
+            key=lambda x: x.get("updated_at", ""),
+            reverse=True
+        )
+        current_task = in_progress_tasks[0]
+        current_task_id = current_task.get("identifier", "")
+        current_task_title = current_task.get("title", "")
+
+    # Get session info from session state
+    session_number = 0
+    session_status = "idle"
+    elapsed_minutes = 0
+
+    try:
+        from task_mcp_server.server import get_session_state
+        session_data = get_session_state()
+        session_number = session_data.get("session_number", 0)
+        session_status = session_data.get("status", "idle")
+
+        # Calculate elapsed time
+        start_time = session_data.get("start_time")
+        if start_time and session_status == "active":
+            from datetime import datetime
+            start = datetime.fromisoformat(start_time)
+            elapsed_seconds = (datetime.now() - start).total_seconds()
+            elapsed_minutes = int(elapsed_seconds / 60)
+    except Exception:
+        # Session state not available
+        pass
+
+    # Get stale task count
+    stale_count = 0
+    if TASK_ANALYTICS_AVAILABLE:
+        set_issues_store(ISSUES_STORE)
+        stale_info = db_get_stale_issues(team=team)
+        stale_count = stale_info.get("stale_count", 0)
+
+    # Build response
+    result = {
+        "counts": {
+            "todo": todo_count,
+            "in_progress": in_progress_count,
+            "done": done_count,
+            "total": len(issues),
+        },
+        "current_task": {
+            "id": current_task_id,
+            "title": current_task_title,
+        } if current_task_id else None,
+        "session": {
+            "number": session_number,
+            "status": session_status,
+            "elapsed_minutes": elapsed_minutes,
+        },
+        "stale_count": stale_count,
+    }
+
+    # Format HTML message if requested
+    if format_html:
+        try:
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from telegram_reports import format_status_simple
+
+            message = format_status_simple(
+                todo=todo_count,
+                in_progress=in_progress_count,
+                done=done_count,
+                current_task_id=current_task_id,
+                current_task_title=current_task_title,
+                session_number=session_number,
+                session_status=session_status,
+                elapsed_minutes=elapsed_minutes,
+                stale_count=stale_count,
+            )
+            result["message"] = message
+        except Exception as e:
+            result["message"] = f"<b>Status</b>\n\nTodo: {todo_count}\nIn Progress: {in_progress_count}\nDone: {done_count}"
+            result["format_error"] = str(e)
+
+    return result
+
+
+@app.post("/api/telegram/status")
+async def post_telegram_status(
+    team: str = Query("ENG", description="Team identifier"),
+) -> dict:
+    """
+    POST endpoint for /status command - same as GET but via POST.
+
+    Useful for webhook integrations where POST is preferred.
+    """
+    return await get_telegram_status(team=team, format_html=True)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8003)

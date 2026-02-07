@@ -61,12 +61,13 @@ TASK_TOOLS: list[str] = [
     "mcp__task__Task_GetSessionReport",
 ]
 
-# Telegram MCP tools (3 core tools) - replaces Slack
+# Telegram MCP tools (4 core tools) - replaces Slack
 # Additional rich report types are handled by telegram_reports.py module
 TELEGRAM_TOOLS: list[str] = [
     "mcp__telegram__Telegram_WhoAmI",
     "mcp__telegram__Telegram_SendMessage",
     "mcp__telegram__Telegram_ListChats",
+    "mcp__telegram__Telegram_GetStatus",  # ENG-51: /status command support
 ]
 
 # Rich report types available via telegram_reports.py (ENG-31)
