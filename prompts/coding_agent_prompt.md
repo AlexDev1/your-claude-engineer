@@ -24,6 +24,13 @@ Task: ENG-XX"
 ```
 Types: feat, fix, refactor, style, test, docs, chore
 
+### Project Map (ENG-33)
+After each commit, update the project map:
+```bash
+python scripts/generate_project_map.py
+```
+This keeps `.agent/PROJECT_MAP.md` current for future sessions.
+
 ### GitHub (when configured)
 - Branch: `agent/{issue-id}` from main
 - Push with `-u origin agent/{issue-id}`

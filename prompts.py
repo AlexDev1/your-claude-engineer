@@ -4,6 +4,7 @@ Prompt Loading Utilities
 
 Functions for loading prompt templates from the prompts directory.
 Supports loading persistent agent memory from .agent/MEMORY.md.
+Supports loading project map from .agent/PROJECT_MAP.md (ENG-33).
 Integrates with context_manager for token budget tracking.
 """
 
@@ -143,46 +144,147 @@ def load_agent_soul(project_dir: Path | None = None) -> str:
         return ""
 
 
+def load_project_map(project_dir: Path | None = None) -> str:
+    """
+    Load the project map file (.agent/PROJECT_MAP.md) if it exists.
+
+    The project map contains auto-generated project structure, dependencies,
+    ports, recent commits, and import graph (ENG-33).
+
+    Args:
+        project_dir: Project directory to look for .agent/PROJECT_MAP.md.
+                     If None, uses the module's parent directory.
+
+    Returns:
+        Contents of PROJECT_MAP.md, or empty string if file doesn't exist.
+    """
+    if project_dir is None:
+        agent_dir = AGENT_DIR
+    else:
+        agent_dir = project_dir / ".agent"
+
+    map_path = agent_dir / "PROJECT_MAP.md"
+
+    if not map_path.exists():
+        return ""
+
+    try:
+        return map_path.read_text()
+    except IOError:
+        # Fail silently - project map is optional
+        return ""
+
+
+def ensure_project_map(project_dir: Path | None = None) -> str:
+    """
+    Ensure project map exists, generating it if needed.
+
+    This function checks if PROJECT_MAP.md exists and generates it
+    if missing or stale (older than 1 hour).
+
+    Args:
+        project_dir: Project directory
+
+    Returns:
+        Contents of PROJECT_MAP.md
+    """
+    import subprocess
+    import time
+
+    if project_dir is None:
+        project_dir = Path(__file__).parent
+
+    agent_dir = project_dir / ".agent"
+    map_path = agent_dir / "PROJECT_MAP.md"
+
+    # Check if map needs regeneration
+    should_generate = False
+
+    if not map_path.exists():
+        should_generate = True
+    else:
+        # Check if stale (older than 1 hour)
+        mtime = map_path.stat().st_mtime
+        age_hours = (time.time() - mtime) / 3600
+        if age_hours > 1:
+            should_generate = True
+
+    if should_generate:
+        # Try to generate the map
+        script_path = project_dir / "scripts" / "generate_project_map.py"
+        if script_path.exists():
+            try:
+                subprocess.run(
+                    ["python", str(script_path), str(project_dir)],
+                    capture_output=True,
+                    timeout=30,
+                )
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                pass
+
+    return load_project_map(project_dir)
+
+
 def get_execute_task_with_memory(team: str, project_dir: Path | None = None) -> str:
     """
-    Get the task message with memory context loaded.
+    Get the task message with memory and project map context loaded.
 
     Args:
         team: Team key (e.g., "ENG")
-        project_dir: Project directory for .agent/MEMORY.md
+        project_dir: Project directory for .agent/MEMORY.md and .agent/PROJECT_MAP.md
 
     Returns:
-        Task message with team, cwd, and memory context
+        Task message with team, cwd, memory, and project map context
     """
     template = load_prompt("execute_task")
     base_prompt = template.format(team=team, cwd=Path.cwd())
 
+    sections = []
+
+    # Load project map first (ENG-33)
+    project_map = ensure_project_map(project_dir)
+    if project_map:
+        sections.append(f"## Project Map (from .agent/PROJECT_MAP.md)\n\n{project_map}")
+
+    # Then load memory
     memory = load_agent_memory(project_dir)
     if memory:
-        memory_section = f"\n\n---\n\n## Agent Memory (from .agent/MEMORY.md)\n\n{memory}"
-        return base_prompt + memory_section
+        sections.append(f"## Agent Memory (from .agent/MEMORY.md)\n\n{memory}")
+
+    if sections:
+        return base_prompt + "\n\n---\n\n" + "\n\n---\n\n".join(sections)
 
     return base_prompt
 
 
 def get_continuation_task_with_memory(team: str, project_dir: Path | None = None) -> str:
     """
-    Get the continuation task message with memory context loaded.
+    Get the continuation task message with memory and project map context loaded.
 
     Args:
         team: Team key (e.g., "ENG")
-        project_dir: Project directory for .agent/MEMORY.md
+        project_dir: Project directory for .agent/MEMORY.md and .agent/PROJECT_MAP.md
 
     Returns:
-        Continuation task message with team, cwd, and memory context
+        Continuation task message with team, cwd, memory, and project map context
     """
     template = load_prompt("continuation_task")
     base_prompt = template.format(team=team, cwd=Path.cwd())
 
+    sections = []
+
+    # Load project map first (ENG-33)
+    project_map = ensure_project_map(project_dir)
+    if project_map:
+        sections.append(f"## Project Map (from .agent/PROJECT_MAP.md)\n\n{project_map}")
+
+    # Then load memory
     memory = load_agent_memory(project_dir)
     if memory:
-        memory_section = f"\n\n---\n\n## Agent Memory (from .agent/MEMORY.md)\n\n{memory}"
-        return base_prompt + memory_section
+        sections.append(f"## Agent Memory (from .agent/MEMORY.md)\n\n{memory}")
+
+    if sections:
+        return base_prompt + "\n\n---\n\n" + "\n\n---\n\n".join(sections)
 
     return base_prompt
 
