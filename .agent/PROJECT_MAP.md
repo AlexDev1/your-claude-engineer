@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-07 05:40:57*
+*Auto-generated: 2026-02-08 23:33:39*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -16,25 +16,26 @@ your-claude-engineer/
 │   └── workflows/ (1 files)
 ├── agents/ (2 files)
 ├── analytics_server/ (2 files)
-├── backups/ (2 files)
-├── dashboard/ (35 files)
-│   ├── public/ (2 files)
-│   ├── src/ (27 files)
-│   │   ├── components/ (13 files)
+├── backups/ (3 files)
+├── dashboard/ (54 files)
+│   ├── public/ (9 files)
+│   │   ├── icons/ (1 files)
+│   ├── src/ (39 files)
+│   │   ├── components/ (21 files)
 │   │   ├── context/ (1 files)
-│   │   ├── hooks/ (4 files)
-│   │   ├── pages/ (5 files)
-│   │   ├── styles/ (1 files)
+│   │   ├── hooks/ (6 files)
+│   │   ├── pages/ (6 files)
+│   │   ├── styles/ (2 files)
 │   │   ├── utils/
 ├── prompts/ (7 files)
-├── screenshots/ (48 files)
-├── scripts/ (2 files)
-├── tests/ (12 files)
+├── screenshots/ (114 files)
+├── scripts/ (5 files)
+├── tests/ (14 files)
 │   ├── api/ (3 files)
 │   ├── e2e/ (3 files)
-│   ├── integration/ (2 files)
-│   ├── unit/ (2 files)
-├── [21 files in root]
+│   ├── integration/ (3 files)
+│   ├── unit/ (3 files)
+├── [27 files in root]
 ```
 
 ## Key Files
@@ -87,19 +88,17 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `186ab40` feat(ENG-48): Add data import/export with JSON, CSV, Linear, GitHub support (6 минут назад)
-- `3445c7a` feat(dashboard): add theming system with dark mode and accent colors (ENG-45) (23 минуты назад)
-- `f37311d` feat(tests): add comprehensive test suite (ENG-49) (47 минут назад)
-- `f31a10f` feat(ENG-46): Add context optimization with prompt compression (59 минут назад)
-- `72f34a7` feat(ENG-39): Add interactive task editor with CRUD operations (72 минуты назад)
+- `8b0d1d9` feat: add phase-level retry logic with RetryStrategy enum (18 секунд назад)
+- `0c24626` feat: add unified handle/protected API to GracefulDegradation (10 минут назад)
+- `dd4d68c` fix: remove browser_take_screenshot — always exceeds SDK 1MB buffer (3 часа назад)
+- `347aeb6` feat: add graceful degradation matrix with decorator API (recovery.py) (3 часа назад)
+- `611e7da` fix: prevent fullPage screenshots from crashing SDK 1MB buffer (4 часа назад)
 
 ## Import Graph (Hub Files)
 
 > Files imported by 3+ other files. Changes here are high-risk.
 
-| File | Imported By |
-|------|-------------|
-| `session_state.py` | 3 files |
+*No hub files detected (all files have <3 importers)*
 
 ---
 

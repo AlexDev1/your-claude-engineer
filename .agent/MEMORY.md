@@ -207,3 +207,45 @@ Configure via `mcp_config.py`, URLs from environment variables.
 ---
 
 *Last updated: 2026-02-07 (added ENG-33 Codebase Map documentation)*
+
+
+---
+
+### Context Limit Shutdown (2026-02-08T20:07:18.299875)
+- Issue: 
+- Interrupted at: step_
+- Context usage: 85.6%
+- **Resume from step: **
+
+
+---
+
+### Context Limit Shutdown (2026-02-08T20:07:18.353086)
+- Issue: 
+- Interrupted at: step_
+- Context usage: 85.6%
+- **Resume from step: **
+
+
+---
+
+### Context Limit Shutdown (2026-02-08T20:12:58.739381)
+- Issue: 
+- Interrupted at: step_
+- Context usage: 122.3%
+- **Resume from step: **
+
+
+---
+
+### Context Limit Shutdown (2026-02-08T20:12:58.802170)
+- Issue:
+- Interrupted at: step_
+- Context usage: 122.3%
+- **Resume from step: **
+
+### 2026-02-09 - ENG-68 Graceful Degradation Matrix (Completed)
+- Added unified API: FailureType enum, handle() decorator, protected() context manager
+- Commit: 0c24626
+- Files: recovery.py, tests/unit/test_recovery.py
+- All 74 tests pass
