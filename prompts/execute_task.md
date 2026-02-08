@@ -77,6 +77,24 @@ telegram: ":white_check_mark: Completed: [title]"
 coding agent: Update .agent/MEMORY.md
 task agent: Add session summary to META issue
 
+## Recovery Mode (ENG-69)
+
+When a `## Recovery Mode` section is appended to this prompt, the agent is resuming
+from a crashed or interrupted session. Follow these rules:
+
+1. **Skip completed phases.** The recovery section lists phases that already succeeded.
+   Do NOT repeat them.
+2. **Resume from the indicated phase.** The `resume_phase` field tells you exactly where
+   to pick up work.
+3. **Check git state first.** If `uncommitted_changes` is flagged, run `git status` and
+   `git diff` before writing any code. Decide whether to commit, stash, or discard.
+4. **Late phases (commit, mark_done, notify, flush):** The code is already written.
+   Do NOT re-implement. Only retry the failed operation.
+5. **Fetch issue details.** Use the `issue_id` from recovery context to fetch the issue
+   and continue from where the previous session left off.
+6. **Degraded services.** If services are listed as degraded, skip those integrations
+   (e.g., skip Telegram notification if `notify` is degraded).
+
 ## Rules
 - No Done without verification (browser_snapshot, tests, or lint-gate)
 - Pass FULL context to coding agent (unless COMPACT MODE)

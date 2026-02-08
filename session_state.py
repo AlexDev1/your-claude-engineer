@@ -95,6 +95,9 @@ class RetryStrategy(Enum):
 # Maximum retry attempts per phase before escalation (ENG-67)
 MAX_PHASE_RETRIES: int = 2
 
+# Maximum age (hours) for a recovery state before it is considered stale (ENG-69)
+STALE_RECOVERY_HOURS: float = 24.0
+
 
 class ErrorType(Enum):
     """Categories of errors for graceful degradation."""
@@ -537,8 +540,13 @@ class SessionRecovery:
     async def check_recovery(self) -> tuple[bool, SessionState | None]:
         """Check if recovery is needed on startup.
 
+        Detects interrupted sessions from .agent/session_state.json and
+        determines whether they are fresh enough to resume. Sessions older
+        than STALE_RECOVERY_HOURS are considered stale and cleared (ENG-69).
+
         Returns:
-            Tuple of (recovery_needed, saved_state)
+            Tuple of (recovery_needed, saved_state).
+            If stale or completed, returns (False, None) and clears state.
         """
         saved_state = self.state_manager.load_state()
         if saved_state is None:
@@ -546,6 +554,16 @@ class SessionRecovery:
 
         # Check if session is incomplete
         if saved_state.phase != SessionPhase.MEMORY_FLUSH:
+            # Check staleness -- sessions older than 24 hours are stale (ENG-69)
+            if self.is_recovery_stale(saved_state):
+                logger.info(
+                    f"Stale recovery detected (>{STALE_RECOVERY_HOURS}h old), "
+                    f"issue={saved_state.issue_id}, phase={saved_state.phase.phase_name}. "
+                    "Clearing state."
+                )
+                self.state_manager.clear_state()
+                return False, None
+
             logger.info(
                 f"Recovering from interrupted session, "
                 f"resuming at phase: {saved_state.phase.phase_name}"
@@ -562,6 +580,62 @@ class SessionRecovery:
         # Session completed successfully, clear state
         self.state_manager.clear_state()
         return False, None
+
+    @staticmethod
+    def is_recovery_stale(
+        saved_state: SessionState,
+        max_age_hours: float = STALE_RECOVERY_HOURS,
+    ) -> bool:
+        """Determine if a saved recovery state is too old to resume.
+
+        A session is considered stale if its last_updated timestamp is older
+        than max_age_hours. This prevents resuming sessions from days ago
+        where the project context may have changed significantly.
+
+        Args:
+            saved_state: The loaded session state to check
+            max_age_hours: Maximum age in hours before state is stale
+
+        Returns:
+            True if the state is stale and should be discarded
+        """
+        try:
+            last_updated = datetime.fromisoformat(saved_state.last_updated)
+            age_hours = (datetime.now() - last_updated).total_seconds() / 3600
+            return age_hours > max_age_hours
+        except (ValueError, TypeError):
+            # If timestamp is unparseable, treat as stale
+            logger.warning(
+                f"Unparseable last_updated timestamp: {saved_state.last_updated}"
+            )
+            return True
+
+    def get_recovery_info(self, saved_state: SessionState) -> dict[str, Any]:
+        """Extract detailed recovery information from saved state (ENG-69).
+
+        Returns a dictionary with structured recovery context suitable for
+        injection into the agent prompt.
+
+        Args:
+            saved_state: The loaded session state
+
+        Returns:
+            Dictionary with keys: issue_id, last_phase, resume_phase,
+            completed_phases, timestamp, uncommitted_changes, degraded_services,
+            last_error, error_count
+        """
+        resume_phase = self.state_manager.get_resume_phase(saved_state)
+        return {
+            "issue_id": saved_state.issue_id,
+            "last_phase": saved_state.phase.phase_name,
+            "resume_phase": resume_phase.phase_name,
+            "completed_phases": saved_state.completed_phases,
+            "timestamp": saved_state.last_updated,
+            "uncommitted_changes": saved_state.uncommitted_changes,
+            "degraded_services": saved_state.degraded_services,
+            "last_error": saved_state.last_error,
+            "error_count": len(saved_state.error_log),
+        }
 
     def get_retry_strategy(self, phase: SessionPhase, attempts: int) -> RetryStrategy:
         """Determine the retry strategy for a failed phase (ENG-67).

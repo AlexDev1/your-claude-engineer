@@ -35,6 +35,7 @@ from prompts import (
     ensure_project_map,
     get_continuation_task_with_memory,
     get_execute_task_with_memory,
+    get_recovery_context,
 )
 from session_state import (
     ErrorType,
@@ -387,24 +388,34 @@ async def run_autonomous_agent(
     state_manager = get_session_state_manager(project_dir)
     recovery = get_session_recovery(project_dir)
 
-    # Check for interrupted session on startup
+    # Check for interrupted session on startup (ENG-69)
     recovery_needed, saved_state = await recovery.check_recovery()
     resume_phase: SessionPhase | None = None
+    recovery_context_text: str = ""
 
     if recovery_needed and saved_state:
+        # Extract structured recovery info (ENG-69)
+        recovery_info = recovery.get_recovery_info(saved_state)
+
         print("\n" + "-" * 70)
         print("  CRASH RECOVERY: Resuming from interrupted session")
-        print(f"  Issue: {saved_state.issue_id}")
-        print(f"  Last phase: {saved_state.phase.phase_name}")
-        if saved_state.uncommitted_changes:
+        print(f"  Issue: {recovery_info['issue_id']}")
+        print(f"  Last phase: {recovery_info['last_phase']}")
+        print(f"  Resume phase: {recovery_info['resume_phase']}")
+        if recovery_info["uncommitted_changes"]:
             print("  Status: Uncommitted changes detected")
-        if saved_state.degraded_services:
-            print(f"  Degraded services: {', '.join(saved_state.degraded_services)}")
+        if recovery_info["degraded_services"]:
+            print(f"  Degraded services: {', '.join(recovery_info['degraded_services'])}")
+        if recovery_info["error_count"] > 0:
+            print(f"  Errors in previous session: {recovery_info['error_count']}")
         print("-" * 70 + "\n")
 
         # Determine resume point
         resume_phase = state_manager.get_resume_phase(saved_state)
         print(f"Resuming at phase: {resume_phase.phase_name}")
+
+        # Format recovery context for prompt injection (ENG-69)
+        recovery_context_text = get_recovery_context(recovery_info)
 
         # Restore state
         state_manager._current_state = saved_state
@@ -440,12 +451,11 @@ async def run_autonomous_agent(
             prompt: str = get_execute_task_with_memory(team, project_dir)
             print("(Loading project map and memory from .agent/)")
 
-            # If recovering, add context about resume phase
-            if resume_phase:
-                prompt += f"\n\n[RECOVERY MODE: Resuming from phase '{resume_phase.phase_name}']"
-                if saved_state and saved_state.uncommitted_changes:
-                    prompt += "\n[Note: Uncommitted changes detected - check git status]"
+            # If recovering, inject structured recovery context (ENG-69)
+            if resume_phase and recovery_context_text:
+                prompt += recovery_context_text
                 resume_phase = None  # Clear after first use
+                recovery_context_text = ""  # Clear after first use
         else:
             prompt = get_continuation_task_with_memory(team, project_dir)
             print("(Using continuation prompt - will check previous session context)")

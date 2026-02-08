@@ -346,6 +346,67 @@ def get_prompt_with_context_tracking(
     return prompt
 
 
+def get_recovery_context(recovery_info: dict) -> str:
+    """Format recovery information for injection into agent prompts (ENG-69).
+
+    Takes the structured recovery info dict from SessionRecovery.get_recovery_info()
+    and produces a human-readable prompt section that instructs the agent to skip
+    already-completed phases and resume from the correct point.
+
+    Args:
+        recovery_info: Dictionary with keys: issue_id, last_phase, resume_phase,
+            completed_phases, timestamp, uncommitted_changes, degraded_services,
+            last_error, error_count
+
+    Returns:
+        Formatted string for appending to the agent prompt
+    """
+    lines = [
+        "",
+        "---",
+        "",
+        "## Recovery Mode (ENG-69)",
+        "",
+        f"**Interrupted issue:** {recovery_info['issue_id']}",
+        f"**Last active phase:** {recovery_info['last_phase']}",
+        f"**Resume from phase:** {recovery_info['resume_phase']}",
+        f"**Interrupted at:** {recovery_info['timestamp']}",
+    ]
+
+    completed = recovery_info.get("completed_phases", [])
+    if completed:
+        lines.append(f"**Completed phases:** {', '.join(completed)}")
+
+    if recovery_info.get("uncommitted_changes"):
+        lines.append("**Warning:** Uncommitted changes detected -- check `git status` first")
+
+    degraded = recovery_info.get("degraded_services", [])
+    if degraded:
+        lines.append(f"**Degraded services:** {', '.join(degraded)}")
+
+    last_error = recovery_info.get("last_error")
+    if last_error:
+        lines.append(f"**Last error:** {last_error}")
+
+    error_count = recovery_info.get("error_count", 0)
+    if error_count > 0:
+        lines.append(f"**Total errors in session:** {error_count}")
+
+    lines.extend([
+        "",
+        "### Recovery Instructions",
+        "",
+        "1. Skip phases that are already completed (listed above)",
+        f"2. Resume work from the **{recovery_info['resume_phase']}** phase",
+        "3. If uncommitted changes exist, review `git status` and `git diff` before proceeding",
+        "4. If the resume phase is `commit` or later, the code is already written -- "
+        "do NOT re-implement",
+        "5. Fetch the issue details for the interrupted issue and continue from where it left off",
+    ])
+
+    return "\n".join(lines)
+
+
 def get_all_prompt_stats() -> dict:
     """
     Get token statistics for all prompts.

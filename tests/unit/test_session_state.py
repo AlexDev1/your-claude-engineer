@@ -1,6 +1,6 @@
 """
-Tests for Session State Management (ENG-35)
-============================================
+Tests for Session State Management (ENG-35, ENG-69)
+====================================================
 
 Verifies:
 1. Session state recorded in JSON at each phase change
@@ -8,11 +8,15 @@ Verifies:
 3. MCP timeout -> graceful degradation (skip notification, continue)
 4. Crash recovery on startup restores from checkpoint
 5. Exponential backoff on rate limits
+6. Stale recovery detection (>24 hours) (ENG-69)
+7. Recovery context formatting for prompt injection (ENG-69)
+8. get_recovery_info structured output (ENG-69)
 """
 
 import asyncio
 import json
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,6 +24,7 @@ import pytest
 
 from session_state import (
     MAX_PHASE_RETRIES,
+    STALE_RECOVERY_HOURS,
     ErrorType,
     GracefulDegradation,
     PhaseAttempt,
@@ -36,6 +41,7 @@ from session_state import (
     set_default_project_dir,
     transition_phase,
 )
+from prompts import get_recovery_context
 
 
 class TestSessionPhase:
@@ -1079,3 +1085,330 @@ class TestResetPhaseAttempts:
         loaded = manager.load_state()
         assert loaded is not None
         assert loaded.phase_attempts.get("implement") == 0
+
+
+class TestStaleRecovery:
+    """Test stale recovery detection (ENG-69)."""
+
+    @pytest.fixture
+    def temp_project(self):
+        """Create a temporary project directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            (project_dir / ".agent").mkdir()
+            yield project_dir
+
+    def test_stale_recovery_constant(self):
+        """STALE_RECOVERY_HOURS is set to 24."""
+        assert STALE_RECOVERY_HOURS == 24.0
+
+    def test_fresh_state_is_not_stale(self):
+        """A state updated just now is not stale."""
+        state = SessionState(
+            phase=SessionPhase.IMPLEMENTATION,
+            issue_id="ENG-69",
+            last_updated=datetime.now().isoformat(),
+        )
+        assert SessionRecovery.is_recovery_stale(state) is False
+
+    def test_old_state_is_stale(self):
+        """A state updated 25 hours ago is stale."""
+        from datetime import timedelta
+
+        old_time = (datetime.now() - timedelta(hours=25)).isoformat()
+        state = SessionState(
+            phase=SessionPhase.COMMIT,
+            issue_id="ENG-69",
+            last_updated=old_time,
+        )
+        assert SessionRecovery.is_recovery_stale(state) is True
+
+    def test_exactly_24h_is_not_stale(self):
+        """A state updated exactly 24 hours ago is not stale (boundary)."""
+        from datetime import timedelta
+
+        # Subtract slightly less than 24 hours to stay within bounds
+        boundary_time = (datetime.now() - timedelta(hours=23, minutes=59)).isoformat()
+        state = SessionState(
+            phase=SessionPhase.COMMIT,
+            issue_id="ENG-69",
+            last_updated=boundary_time,
+        )
+        assert SessionRecovery.is_recovery_stale(state) is False
+
+    def test_custom_max_age(self):
+        """Custom max_age_hours overrides the default."""
+        from datetime import timedelta
+
+        two_hours_ago = (datetime.now() - timedelta(hours=2)).isoformat()
+        state = SessionState(
+            phase=SessionPhase.COMMIT,
+            issue_id="ENG-69",
+            last_updated=two_hours_ago,
+        )
+        # Not stale with default 24h threshold
+        assert SessionRecovery.is_recovery_stale(state) is False
+        # Stale with 1h threshold
+        assert SessionRecovery.is_recovery_stale(state, max_age_hours=1.0) is True
+
+    def test_unparseable_timestamp_is_stale(self):
+        """Unparseable timestamp is treated as stale."""
+        state = SessionState(
+            phase=SessionPhase.COMMIT,
+            issue_id="ENG-69",
+            last_updated="not-a-timestamp",
+        )
+        assert SessionRecovery.is_recovery_stale(state) is True
+
+    @pytest.mark.asyncio
+    async def test_check_recovery_skips_stale_state(self, temp_project):
+        """check_recovery returns False and clears state for stale sessions."""
+        from datetime import timedelta
+
+        old_time = (datetime.now() - timedelta(hours=48)).isoformat()
+        state_file = temp_project / ".agent" / "session_state.json"
+        state_data = {
+            "phase": "commit",
+            "issue_id": "ENG-69",
+            "attempt": 1,
+            "started_at": old_time,
+            "last_updated": old_time,
+        }
+        with open(state_file, "w") as f:
+            json.dump(state_data, f)
+
+        recovery = get_session_recovery(temp_project)
+        needed, state = await recovery.check_recovery()
+
+        assert not needed
+        assert state is None
+        # State file should be cleared
+        assert not state_file.exists()
+
+    @pytest.mark.asyncio
+    async def test_check_recovery_resumes_fresh_state(self, temp_project):
+        """check_recovery returns True for fresh interrupted sessions."""
+        now = datetime.now().isoformat()
+        state_file = temp_project / ".agent" / "session_state.json"
+        state_data = {
+            "phase": "implementation",
+            "issue_id": "ENG-69",
+            "attempt": 1,
+            "started_at": now,
+            "last_updated": now,
+        }
+        with open(state_file, "w") as f:
+            json.dump(state_data, f)
+
+        recovery = get_session_recovery(temp_project)
+        needed, state = await recovery.check_recovery()
+
+        assert needed
+        assert state is not None
+        assert state.issue_id == "ENG-69"
+        assert state.phase == SessionPhase.IMPLEMENTATION
+
+
+class TestGetRecoveryInfo:
+    """Test SessionRecovery.get_recovery_info() (ENG-69)."""
+
+    @pytest.fixture
+    def temp_project(self):
+        """Create a temporary project directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            (project_dir / ".agent").mkdir()
+            yield project_dir
+
+    def test_basic_recovery_info(self, temp_project):
+        """Returns correct basic recovery info."""
+        recovery = get_session_recovery(temp_project)
+        state = SessionState(
+            phase=SessionPhase.COMMIT,
+            issue_id="ENG-42",
+            last_updated="2026-02-08T12:00:00",
+            completed_phases=["orient", "status", "verify", "implement"],
+        )
+        info = recovery.get_recovery_info(state)
+
+        assert info["issue_id"] == "ENG-42"
+        assert info["last_phase"] == "commit"
+        assert info["resume_phase"] == "commit"  # Late phase -> resume from same
+        assert info["completed_phases"] == ["orient", "status", "verify", "implement"]
+        assert info["timestamp"] == "2026-02-08T12:00:00"
+
+    def test_recovery_info_with_errors(self, temp_project):
+        """Returns error info when errors exist."""
+        recovery = get_session_recovery(temp_project)
+        state = SessionState(
+            phase=SessionPhase.IMPLEMENTATION,
+            issue_id="ENG-50",
+            uncommitted_changes=True,
+            degraded_services=["notify"],
+            last_error="Connection timeout",
+            error_log=["error1", "error2", "error3"],
+        )
+        info = recovery.get_recovery_info(state)
+
+        assert info["uncommitted_changes"] is True
+        assert info["degraded_services"] == ["notify"]
+        assert info["last_error"] == "Connection timeout"
+        assert info["error_count"] == 3
+
+    def test_recovery_info_early_phase_resume(self, temp_project):
+        """Early phases resume from ORIENT."""
+        recovery = get_session_recovery(temp_project)
+        state = SessionState(
+            phase=SessionPhase.STATUS_CHECK,
+            issue_id="ENG-50",
+        )
+        info = recovery.get_recovery_info(state)
+
+        assert info["last_phase"] == "status"
+        assert info["resume_phase"] == "orient"
+
+    def test_recovery_info_implementation_phase(self, temp_project):
+        """IMPLEMENTATION resumes from IMPLEMENTATION."""
+        recovery = get_session_recovery(temp_project)
+        state = SessionState(
+            phase=SessionPhase.IMPLEMENTATION,
+            issue_id="ENG-50",
+        )
+        info = recovery.get_recovery_info(state)
+
+        assert info["last_phase"] == "implement"
+        assert info["resume_phase"] == "implement"
+
+
+class TestGetRecoveryContext:
+    """Test get_recovery_context() prompt formatting (ENG-69)."""
+
+    def test_basic_formatting(self):
+        """Produces formatted recovery context string."""
+        info = {
+            "issue_id": "ENG-42",
+            "last_phase": "commit",
+            "resume_phase": "commit",
+            "completed_phases": ["orient", "status", "verify", "implement"],
+            "timestamp": "2026-02-08T12:00:00",
+            "uncommitted_changes": False,
+            "degraded_services": [],
+            "last_error": None,
+            "error_count": 0,
+        }
+        context = get_recovery_context(info)
+
+        assert "## Recovery Mode (ENG-69)" in context
+        assert "ENG-42" in context
+        assert "commit" in context
+        assert "orient, status, verify, implement" in context
+        assert "Recovery Instructions" in context
+
+    def test_includes_uncommitted_changes_warning(self):
+        """Flags uncommitted changes when present."""
+        info = {
+            "issue_id": "ENG-42",
+            "last_phase": "commit",
+            "resume_phase": "commit",
+            "completed_phases": [],
+            "timestamp": "2026-02-08T12:00:00",
+            "uncommitted_changes": True,
+            "degraded_services": [],
+            "last_error": None,
+            "error_count": 0,
+        }
+        context = get_recovery_context(info)
+
+        assert "Uncommitted changes detected" in context
+        assert "git status" in context
+
+    def test_includes_degraded_services(self):
+        """Lists degraded services when present."""
+        info = {
+            "issue_id": "ENG-42",
+            "last_phase": "notify",
+            "resume_phase": "notify",
+            "completed_phases": [],
+            "timestamp": "2026-02-08T12:00:00",
+            "uncommitted_changes": False,
+            "degraded_services": ["notify", "status"],
+            "last_error": None,
+            "error_count": 0,
+        }
+        context = get_recovery_context(info)
+
+        assert "notify, status" in context
+        assert "Degraded services" in context
+
+    def test_includes_error_info(self):
+        """Includes last error and error count."""
+        info = {
+            "issue_id": "ENG-42",
+            "last_phase": "commit",
+            "resume_phase": "commit",
+            "completed_phases": [],
+            "timestamp": "2026-02-08T12:00:00",
+            "uncommitted_changes": False,
+            "degraded_services": [],
+            "last_error": "Git push failed: remote rejected",
+            "error_count": 3,
+        }
+        context = get_recovery_context(info)
+
+        assert "Git push failed: remote rejected" in context
+        assert "Total errors in session" in context
+        assert "3" in context
+
+    def test_recovery_instructions_present(self):
+        """Recovery instructions section is always present."""
+        info = {
+            "issue_id": "ENG-42",
+            "last_phase": "orient",
+            "resume_phase": "orient",
+            "completed_phases": [],
+            "timestamp": "2026-02-08T12:00:00",
+            "uncommitted_changes": False,
+            "degraded_services": [],
+            "last_error": None,
+            "error_count": 0,
+        }
+        context = get_recovery_context(info)
+
+        assert "Skip phases that are already completed" in context
+        assert "Resume work from the **orient** phase" in context
+        assert "do NOT re-implement" in context
+
+    def test_no_completed_phases_omits_line(self):
+        """When no completed phases, that line is omitted."""
+        info = {
+            "issue_id": "ENG-42",
+            "last_phase": "orient",
+            "resume_phase": "orient",
+            "completed_phases": [],
+            "timestamp": "2026-02-08T12:00:00",
+            "uncommitted_changes": False,
+            "degraded_services": [],
+            "last_error": None,
+            "error_count": 0,
+        }
+        context = get_recovery_context(info)
+
+        assert "Completed phases" not in context
+
+    def test_no_error_omits_error_lines(self):
+        """When no errors, error lines are omitted."""
+        info = {
+            "issue_id": "ENG-42",
+            "last_phase": "orient",
+            "resume_phase": "orient",
+            "completed_phases": [],
+            "timestamp": "2026-02-08T12:00:00",
+            "uncommitted_changes": False,
+            "degraded_services": [],
+            "last_error": None,
+            "error_count": 0,
+        }
+        context = get_recovery_context(info)
+
+        assert "Last error" not in context
+        assert "Total errors" not in context
