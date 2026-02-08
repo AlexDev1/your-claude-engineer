@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-08 23:33:39*
+*Auto-generated: 2026-02-09 00:02:01*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -30,11 +30,11 @@ your-claude-engineer/
 ├── prompts/ (7 files)
 ├── screenshots/ (114 files)
 ├── scripts/ (5 files)
-├── tests/ (14 files)
+├── tests/ (15 files)
 │   ├── api/ (3 files)
 │   ├── e2e/ (3 files)
 │   ├── integration/ (3 files)
-│   ├── unit/ (3 files)
+│   ├── unit/ (4 files)
 ├── [27 files in root]
 ```
 
@@ -88,11 +88,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `8b0d1d9` feat: add phase-level retry logic with RetryStrategy enum (18 секунд назад)
-- `0c24626` feat: add unified handle/protected API to GracefulDegradation (10 минут назад)
-- `dd4d68c` fix: remove browser_take_screenshot — always exceeds SDK 1MB buffer (3 часа назад)
-- `347aeb6` feat: add graceful degradation matrix with decorator API (recovery.py) (3 часа назад)
-- `611e7da` fix: prevent fullPage screenshots from crashing SDK 1MB buffer (4 часа назад)
+- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (3 минуты назад)
+- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (15 минут назад)
+- `fddc098` feat: add crash recovery on startup with stale detection and prompt injection (21 минута назад)
+- `a2376ec` chore: update project map, memory, and settings after ENG-67/ENG-68 (28 минут назад)
+- `8b0d1d9` feat: add phase-level retry logic with RetryStrategy enum (29 минут назад)
 
 ## Import Graph (Hub Files)
 

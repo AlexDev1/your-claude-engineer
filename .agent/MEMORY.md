@@ -249,3 +249,42 @@ Configure via `mcp_config.py`, URLs from environment variables.
 - Commit: 0c24626
 - Files: recovery.py, tests/unit/test_recovery.py
 - All 74 tests pass
+
+### 2026-02-09 - ENG-35 Crash Recovery Epic (Completed)
+- **ENG-66**: Session state machine and phase tracking (commit 8c866b6)
+  - SessionPhase enum with 8 phases
+  - SessionStateManager with save/load to .agent/session_state.json
+  - 49 tests
+- **ENG-67**: Phase-level retry logic (commit 8b0d1d9)
+  - RetryStrategy enum (RETRY_CURRENT, RETRY_FROM_ORIENT, RETRY_IMPLEMENTATION, ESCALATE)
+  - get_retry_strategy() in SessionRecovery
+  - 22 new tests (71 total)
+- **ENG-69**: Crash recovery on startup (commit fddc098)
+  - Stale recovery detection (24h threshold)
+  - get_recovery_info() and get_recovery_context()
+  - Recovery Mode section in execute_task.md
+  - 20 new tests (90 total)
+- **ENG-70**: Timeout handling and backoff (commit 3925cb9)
+  - MCPTimeoutError exception
+  - calculate_backoff() with jitter
+  - call_mcp_tool_with_retry() async wrapper
+  - 28 new tests
+
+**Key files:**
+- session_state.py - state machine, recovery, retry logic
+- client.py - timeout handling, backoff
+- agent.py - integration
+- prompts/execute_task.md - recovery mode instructions
+
+### 2026-02-09 - ENG-62 Auto-push to GitHub (Completed)
+- Commit: 55a9636
+- Files: github_integration.py, test_github_integration.py, prompts/*.md, mcp_config.py
+- Added: LintGateResult dataclass, run_lint_gate(), auto_push_with_gate()
+- Workflow: Now uses agent/{issue-id} branches instead of committing to main
+- Tests: 11 new tests, all 230 pass
+- Code review: APPROVED
+
+**Key implementation:**
+- `run_lint_gate()` - runs scripts/lint-gate.sh with 120s timeout
+- `auto_push_with_gate()` - gates push on lint-gate pass
+- Skip push gracefully if GITHUB_TOKEN not set
