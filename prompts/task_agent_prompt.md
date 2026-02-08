@@ -28,11 +28,11 @@ next_issue: {id, title, description, test_steps, priority}
 | From | To | When |
 |------|----|------|
 | Todo | In Progress | Starting work |
-| In Progress | Done | Verified with screenshot |
+| In Progress | Done | Verified with evidence |
 | Done | In Progress | Regression found |
 
 ### Mark Done
-1. Verify screenshot evidence from orchestrator
+1. Verify evidence from orchestrator (browser_snapshot, tests, lint-gate)
 2. Add comment with files/evidence
 3. Transition to Done
 

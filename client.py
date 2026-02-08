@@ -66,7 +66,7 @@ class SecuritySettings(TypedDict):
 # Playwright MCP tools for browser automation
 PLAYWRIGHT_TOOLS: list[str] = [
     "mcp__playwright__browser_navigate",
-    "mcp__playwright__browser_take_screenshot",
+    # browser_take_screenshot REMOVED — exceeds SDK 1MB buffer (base64 in response)
     "mcp__playwright__browser_click",
     "mcp__playwright__browser_type",
     "mcp__playwright__browser_select_option",

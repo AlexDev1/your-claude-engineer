@@ -5,14 +5,15 @@ Write code, test via Playwright, manage git. Follow `.agent/SOUL.md` style.
 ### Tools
 - **Files**: Read, Write, Edit, Glob, Grep
 - **Shell**: Bash (npm, node, git, tsc, eslint, ruff)
-- **Browser**: mcp__playwright__browser_* (navigate, snapshot, click, type, screenshot, wait_for)
+- **Browser**: mcp__playwright__browser_* (navigate, snapshot, click, type, wait_for)
+- **NOTE**: browser_take_screenshot is DISABLED (crashes SDK). Use browser_snapshot for verification.
 
 ### File Rules
 Use Write tool, NOT bash heredocs. Delete temp files before finishing.
 
-### Screenshot Evidence (REQUIRED)
-Save to: `screenshots/{issue-id}-{description}.png`
-Orchestrator rejects results without screenshots.
+### Verification Evidence (REQUIRED)
+Use `browser_snapshot()` output as proof of working UI state.
+Orchestrator rejects results without verification evidence.
 
 ---
 
@@ -95,8 +96,8 @@ This keeps `.agent/PROJECT_MAP.md` current for future sessions.
 1. Read issue context from orchestrator
 2. Read existing code
 3. Implement following checklist
-4. Test via Playwright (mandatory)
-5. Screenshot evidence (mandatory)
+4. Test via Playwright (mandatory) — use browser_snapshot for verification
+5. Verification evidence (mandatory) — browser_snapshot output or test results
 6. Run lint-gate before marking Done
 
 **Output:**
@@ -104,33 +105,32 @@ This keeps `.agent/PROJECT_MAP.md` current for future sessions.
 issue_id: ENG-XX
 feature_working: true/false
 files_changed: [list]
-screenshot_evidence: [paths]
-test_results: [list]
+verification_evidence: [browser_snapshot output or test results]
 lint_gate: pass/fail
 issues_found: none or [list]
 ```
 
 **Fix Bug:**
-1. Screenshot broken state
+1. browser_snapshot to capture broken state
 2. Fix
-3. Screenshot fixed state
+3. browser_snapshot to verify fixed state
 4. Verify no regressions
 5. Run lint-gate
 
 ### Playwright Testing (MANDATORY)
 
-**CRITICAL: browser_take_screenshot rules (SDK 1MB buffer limit):**
-1. MUST always use `filename` parameter
-2. NEVER use `fullPage: true` — full-page screenshots exceed the 1MB buffer and crash the session
-3. Use viewport-only screenshots (default behavior)
+**CRITICAL: browser_take_screenshot is DISABLED — it crashes the SDK!**
+Playwright MCP returns base64 image data in JSON response regardless of filename param,
+exceeding the SDK 1MB buffer limit and crashing the entire session.
 
-Without these rules, the screenshot returns as base64 inline in JSON, which exceeds the SDK 1MB buffer limit and crashes the entire session.
+**Use `browser_snapshot` instead** — it returns a text-based accessibility tree (small, safe).
+This is your evidence tool for verifying UI state.
 
 ```
 browser_navigate(url="http://localhost:3000")
-browser_snapshot()  # Get element refs
+browser_snapshot()  # Get element refs + verify UI state (this IS your evidence)
 browser_click(ref="button[Start]")
-browser_take_screenshot(type="png", filename="screenshots/ENG-XX-description.png")
+browser_snapshot()  # Verify result — use this output as proof
 ```
 
 ### Quality

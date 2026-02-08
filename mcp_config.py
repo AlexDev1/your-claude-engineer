@@ -82,7 +82,9 @@ TELEGRAM_TOOLS: list[str] = [
 # Playwright MCP tools for browser automation
 PLAYWRIGHT_TOOLS: list[str] = [
     "mcp__playwright__browser_navigate",
-    "mcp__playwright__browser_take_screenshot",
+    # browser_take_screenshot REMOVED — Playwright MCP returns base64 image data
+    # in JSON response regardless of filename param, exceeding SDK 1MB buffer limit.
+    # Use browser_snapshot (text-based accessibility tree) instead.
     "mcp__playwright__browser_click",
     "mcp__playwright__browser_type",
     "mcp__playwright__browser_select_option",

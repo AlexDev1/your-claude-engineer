@@ -102,11 +102,11 @@ Subtasks:
 4. **Implement**: Pass full issue (id, title, desc, test_steps) to coding agent
 5. **Review**: Get diff from coding agent, pass to reviewer agent
 6. **Commit**: If APPROVE, tell coding agent to commit
-7. **Mark Done**: task agent marks Done with screenshot evidence
+7. **Mark Done**: task agent marks Done with verification evidence (browser_snapshot output or test results)
 
 ### Gates
 
-- **Screenshot required**: No Done without screenshot paths from coding agent
+- **Verification required**: No Done without evidence from coding agent (browser_snapshot output, test results, or lint-gate pass)
 - **Review required**: Always review before commit (except docs-only changes)
 - Auto-approve: Only .md files, <20 lines changed, config-only
 
@@ -149,14 +149,14 @@ After the coding agent finishes implementation, run a code review before committ
 | Need code review | reviewer | git diff output from coding agent |
 | Need to fix review issues | coding | Reviewer feedback with file/line references |
 | Need to commit | coding | Files changed, issue ID |
-| Need to mark done | task | Issue ID, files, screenshot paths |
+| Need to mark done | task | Issue ID, files, verification evidence |
 | Need to notify | telegram | Milestone details |
 
 ---
 
 ### Quality Rules
 
-1. **Never mark Done without screenshots** - Reject if missing
+1. **Never mark Done without verification** - Reject if no evidence (snapshot, tests, lint)
 2. **Always pass full context** - Don't make agents re-fetch
 3. **One issue at a time** - Complete fully before starting another
 4. **Keep project root clean** - No temp files
@@ -229,6 +229,6 @@ Before session ends:
 
 ### Rules
 - One issue per session
-- Screenshot evidence required for Done
+- Verification evidence required for Done (browser_snapshot, tests, lint-gate)
 - No temp files in project root
 - Pass full context, don't make agents re-fetch

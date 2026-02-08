@@ -52,7 +52,7 @@ telegram: ":construction: Starting: [title] ([id])"
 ### 3. Implement
 coding agent with FULL context:
 - ID, Title, Description, Test Steps
-- Requirements: read code, implement, Playwright test, screenshot
+- Requirements: read code, implement, Playwright test, browser_snapshot verification
 
 **If COMPACT MODE active (70%+ context):**
 - Use only: ID + Title + 1-line description
@@ -68,7 +68,7 @@ See orchestrator_prompt.md "Review Gate" section for full rules.
 coding agent: Commit with task ID
 
 ### 5. Done
-task agent: Mark Done with files/screenshots/results
+task agent: Mark Done with files/verification evidence/results
 
 ### 6. Notify
 telegram: ":white_check_mark: Completed: [title]"
@@ -78,7 +78,7 @@ coding agent: Update .agent/MEMORY.md
 task agent: Add session summary to META issue
 
 ## Rules
-- No Done without screenshots
+- No Done without verification (browser_snapshot, tests, or lint-gate)
 - Pass FULL context to coding agent (unless COMPACT MODE)
 - One issue per session
 - Memory flush before ending

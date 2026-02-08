@@ -74,7 +74,7 @@ See orchestrator_prompt.md "Review Gate" section for full rules.
 - Otherwise: reviewer agent checks diff, max 2 review cycles
 
 ### 5. Done
-task agent: Mark Done with files/screenshots
+task agent: Mark Done with files/verification evidence
 
 ### 6. Notify
 telegram: ":white_check_mark: Completed: [title]"
@@ -102,7 +102,7 @@ Example MEMORY.md entry:
 ## Rules
 - Check previous context first
 - Check for context-limit interruption
-- No Done without screenshots
+- No Done without verification (browser_snapshot, tests, or lint-gate)
 - One issue per session
 - Memory flush before ending
 - In COMPACT MODE: minimal context only
