@@ -307,8 +307,8 @@ async def run_agent_session(
             print("The agent will retry after a delay.")
         elif "buffer size" in error_lower or "1048576" in error_lower:
             print("\nJSON message exceeded 1MB buffer limit.")
-            print("This is usually caused by browser_take_screenshot() without filename parameter.")
-            print("Fix: Always use browser_take_screenshot(filename='screenshots/ENG-XX.png')")
+            print("This is usually caused by browser_take_screenshot() without filename parameter or with fullPage=True.")
+            print("Fix: Always use browser_take_screenshot(filename='screenshots/ENG-XX.png') WITHOUT fullPage=True")
             print("The agent will retry with a fresh session.")
         elif "task" in error_lower:
             print("\nThis appears to be a Task MCP Server error.")

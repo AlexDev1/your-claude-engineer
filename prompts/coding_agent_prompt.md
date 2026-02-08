@@ -119,14 +119,18 @@ issues_found: none or [list]
 
 ### Playwright Testing (MANDATORY)
 
-**CRITICAL: browser_take_screenshot MUST always use `filename` parameter!**
-Without `filename`, the screenshot returns as base64 inline in JSON, which exceeds the SDK 1MB buffer limit and crashes the session.
+**CRITICAL: browser_take_screenshot rules (SDK 1MB buffer limit):**
+1. MUST always use `filename` parameter
+2. NEVER use `fullPage: true` — full-page screenshots exceed the 1MB buffer and crash the session
+3. Use viewport-only screenshots (default behavior)
+
+Without these rules, the screenshot returns as base64 inline in JSON, which exceeds the SDK 1MB buffer limit and crashes the entire session.
 
 ```
 browser_navigate(url="http://localhost:3000")
 browser_snapshot()  # Get element refs
 browser_click(ref="button[Start]")
-browser_take_screenshot(filename="screenshots/ENG-XX-description.png")
+browser_take_screenshot(type="png", filename="screenshots/ENG-XX-description.png")
 ```
 
 ### Quality
