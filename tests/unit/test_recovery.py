@@ -12,6 +12,7 @@ Verifies:
 7. RecoveryResult dataclass fields
 8. Decorator API: handle_mcp_timeout, handle_playwright_error,
    handle_git_error, handle_rate_limit, retry_with_backoff
+9. FailureType enum and unified handle/protected API
 """
 
 import tempfile
@@ -30,6 +31,7 @@ from recovery import (
     RATE_LIMIT_BACKOFF_SECONDS,
     RATE_LIMIT_MAX_RETRIES,
     DegradedResult,
+    FailureType,
     GracefulDegradation,
     RecoveryResult,
     _is_rate_limit_error,
@@ -809,3 +811,174 @@ class TestHandleRateLimitDecorator:
 
         assert "Rate limit exceeded" in result.error_message
         assert result.retry_count == RATE_LIMIT_MAX_RETRIES
+
+
+# --- FailureType Enum Tests (ENG-68) ---
+
+class TestFailureType:
+    """Test FailureType enum values."""
+
+    def test_all_members(self) -> None:
+        """All four failure types are defined."""
+        assert FailureType.MCP_TIMEOUT.value == "mcp_timeout"
+        assert FailureType.PLAYWRIGHT_CRASH.value == "playwright_crash"
+        assert FailureType.GIT_ERROR.value == "git_error"
+        assert FailureType.RATE_LIMIT.value == "rate_limit"
+
+    def test_member_count(self) -> None:
+        """Exactly four failure types exist."""
+        assert len(FailureType) == 4
+
+
+# --- Unified handle() Decorator Tests (ENG-68) ---
+
+class TestHandleDecorator:
+    """Test GracefulDegradation.handle() unified decorator API."""
+
+    @pytest.fixture
+    def recovery(self) -> GracefulDegradation:
+        """Create GracefulDegradation instance."""
+        return GracefulDegradation()
+
+    async def test_mcp_timeout_decorator(self, recovery: GracefulDegradation) -> None:
+        """handle(MCP_TIMEOUT) wraps with MCP retry logic."""
+        @recovery.handle(FailureType.MCP_TIMEOUT)
+        async def _mcp_call() -> str:
+            return "ok"
+
+        result = await _mcp_call()
+        assert result.success is True
+        assert result.retry_count == 0
+
+    async def test_playwright_crash_decorator(self, recovery: GracefulDegradation) -> None:
+        """handle(PLAYWRIGHT_CRASH) catches browser errors."""
+        @recovery.handle(FailureType.PLAYWRIGHT_CRASH)
+        async def _screenshot() -> None:
+            raise RuntimeError("Browser closed")
+
+        result = await _screenshot()
+        assert result.success is False
+        assert result.fallback_used is True
+        assert "Screenshot unavailable" in result.error_message
+
+    async def test_git_error_decorator(self, recovery: GracefulDegradation) -> None:
+        """handle(GIT_ERROR) wraps with git stash/retry logic."""
+        @recovery.handle(FailureType.GIT_ERROR)
+        async def _git_push() -> str:
+            return "pushed"
+
+        result = await _git_push()
+        assert result.success is True
+        assert result.retry_count == 0
+
+    async def test_rate_limit_decorator(self, recovery: GracefulDegradation) -> None:
+        """handle(RATE_LIMIT) wraps with rate limit backoff."""
+        @recovery.handle(FailureType.RATE_LIMIT)
+        async def _api_call() -> str:
+            return "response"
+
+        result = await _api_call()
+        assert result.success is True
+        assert result.retry_count == 0
+
+    async def test_mcp_timeout_retries_and_degrades(
+        self, recovery: GracefulDegradation
+    ) -> None:
+        """handle(MCP_TIMEOUT) retries then reports fallback."""
+        counter = {"n": 0}
+
+        @recovery.handle(FailureType.MCP_TIMEOUT)
+        async def _mcp_fail() -> None:
+            counter["n"] += 1
+            raise TimeoutError("MCP unreachable")
+
+        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+            result = await _mcp_fail()
+
+        assert result.success is False
+        assert result.fallback_used is True
+        assert counter["n"] == MCP_MAX_RETRIES
+
+
+# --- Unified protected() Context Manager Tests (ENG-68) ---
+
+class TestProtectedContextManager:
+    """Test GracefulDegradation.protected() async context manager."""
+
+    @pytest.fixture
+    def recovery(self) -> GracefulDegradation:
+        """Create GracefulDegradation instance."""
+        return GracefulDegradation()
+
+    async def test_success_marks_result(self, recovery: GracefulDegradation) -> None:
+        """On success, result.success is True and fallback_used is False."""
+        async with recovery.protected(FailureType.PLAYWRIGHT_CRASH) as result:
+            pass  # No error
+
+        assert result.success is True
+        assert result.fallback_used is False
+        assert result.error_message == ""
+
+    async def test_playwright_crash_caught(self, recovery: GracefulDegradation) -> None:
+        """Browser crash inside protected block is caught gracefully."""
+        async with recovery.protected(FailureType.PLAYWRIGHT_CRASH) as result:
+            raise RuntimeError("Browser has been closed")
+
+        assert result.success is False
+        assert result.fallback_used is True
+        assert "Screenshot unavailable due to browser error" in result.error_message
+        assert "RuntimeError" in result.error_message
+
+    async def test_mcp_timeout_caught(self, recovery: GracefulDegradation) -> None:
+        """MCP timeout inside protected block is caught gracefully."""
+        async with recovery.protected(FailureType.MCP_TIMEOUT) as result:
+            raise TimeoutError("SSE connection timed out")
+
+        assert result.success is False
+        assert result.fallback_used is True
+        assert "MCP call failed" in result.error_message
+
+    async def test_git_error_caught(self, recovery: GracefulDegradation) -> None:
+        """Git error inside protected block is caught gracefully."""
+        async with recovery.protected(FailureType.GIT_ERROR) as result:
+            raise Exception("git merge conflict in main.py")
+
+        assert result.success is False
+        assert result.fallback_used is True
+        assert "Git operation failed" in result.error_message
+
+    async def test_rate_limit_caught(self, recovery: GracefulDegradation) -> None:
+        """Rate limit inside protected block is caught gracefully."""
+        async with recovery.protected(FailureType.RATE_LIMIT) as result:
+            raise Exception("HTTP 429: Too Many Requests")
+
+        assert result.success is False
+        assert result.fallback_used is True
+        assert "Rate limit exceeded" in result.error_message
+
+    async def test_no_retry_in_context_manager(
+        self, recovery: GracefulDegradation
+    ) -> None:
+        """Context manager does not retry -- single attempt only."""
+        call_count = 0
+
+        async with recovery.protected(FailureType.MCP_TIMEOUT) as result:
+            call_count += 1
+            raise TimeoutError("timeout")
+
+        assert call_count == 1
+        assert result.retry_count == 0
+
+    async def test_does_not_propagate_exception(
+        self, recovery: GracefulDegradation
+    ) -> None:
+        """Exception from body does not escape the async with block."""
+        caught_outside = False
+        try:
+            async with recovery.protected(FailureType.PLAYWRIGHT_CRASH) as result:
+                raise OSError("Process crashed")
+        except OSError:
+            caught_outside = True
+
+        assert caught_outside is False
+        assert result.fallback_used is True

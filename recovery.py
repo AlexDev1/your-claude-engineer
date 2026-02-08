@@ -10,20 +10,42 @@ Provides async wrappers and decorators that handle various failure scenarios:
 
 ENG-68: Graceful Degradation Matrix
 
-Two APIs are available:
-1. Method-based: ``GracefulDegradation.with_mcp_retry(func, *args)``
-2. Decorator-based: ``@handle_mcp_timeout`` on async function definitions
+Three APIs are available:
 
-Both return ``RecoveryResult`` (decorator API) or ``DegradedResult`` (method API).
+1. Method-based::
+
+       recovery = GracefulDegradation()
+       result = await recovery.with_mcp_retry(func, *args)
+
+2. Standalone decorator-based::
+
+       @handle_mcp_timeout
+       async def call_mcp_tool(...): ...
+
+3. Unified instance-based decorator and context manager::
+
+       recovery = GracefulDegradation()
+
+       @recovery.handle(FailureType.MCP_TIMEOUT)
+       async def call_mcp_tool(...): ...
+
+       async with recovery.protected(FailureType.PLAYWRIGHT_CRASH):
+           await take_screenshot()
+
+APIs 1 and 2 return ``DegradedResult`` and ``RecoveryResult`` respectively.
+API 3 returns ``RecoveryResult`` (decorator) or yields inside the context manager,
+storing the outcome in ``RecoveryResult`` accessible via the context variable.
 """
 
 import asyncio
 import functools
 import logging
 import subprocess
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar
+from typing import Any, AsyncIterator, Callable, Coroutine, Final, ParamSpec, TypeVar
 
 logger = logging.getLogger("recovery")
 
@@ -49,6 +71,26 @@ HTTP_429_TOO_MANY_REQUESTS: Final[int] = 429
 # Default generic retry settings
 DEFAULT_MAX_RETRIES: Final[int] = 3
 DEFAULT_BASE_DELAY_SECONDS: Final[float] = 1.0
+
+
+# ---------------------------------------------------------------------------
+# Failure type enum (ENG-68)
+# ---------------------------------------------------------------------------
+
+class FailureType(Enum):
+    """Categories of failures for the unified handle/protected API.
+
+    Each value maps to a specific recovery strategy:
+    - MCP_TIMEOUT: 3 retries with 2s exponential backoff, then skip notifications
+    - PLAYWRIGHT_CRASH: No retry, return fallback immediately
+    - GIT_ERROR: Stash changes, retry once
+    - RATE_LIMIT: Exponential backoff at 30s, 60s, 120s
+    """
+
+    MCP_TIMEOUT = "mcp_timeout"
+    PLAYWRIGHT_CRASH = "playwright_crash"
+    GIT_ERROR = "git_error"
+    RATE_LIMIT = "rate_limit"
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +182,26 @@ def _is_rate_limit_error(error: Exception) -> bool:
             return True
 
     return False
+
+
+def _degradation_message_for(failure_type: FailureType, error_detail: str) -> str:
+    """Build a human-readable degradation message for a failure type.
+
+    Args:
+        failure_type: The category of failure
+        error_detail: Detailed error string (typically "ExcType: message")
+
+    Returns:
+        Descriptive message suitable for logging or issue comments
+    """
+    prefix_map: dict[FailureType, str] = {
+        FailureType.MCP_TIMEOUT: "MCP call failed, skipping notifications",
+        FailureType.PLAYWRIGHT_CRASH: "Screenshot unavailable due to browser error",
+        FailureType.GIT_ERROR: "Git operation failed",
+        FailureType.RATE_LIMIT: "Rate limit exceeded",
+    }
+    prefix = prefix_map.get(failure_type, f"Operation failed ({failure_type.value})")
+    return f"{prefix}: {error_detail}"
 
 
 def _is_git_merge_conflict(stderr: str) -> bool:
@@ -485,6 +547,102 @@ class GracefulDegradation:
 
     def __init__(self, project_dir: Path | None = None) -> None:
         self.project_dir = project_dir or Path.cwd()
+
+    # --- Unified decorator / context manager API (ENG-68) ---
+
+    def handle(
+        self,
+        failure_type: FailureType,
+    ) -> Callable[
+        [Callable[P, Coroutine[Any, Any, T]]],
+        Callable[P, Coroutine[Any, Any, RecoveryResult]],
+    ]:
+        """Return a decorator that wraps an async function with recovery logic.
+
+        The specific retry/backoff strategy is selected by ``failure_type``.
+
+        Args:
+            failure_type: The category of failure to guard against
+
+        Returns:
+            Decorator that transforms an async function into one returning
+            ``RecoveryResult``
+
+        Example::
+
+            recovery = GracefulDegradation()
+
+            @recovery.handle(FailureType.MCP_TIMEOUT)
+            async def call_mcp_tool():
+                ...
+        """
+        strategy_map: dict[
+            FailureType,
+            Callable[
+                [Callable[P, Coroutine[Any, Any, T]]],
+                Callable[P, Coroutine[Any, Any, RecoveryResult]],
+            ],
+        ] = {
+            FailureType.MCP_TIMEOUT: handle_mcp_timeout,
+            FailureType.PLAYWRIGHT_CRASH: handle_playwright_error,
+            FailureType.GIT_ERROR: handle_git_error,
+            FailureType.RATE_LIMIT: handle_rate_limit,
+        }
+
+        decorator = strategy_map.get(failure_type)
+        if decorator is None:
+            raise ValueError(f"Unsupported failure type: {failure_type}")
+
+        return decorator
+
+    @asynccontextmanager
+    async def protected(
+        self,
+        failure_type: FailureType,
+    ) -> AsyncIterator[RecoveryResult]:
+        """Async context manager that catches failures and applies recovery.
+
+        The yielded ``RecoveryResult`` is updated in-place after the body
+        executes: on success its ``success`` field is True, on failure it
+        reflects the degradation outcome. The caller can inspect the result
+        after the ``async with`` block to decide next steps.
+
+        No retries are performed inside the context manager -- this API is
+        best for one-shot operations where you want to catch and degrade
+        gracefully. For retry logic, use the ``handle()`` decorator instead.
+
+        Args:
+            failure_type: The category of failure to guard against
+
+        Yields:
+            A mutable ``RecoveryResult`` that is populated after the body runs
+
+        Example::
+
+            recovery = GracefulDegradation()
+
+            async with recovery.protected(FailureType.PLAYWRIGHT_CRASH) as result:
+                await take_screenshot()
+
+            if result.fallback_used:
+                logger.info("Screenshot skipped: %s", result.error_message)
+        """
+        result = RecoveryResult(success=False)
+
+        try:
+            yield result
+            # Body completed without exception
+            result.success = True
+        except Exception as exc:
+            error_msg = f"{type(exc).__name__}: {exc}"
+            logger.warning(
+                "Protected block caught %s error: %s",
+                failure_type.value, error_msg,
+            )
+            result.success = False
+            result.error_message = _degradation_message_for(failure_type, error_msg)
+            result.fallback_used = True
+            result.retry_count = 0
 
     async def with_mcp_retry(
         self,
