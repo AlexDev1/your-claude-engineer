@@ -1115,6 +1115,123 @@ def auto_push_after_commit(issue_id: str | None = None) -> PushResult:
     return push_to_github(branch=current_branch)
 
 
+@dataclass
+class LintGateResult:
+    """Result of running the lint-gate quality checks."""
+
+    passed: bool
+    output: str
+    exit_code: int
+
+
+def run_lint_gate(project_dir: str | None = None) -> LintGateResult:
+    """
+    Run the lint-gate.sh quality checks as a test gate before push.
+
+    Executes ./scripts/lint-gate.sh and captures output. The lint gate
+    runs TypeScript type check, ESLint, Python syntax, ruff, and
+    complexity guard.
+
+    Args:
+        project_dir: Working directory to run the gate in.
+                     If None, uses current working directory.
+
+    Returns:
+        LintGateResult with pass/fail status and output
+    """
+    cwd = project_dir or os.getcwd()
+    script_path = os.path.join(cwd, "scripts", "lint-gate.sh")
+
+    if not os.path.isfile(script_path):
+        logger.warning("lint-gate.sh not found at %s", script_path)
+        return LintGateResult(
+            passed=True,
+            output="lint-gate.sh not found, skipping quality gate",
+            exit_code=0,
+        )
+
+    try:
+        result = subprocess.run(
+            ["bash", script_path],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            timeout=120,
+        )
+        passed = result.returncode == 0
+        combined_output = result.stdout
+        if result.stderr:
+            combined_output += "\n" + result.stderr
+
+        if passed:
+            logger.info("Lint gate passed")
+        else:
+            logger.warning("Lint gate failed (exit code %d)", result.returncode)
+
+        return LintGateResult(
+            passed=passed,
+            output=combined_output.strip(),
+            exit_code=result.returncode,
+        )
+    except subprocess.TimeoutExpired:
+        logger.error("Lint gate timed out after 120s")
+        return LintGateResult(
+            passed=False,
+            output="Lint gate timed out after 120 seconds",
+            exit_code=-1,
+        )
+    except FileNotFoundError:
+        logger.warning("bash not found, cannot run lint-gate.sh")
+        return LintGateResult(
+            passed=True,
+            output="bash not found, skipping quality gate",
+            exit_code=0,
+        )
+
+
+def auto_push_with_gate(
+    issue_id: str | None = None,
+    project_dir: str | None = None,
+    skip_gate: bool = False,
+) -> PushResult:
+    """
+    Run lint-gate checks and push to GitHub only if they pass (ENG-62).
+
+    This is the recommended entry point for the post-commit workflow.
+    It combines quality gate verification with auto-push to ensure only
+    tested code reaches the remote.
+
+    Steps:
+    1. Run lint-gate.sh quality checks (unless skip_gate=True)
+    2. If gate fails, return PushResult with success=False
+    3. If gate passes, call auto_push_after_commit()
+
+    Args:
+        issue_id: Optional issue ID for branch creation
+        project_dir: Working directory for lint-gate execution
+        skip_gate: Skip quality gate (e.g., for docs-only changes)
+
+    Returns:
+        PushResult with success status and details. The message field
+        includes lint-gate output when the gate fails.
+    """
+    if not skip_gate:
+        gate_result = run_lint_gate(project_dir)
+        if not gate_result.passed:
+            logger.warning("Push blocked: lint-gate failed")
+            return PushResult(
+                success=False,
+                branch="unknown",
+                message=(
+                    f"Push blocked: lint-gate failed (exit code {gate_result.exit_code}). "
+                    f"Fix errors before pushing."
+                ),
+            )
+        logger.info("Lint gate passed, proceeding with push")
+
+    return auto_push_after_commit(issue_id)
+
+
 def is_github_configured() -> bool:
     """
     Check if GitHub integration is configured.

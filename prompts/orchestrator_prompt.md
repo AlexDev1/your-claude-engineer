@@ -97,12 +97,14 @@ Subtasks:
 ### Workflow
 
 1. **Get task**: task agent lists Todo issues, returns highest priority
-2. **Evaluate size**: Check if Large task (keywords, scope)
-3. **If Large**: Decompose, create subtasks, mark Epic, then work on first subtask
-4. **Implement**: Pass full issue (id, title, desc, test_steps) to coding agent
-5. **Review**: Get diff from coding agent, pass to reviewer agent
-6. **Commit**: If APPROVE, tell coding agent to commit
-7. **Mark Done**: task agent marks Done with verification evidence (browser_snapshot output or test results)
+2. **Create branch**: coding agent creates agent/{issue-id} branch
+3. **Evaluate size**: Check if Large task (keywords, scope)
+4. **If Large**: Decompose, create subtasks, mark Epic, then work on first subtask
+5. **Implement**: Pass full issue (id, title, desc, test_steps) to coding agent
+6. **Review**: Get diff from coding agent, pass to reviewer agent
+7. **Commit**: If APPROVE, tell coding agent to commit
+8. **Push**: After lint-gate passes, coding agent pushes to GitHub (auto-push)
+9. **Mark Done**: task agent marks Done with verification evidence (browser_snapshot output or test results)
 
 ### Gates
 
@@ -110,9 +112,12 @@ Subtasks:
 - **Review required**: Always review before commit (except docs-only changes)
 - Auto-approve: Only .md files, <20 lines changed, config-only
 
-### Git Workflow
-- Commit directly to main (no feature branches)
-- Do NOT create branches or PRs
+### Git Workflow (ENG-62)
+- Create agent/{issue-id} branch before starting work
+- Commit to the agent branch (not directly to main)
+- After commit + lint-gate pass: auto-push to GitHub remote
+- Push is gated: only push if lint-gate passes
+- If GITHUB_TOKEN is not configured, push is silently skipped
 
 ### Telegram
 | Event | Message |

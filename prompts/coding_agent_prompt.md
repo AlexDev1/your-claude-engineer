@@ -68,14 +68,21 @@ Run manually: `./scripts/check-complexity.sh`
 
 ### Git
 ```bash
+# 1. Create agent branch at start of task
+git checkout -b agent/eng-XX
+
+# 2. Stage and commit
 git add specific_file.tsx  # Not git add .
 git commit -m "feat: Title
 
 - Detail
 Task: ENG-XX"
 
-# THEN run lint-gate
+# 3. Run lint-gate
 ./scripts/lint-gate.sh
+
+# 4. Push to remote (only after lint-gate passes)
+git push -u origin agent/eng-XX
 ```
 Types: feat, fix, refactor, style, test, docs, chore
 
@@ -86,9 +93,13 @@ python scripts/generate_project_map.py
 ```
 This keeps `.agent/PROJECT_MAP.md` current for future sessions.
 
-### Git Workflow
-- Commit directly to main (no feature branches)
-- Do NOT create branches or PRs
+### Git Workflow (ENG-62)
+- Create `agent/{issue-id}` branch before starting work (e.g., `agent/eng-62`)
+- Commit to agent branch (NOT directly to main)
+- Run lint-gate after commit
+- Push to remote only after lint-gate passes
+- If GITHUB_TOKEN is not set, push is silently skipped
+- Never force push to main
 
 ### Task Types
 

@@ -48,6 +48,7 @@ Subtasks created:
 ### 2. Start
 task agent: Transition to In Progress
 telegram: ":construction: Starting: [title] ([id])"
+coding agent: Create branch `agent/{issue-id}` (e.g., `git checkout -b agent/eng-62`)
 
 ### 3. Implement
 coding agent with FULL context:
@@ -66,6 +67,13 @@ See orchestrator_prompt.md "Review Gate" section for full rules.
 
 ### 4. Commit
 coding agent: Commit with task ID
+
+### 4b. Push (ENG-62)
+coding agent: After lint-gate passes, push to remote:
+- Run `./scripts/lint-gate.sh`
+- If passes: `git push -u origin agent/{issue-id}`
+- If fails: fix lint errors, re-commit, re-run lint-gate
+- If GITHUB_TOKEN not set: skip push silently
 
 ### 5. Done
 task agent: Mark Done with files/verification evidence/results

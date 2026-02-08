@@ -97,6 +97,8 @@ PLAYWRIGHT_TOOLS: list[str] = [
 # These are Python functions, not MCP tools, but listed here for documentation
 GITHUB_TOOLS: list[str] = [
     "Git_PushBranch",  # Push branch to remote
+    "Git_AutoPushWithGate",  # Lint-gate + push (ENG-62)
+    "Git_RunLintGate",  # Run lint-gate quality checks (ENG-62)
     "GitHub_CreatePR",  # Create pull request
     "GitHub_SyncIssue",  # Sync issue to GitHub Issues
     "GitHub_SetStatus",  # Set commit status check

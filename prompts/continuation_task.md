@@ -53,6 +53,7 @@ After getting task, check if it's an Epic (decomposed task):
 ### 2. Start
 task agent: Transition to In Progress (if needed)
 telegram: ":construction: Starting: [title]" or ":repeat: Resuming: [title]"
+coding agent: Create or switch to branch `agent/{issue-id}`
 
 ### 3. Implement
 coding agent with FULL context + previous context:
@@ -67,6 +68,13 @@ coding agent with FULL context + previous context:
 
 ### 4. Commit
 coding agent: Commit with task ID
+
+### 4a. Push (ENG-62)
+coding agent: After lint-gate passes, push to remote:
+- Run `./scripts/lint-gate.sh`
+- If passes: `git push -u origin agent/{issue-id}`
+- If fails: fix lint errors, re-commit, re-run lint-gate
+- If GITHUB_TOKEN not set: skip push silently
 
 ### 4b. Code Review Gate (ENG-42)
 See orchestrator_prompt.md "Review Gate" section for full rules.
