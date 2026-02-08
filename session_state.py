@@ -76,6 +76,26 @@ class SessionPhase(Enum):
         return self.order > other.order
 
 
+class RetryStrategy(Enum):
+    """Strategy for retrying a failed phase (ENG-67).
+
+    Determines how far back the session should rewind after a phase failure:
+    - RETRY_CURRENT: Retry just the failed phase (late phases where code is written)
+    - RETRY_FROM_ORIENT: Restart from ORIENT (cheap early phases)
+    - RETRY_IMPLEMENTATION: Retry from IMPLEMENTATION (code needs rework)
+    - ESCALATE: Give up and mark the issue as blocked
+    """
+
+    RETRY_CURRENT = "retry_current"
+    RETRY_FROM_ORIENT = "retry_from_orient"
+    RETRY_IMPLEMENTATION = "retry_implementation"
+    ESCALATE = "escalate"
+
+
+# Maximum retry attempts per phase before escalation (ENG-67)
+MAX_PHASE_RETRIES: int = 2
+
+
 class ErrorType(Enum):
     """Categories of errors for graceful degradation."""
 
@@ -440,6 +460,21 @@ class SessionStateManager:
             self._phase_attempts[phase] = PhaseAttempt(phase=phase)
         return self._phase_attempts[phase]
 
+    def reset_phase_attempts(self, phase: SessionPhase) -> None:
+        """Reset attempt counter for a phase after successful completion (ENG-67).
+
+        Called when a phase completes successfully so that future retries
+        (e.g., in a subsequent iteration) start from zero.
+
+        Args:
+            phase: The phase whose attempt counter should be reset
+        """
+        if phase in self._phase_attempts:
+            self._phase_attempts[phase] = PhaseAttempt(phase=phase)
+        if self._current_state and phase.phase_name in self._current_state.phase_attempts:
+            self._current_state.phase_attempts[phase.phase_name] = 0
+            self.save_state()
+
     def mark_degraded(self, service: str) -> None:
         """Mark a service as degraded."""
         if self._current_state and service not in self._current_state.degraded_services:
@@ -527,6 +562,55 @@ class SessionRecovery:
         # Session completed successfully, clear state
         self.state_manager.clear_state()
         return False, None
+
+    def get_retry_strategy(self, phase: SessionPhase, attempts: int) -> RetryStrategy:
+        """Determine the retry strategy for a failed phase (ENG-67).
+
+        The strategy depends on how far into the session the failure occurred
+        and how many times this phase has already been retried:
+
+        - Early phases (ORIENT, STATUS_CHECK, VERIFICATION): cheap to redo,
+          so restart from ORIENT to get a clean slate.
+        - IMPLEMENTATION: expensive but self-contained, retry just that phase.
+        - Late phases (COMMIT, MARK_DONE, NOTIFY, MEMORY_FLUSH): code is
+          already written, retry only the failed phase.
+        - Any phase after MAX_PHASE_RETRIES: escalate to blocked.
+
+        Args:
+            phase: The phase that failed
+            attempts: Number of attempts already made for this phase
+
+        Returns:
+            RetryStrategy indicating what the caller should do next
+        """
+        if attempts >= MAX_PHASE_RETRIES:
+            return RetryStrategy.ESCALATE
+
+        # Early phases: restart from beginning (cheap)
+        early_phases = (
+            SessionPhase.ORIENT,
+            SessionPhase.STATUS_CHECK,
+            SessionPhase.VERIFICATION,
+        )
+        if phase in early_phases:
+            return RetryStrategy.RETRY_FROM_ORIENT
+
+        # Implementation: retry just implementation
+        if phase == SessionPhase.IMPLEMENTATION:
+            return RetryStrategy.RETRY_IMPLEMENTATION
+
+        # Late phases: retry current phase only (code already written)
+        late_phases = (
+            SessionPhase.COMMIT,
+            SessionPhase.MARK_DONE,
+            SessionPhase.NOTIFY,
+            SessionPhase.MEMORY_FLUSH,
+        )
+        if phase in late_phases:
+            return RetryStrategy.RETRY_CURRENT
+
+        # Fallback for any unknown phase
+        return RetryStrategy.RETRY_CURRENT
 
     def classify_error(self, error: Exception) -> ErrorType:
         """Classify an exception into an error type."""

@@ -39,6 +39,8 @@ from prompts import (
 from session_state import (
     ErrorType,
     GracefulDegradation,
+    MAX_PHASE_RETRIES,
+    RetryStrategy,
     SessionPhase,
     SessionRecovery,
     SessionState,
@@ -524,29 +526,72 @@ async def run_autonomous_agent(
         elif result.status == SESSION_ERROR:
             print("\nSession encountered an error")
 
-            # Calculate backoff delay based on error type
+            # Apply phase-level retry strategy (ENG-67)
             if error_type_detected:
-                current_phase = state_manager.current_state.phase if state_manager.current_state else SessionPhase.ORIENT
-                attempt = state_manager.get_phase_attempt(current_phase).attempt
-                delay = GracefulDegradation.get_backoff_delay(attempt, error_type_detected)
+                current_phase = (
+                    state_manager.current_state.phase
+                    if state_manager.current_state
+                    else SessionPhase.ORIENT
+                )
+                attempt_tracker = state_manager.get_phase_attempt(current_phase)
+                delay = GracefulDegradation.get_backoff_delay(
+                    attempt_tracker.attempt, error_type_detected,
+                )
 
-                # Check for graceful degradation
-                if not state_manager.get_phase_attempt(current_phase).can_retry:
-                    if GracefulDegradation.should_skip_service(error_type_detected, current_phase):
-                        msg = GracefulDegradation.get_degradation_message(error_type_detected, current_phase)
+                # Get retry strategy from SessionRecovery (ENG-67)
+                strategy = recovery.get_retry_strategy(
+                    current_phase, attempt_tracker.attempt,
+                )
+                print(f"Phase: {current_phase.phase_name}, "
+                      f"attempt: {attempt_tracker.attempt}/{MAX_PHASE_RETRIES}, "
+                      f"strategy: {strategy.value}")
+
+                if strategy == RetryStrategy.ESCALATE:
+                    # Check graceful degradation before fully escalating
+                    if GracefulDegradation.should_skip_service(
+                        error_type_detected, current_phase,
+                    ):
+                        msg = GracefulDegradation.get_degradation_message(
+                            error_type_detected, current_phase,
+                        )
                         print(f"Graceful degradation: {msg}")
                         state_manager.mark_degraded(current_phase.phase_name)
-                        # Continue to next iteration
                         delay = AUTO_CONTINUE_DELAY_SECONDS
                     else:
                         # Save changes if git error during commit
-                        if error_type_detected == ErrorType.GIT_ERROR and current_phase == SessionPhase.COMMIT:
+                        if (
+                            error_type_detected == ErrorType.GIT_ERROR
+                            and current_phase == SessionPhase.COMMIT
+                        ):
                             print("Attempting to save uncommitted changes...")
                             diff_file = await recovery.save_git_diff_to_file()
                             if diff_file:
                                 print(f"Changes saved to: {diff_file}")
                             else:
                                 await recovery.stash_changes()
+
+                        # Mark issue as blocked and notify
+                        print(f"ESCALATED: Phase {current_phase.phase_name} "
+                              f"failed after {MAX_PHASE_RETRIES} retries")
+                        if state_manager.current_state:
+                            state_manager.current_state.last_error = (
+                                f"Escalated: {current_phase.phase_name} "
+                                f"failed after {MAX_PHASE_RETRIES} retries"
+                            )
+                            state_manager.save_state()
+
+                elif strategy == RetryStrategy.RETRY_FROM_ORIENT:
+                    print("Restarting from ORIENT phase (early phase failure)")
+                    if state_manager.current_state:
+                        state_manager._current_state.phase = SessionPhase.ORIENT
+
+                elif strategy == RetryStrategy.RETRY_IMPLEMENTATION:
+                    print("Retrying from IMPLEMENTATION phase")
+                    if state_manager.current_state:
+                        state_manager._current_state.phase = SessionPhase.IMPLEMENTATION
+
+                elif strategy == RetryStrategy.RETRY_CURRENT:
+                    print(f"Retrying phase {current_phase.phase_name}")
 
                 print(f"Will retry with backoff delay of {delay:.1f}s...")
                 await asyncio.sleep(delay)

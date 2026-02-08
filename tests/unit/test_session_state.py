@@ -19,9 +19,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from session_state import (
+    MAX_PHASE_RETRIES,
     ErrorType,
     GracefulDegradation,
     PhaseAttempt,
+    RetryStrategy,
     SessionPhase,
     SessionRecovery,
     SessionState,
@@ -856,3 +858,224 @@ class TestStandaloneFunctions:
         tmp_files = [f for f in files if f.suffix == ".tmp"]
         assert len(tmp_files) == 0, f"Temp files left behind: {tmp_files}"
         assert (agent_dir / "session_state.json").exists()
+
+
+class TestRetryStrategy:
+    """Test RetryStrategy enum and get_retry_strategy logic (ENG-67)."""
+
+    @pytest.fixture
+    def temp_project(self):
+        """Create a temporary project directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            (project_dir / ".agent").mkdir()
+            yield project_dir
+
+    def test_retry_strategy_enum_values(self):
+        """RetryStrategy enum has all expected values."""
+        assert RetryStrategy.RETRY_CURRENT.value == "retry_current"
+        assert RetryStrategy.RETRY_FROM_ORIENT.value == "retry_from_orient"
+        assert RetryStrategy.RETRY_IMPLEMENTATION.value == "retry_implementation"
+        assert RetryStrategy.ESCALATE.value == "escalate"
+
+    def test_max_phase_retries_constant(self):
+        """MAX_PHASE_RETRIES is set to 2."""
+        assert MAX_PHASE_RETRIES == 2
+
+    def test_orient_retries_from_orient(self, temp_project):
+        """ORIENT phase failure retries from ORIENT."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.ORIENT, attempts=0)
+        assert strategy == RetryStrategy.RETRY_FROM_ORIENT
+
+    def test_status_check_retries_from_orient(self, temp_project):
+        """STATUS_CHECK phase failure retries from ORIENT."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.STATUS_CHECK, attempts=0)
+        assert strategy == RetryStrategy.RETRY_FROM_ORIENT
+
+    def test_verification_retries_from_orient(self, temp_project):
+        """VERIFICATION phase failure retries from ORIENT."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.VERIFICATION, attempts=1)
+        assert strategy == RetryStrategy.RETRY_FROM_ORIENT
+
+    def test_implementation_retries_implementation(self, temp_project):
+        """IMPLEMENTATION phase failure retries from IMPLEMENTATION."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.IMPLEMENTATION, attempts=0)
+        assert strategy == RetryStrategy.RETRY_IMPLEMENTATION
+
+    def test_implementation_retries_implementation_attempt_1(self, temp_project):
+        """IMPLEMENTATION with 1 attempt still retries IMPLEMENTATION."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.IMPLEMENTATION, attempts=1)
+        assert strategy == RetryStrategy.RETRY_IMPLEMENTATION
+
+    def test_commit_retries_current(self, temp_project):
+        """COMMIT phase failure retries just COMMIT."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.COMMIT, attempts=0)
+        assert strategy == RetryStrategy.RETRY_CURRENT
+
+    def test_mark_done_retries_current(self, temp_project):
+        """MARK_DONE phase failure retries just MARK_DONE."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.MARK_DONE, attempts=1)
+        assert strategy == RetryStrategy.RETRY_CURRENT
+
+    def test_notify_retries_current(self, temp_project):
+        """NOTIFY phase failure retries just NOTIFY."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.NOTIFY, attempts=0)
+        assert strategy == RetryStrategy.RETRY_CURRENT
+
+    def test_memory_flush_retries_current(self, temp_project):
+        """MEMORY_FLUSH phase failure retries just MEMORY_FLUSH."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(SessionPhase.MEMORY_FLUSH, attempts=0)
+        assert strategy == RetryStrategy.RETRY_CURRENT
+
+    def test_escalate_on_max_retries_orient(self, temp_project):
+        """ORIENT escalates after MAX_PHASE_RETRIES attempts."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(
+            SessionPhase.ORIENT, attempts=MAX_PHASE_RETRIES,
+        )
+        assert strategy == RetryStrategy.ESCALATE
+
+    def test_escalate_on_max_retries_implementation(self, temp_project):
+        """IMPLEMENTATION escalates after MAX_PHASE_RETRIES attempts."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(
+            SessionPhase.IMPLEMENTATION, attempts=MAX_PHASE_RETRIES,
+        )
+        assert strategy == RetryStrategy.ESCALATE
+
+    def test_escalate_on_max_retries_commit(self, temp_project):
+        """COMMIT escalates after MAX_PHASE_RETRIES attempts."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(
+            SessionPhase.COMMIT, attempts=MAX_PHASE_RETRIES,
+        )
+        assert strategy == RetryStrategy.ESCALATE
+
+    def test_escalate_on_max_retries_notify(self, temp_project):
+        """NOTIFY escalates after MAX_PHASE_RETRIES attempts."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(
+            SessionPhase.NOTIFY, attempts=MAX_PHASE_RETRIES,
+        )
+        assert strategy == RetryStrategy.ESCALATE
+
+    def test_escalate_on_excess_retries(self, temp_project):
+        """Escalates when attempts exceed MAX_PHASE_RETRIES."""
+        recovery = get_session_recovery(temp_project)
+        strategy = recovery.get_retry_strategy(
+            SessionPhase.ORIENT, attempts=MAX_PHASE_RETRIES + 5,
+        )
+        assert strategy == RetryStrategy.ESCALATE
+
+    def test_all_early_phases_retry_from_orient(self, temp_project):
+        """All early phases (ORIENT, STATUS_CHECK, VERIFICATION) -> RETRY_FROM_ORIENT."""
+        recovery = get_session_recovery(temp_project)
+        early_phases = [
+            SessionPhase.ORIENT,
+            SessionPhase.STATUS_CHECK,
+            SessionPhase.VERIFICATION,
+        ]
+        for phase in early_phases:
+            strategy = recovery.get_retry_strategy(phase, attempts=0)
+            assert strategy == RetryStrategy.RETRY_FROM_ORIENT, (
+                f"Expected RETRY_FROM_ORIENT for {phase.phase_name}, got {strategy}"
+            )
+
+    def test_all_late_phases_retry_current(self, temp_project):
+        """All late phases (COMMIT, MARK_DONE, NOTIFY, MEMORY_FLUSH) -> RETRY_CURRENT."""
+        recovery = get_session_recovery(temp_project)
+        late_phases = [
+            SessionPhase.COMMIT,
+            SessionPhase.MARK_DONE,
+            SessionPhase.NOTIFY,
+            SessionPhase.MEMORY_FLUSH,
+        ]
+        for phase in late_phases:
+            strategy = recovery.get_retry_strategy(phase, attempts=0)
+            assert strategy == RetryStrategy.RETRY_CURRENT, (
+                f"Expected RETRY_CURRENT for {phase.phase_name}, got {strategy}"
+            )
+
+
+class TestResetPhaseAttempts:
+    """Test phase attempt counter reset on success (ENG-67)."""
+
+    @pytest.fixture
+    def temp_project(self):
+        """Create a temporary project directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            (project_dir / ".agent").mkdir()
+            yield project_dir
+
+    def test_reset_clears_attempt_counter(self, temp_project):
+        """reset_phase_attempts resets the attempt count to zero."""
+        manager = SessionStateManager(temp_project)
+        manager.start_session("ENG-67")
+        manager.transition_to(SessionPhase.COMMIT)
+
+        # Record some errors to increment attempt counter
+        manager.record_error(Exception("fail 1"), ErrorType.GIT_ERROR)
+        manager.record_error(Exception("fail 2"), ErrorType.GIT_ERROR)
+
+        assert manager.get_phase_attempt(SessionPhase.COMMIT).attempt == 2
+        assert manager.current_state.phase_attempts.get("commit") == 2
+
+        # Reset and verify
+        manager.reset_phase_attempts(SessionPhase.COMMIT)
+
+        assert manager.get_phase_attempt(SessionPhase.COMMIT).attempt == 0
+        assert manager.current_state.phase_attempts.get("commit") == 0
+
+    def test_reset_allows_retry_again(self, temp_project):
+        """After reset, can_retry returns True again."""
+        manager = SessionStateManager(temp_project)
+        manager.start_session("ENG-67")
+        manager.transition_to(SessionPhase.COMMIT)
+
+        # Exhaust retries
+        for _ in range(2):
+            manager.record_error(Exception("fail"), ErrorType.GIT_ERROR)
+
+        assert not manager.get_phase_attempt(SessionPhase.COMMIT).can_retry
+
+        # Reset
+        manager.reset_phase_attempts(SessionPhase.COMMIT)
+
+        assert manager.get_phase_attempt(SessionPhase.COMMIT).can_retry
+
+    def test_reset_untracked_phase_is_noop(self, temp_project):
+        """Resetting a phase with no recorded attempts is a no-op."""
+        manager = SessionStateManager(temp_project)
+        manager.start_session("ENG-67")
+
+        # Should not raise
+        manager.reset_phase_attempts(SessionPhase.NOTIFY)
+
+        # Attempt tracker should still be at 0
+        assert manager.get_phase_attempt(SessionPhase.NOTIFY).attempt == 0
+
+    def test_reset_persists_to_state(self, temp_project):
+        """Phase attempt reset persists when state is saved and loaded."""
+        manager = SessionStateManager(temp_project)
+        manager.start_session("ENG-67")
+        manager.transition_to(SessionPhase.IMPLEMENTATION)
+
+        manager.record_error(Exception("fail"), ErrorType.UNKNOWN)
+        assert manager.current_state.phase_attempts.get("implement") == 1
+
+        manager.reset_phase_attempts(SessionPhase.IMPLEMENTATION)
+
+        # Reload from disk
+        loaded = manager.load_state()
+        assert loaded is not None
+        assert loaded.phase_attempts.get("implement") == 0
