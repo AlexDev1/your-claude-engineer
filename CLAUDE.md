@@ -1,80 +1,80 @@
 # CLAUDE.md
-**IMPORTANT**: you must always answer in Russian!
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**ВАЖНО**: вы всегда должны отвечать на русском языке!
+Этот файл предоставляет руководство для Claude Code (claude.ai/code) при работе с кодом в этом репозитории.
 
-## Overview
+## Обзор
 
-This is an autonomous AI agent harness built on the Claude Agent SDK. It runs task-driven coding sessions using multi-agent orchestration with specialized sub-agents for Task management, Coding (implementation with Playwright testing and Git), and Telegram (notifications).
+Это автономная оболочка AI агента, построенная на Claude Agent SDK. Она запускает задаче-ориентированные сессии кодирования с использованием мультиагентной оркестрации со специализированными субагентами для управления задачами, кодирования (реализация с Playwright тестированием и Git) и Telegram (уведомления).
 
-The agent works in the current directory (cwd), picks tasks from the Task MCP Server by priority, and executes them one at a time until no tasks remain.
+Агент работает в текущей директории (cwd), выбирает задачи из Task MCP Server по приоритету и выполняет их одну за другой пока не останется задач.
 
-**Important**: This is a harness/framework for running autonomous agents, not a traditional application.
+**Важно**: Это оболочка/фреймворк для запуска автономных агентов, а не традиционное приложение.
 
-**MCP Servers**: Deployed separately — see [AxonCode/axon-mcp](https://github.com/AxonCode/axon-mcp) for Task and Telegram MCP server deployment.
+**MCP серверы**: Развёрнуты отдельно — см. [AxonCode/axon-mcp](https://github.com/AxonCode/axon-mcp) для развёртывания Task и Telegram MCP серверов.
 
-## Commands
+## Команды
 
 ```bash
-# Setup
+# Настройка
 pip install -r requirements.txt
 
-# Run the agent (works in current directory)
+# Запуск агента (работает в текущей директории)
 uv run python autonomous_agent_demo.py
 uv run python autonomous_agent_demo.py --team ENG
 uv run python autonomous_agent_demo.py --team ENG --max-iterations 3 --model opus
 
-# Test security hooks
+# Тест хуков безопасности
 uv run python test_security.py
 ```
 
-## Architecture
+## Архитектура
 
 ```
-ORCHESTRATOR (coordinates work, delegates to sub-agents via Task tool)
-    ├── TASK AGENT        → Issue management, prioritization (via Task MCP Server)
-    ├── CODING AGENT      → Implementation + Playwright UI testing + Git commits
-    └── TELEGRAM AGENT    → Progress notifications (via Telegram MCP Server)
+ОРКЕСТРАТОР (координирует работу, делегирует субагентам через Task tool)
+    ├── TASK AGENT        → Управление задачами, приоритезация (через Task MCP Server)
+    ├── CODING AGENT      → Реализация + Playwright UI тестирование + Git коммиты
+    └── TELEGRAM AGENT    → Уведомления о прогрессе (через Telegram MCP Server)
 ```
 
-**Key files**:
-- `autonomous_agent_demo.py` - Main entry point, CLI argument parsing
-- `agent.py` - Session runner (`run_agent_session()`, `run_autonomous_agent()`)
-- `client.py` - SDK client setup with MCP servers and security settings
-- `mcp_config.py` - MCP server URLs and tool definitions
-- `security.py` - Bash command allowlist and validation hooks
-- `prompts/` - All agent system prompts and task templates
-- `prompts/execute_task.md` - Per-iteration task prompt (get next task, implement, mark done)
+**Ключевые файлы**:
+- `autonomous_agent_demo.py` - Основная точка входа, парсинг CLI аргументов
+- `agent.py` - Раннер сессии (`run_agent_session()`, `run_autonomous_agent()`)
+- `client.py` - Настройка SDK клиента с MCP серверами и настройками безопасности
+- `mcp_config.py` - URL MCP серверов и определения инструментов
+- `security.py` - Allowlist Bash команд и хуки валидации
+- `prompts/` - Все системные промпты агентов и шаблоны задач
+- `prompts/execute_task.md` - Промпт задачи на итерацию (получить следующую задачу, реализовать, отметить выполненной)
 
-**Task-driven loop**: Each iteration the agent gets the next Todo task by priority, implements it, and marks it Done. When no tasks remain, the agent outputs `ALL_TASKS_DONE:` and stops.
+**Задаче-ориентированный цикл**: Каждую итерацию агент получает следующую Todo задачу по приоритету, реализует её и отмечает как Done. Когда не остаётся задач, агент выводит `ALL_TASKS_DONE:` и останавливается.
 
-## Key Patterns
+## Ключевые паттерны
 
-1. **Orchestrator pattern**: Main agent delegates to specialized sub-agents, passing context between them
-2. **Session isolation**: Fresh agent sessions each iteration to avoid context window exhaustion
-3. **Priority-based execution**: Tasks are picked by priority (urgent > high > medium > low)
-4. **Screenshot evidence**: All features require screenshot proof before marking Done
+1. **Паттерн оркестратора**: Основной агент делегирует специализированным субагентам, передавая контекст между ними
+2. **Изоляция сессии**: Свежие сессии агента на каждой итерации для избежания исчерпания контекстного окна
+3. **Выполнение на основе приоритета**: Задачи выбираются по приоритету (urgent > high > medium > low)
+4. **Скриншот-доказательство**: Все функции требуют скриншот-доказательства перед отметкой Done
 
-## Security Model (Defense-in-Depth)
+## Модель безопасности (Глубокая защита)
 
-- **MCP Authentication**: OAuth 2.0 + API Keys handled by MCP servers (see [axon-mcp](https://github.com/AxonCode/axon-mcp))
-- OS-level sandbox for bash commands
-- Filesystem restricted to project directory
-- Bash command allowlist in `security.py` (`ALLOWED_COMMANDS` set)
-- Pre-execution validation hook (`bash_security_hook()`)
-- MCP permissions explicitly configured
+- **MCP аутентификация**: OAuth 2.0 + API ключи обрабатываются MCP серверами (см. [axon-mcp](https://github.com/AxonCode/axon-mcp))
+- Песочница на уровне ОС для bash команд
+- Файловая система ограничена директорией проекта
+- Allowlist Bash команд в `security.py` (набор `ALLOWED_COMMANDS`)
+- Хук валидации до выполнения (`bash_security_hook()`)
+- MCP разрешения явно настроены
 
-## Customization Points
+## Точки кастомизации
 
-- **Allowed bash commands**: Add to `ALLOWED_COMMANDS` in `security.py`
-- **Agent behavior**: Edit corresponding prompt in `prompts/`
-- **Models**: Set env vars (`ORCHESTRATOR_MODEL`, `CODING_AGENT_MODEL`, etc.) or use `--model` flag
-- **Team**: Use `--team` flag (default: ENG)
+- **Разрешённые bash команды**: Добавьте в `ALLOWED_COMMANDS` в `security.py`
+- **Поведение агента**: Отредактируйте соответствующий промпт в `prompts/`
+- **Модели**: Установите переменные окружения (`ORCHESTRATOR_MODEL`, `CODING_AGENT_MODEL` и т.д.) или используйте флаг `--model`
+- **Команда**: Используйте флаг `--team` (по умолчанию: ENG)
 
-## Prerequisites
+## Предварительные требования
 
-### MCP Servers
+### MCP серверы
 
-Deploy Task and Telegram MCP servers from [AxonCode/axon-mcp](https://github.com/AxonCode/axon-mcp), then configure URLs in `.env`:
+Разверните Task и Telegram MCP серверы из [AxonCode/axon-mcp](https://github.com/AxonCode/axon-mcp), затем настройте URL в `.env`:
 
 ```
 TASK_MCP_URL=https://mcp.yourdomain.com/task/sse
@@ -82,7 +82,7 @@ TELEGRAM_MCP_URL=https://mcp.yourdomain.com/telegram/sse
 MCP_API_KEY=mcp_your_api_key
 ```
 
-## Constraints
+## Ограничения
 
-- **Windows not supported** (subagents require Linux/macOS; WSL works)
-- Bash heredocs are blocked (use Write tool instead)
+- **Windows не поддерживается** (субагенты требуют Linux/macOS; WSL работает)
+- Bash heredocs заблокированы (используйте Write tool вместо этого)
