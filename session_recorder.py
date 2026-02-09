@@ -227,10 +227,6 @@ class SessionRecorder:
         Returns:
             The recorded SessionEvent, or None if no session is active.
         """
-        if self._session is None:
-            logger.warning("record_event called with no active session")
-            return None
-
         elapsed = time.monotonic() - self._start_time
         safe_data = dict(data) if data else {}
 
@@ -242,6 +238,9 @@ class SessionRecorder:
         event = SessionEvent(t=round(elapsed, 3), type=event_type, data=safe_data)
 
         with self._lock:
+            if self._session is None:
+                logger.warning("No active session to record event")
+                return None
             self._session.events.append(event)
 
         return event
