@@ -20,6 +20,10 @@ Issue CRUD Endpoints:
 - DELETE /api/issues/{id} - Delete issue
 - POST /api/issues/{id}/comments - Add comment
 - POST /api/issues/bulk - Bulk operations
+
+Session Replay Endpoints (ENG-75):
+- GET /api/sessions - List sessions with metadata
+- GET /api/sessions/{id} - Get full session for replay
 """
 
 import os
@@ -40,6 +44,8 @@ from dotenv import load_dotenv
 import io
 import csv
 
+from analytics_server.sessions_router import router as sessions_router
+
 # Load environment variables
 load_dotenv()
 
@@ -57,6 +63,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include session replay router (ENG-75)
+app.include_router(sessions_router)
 
 # Configuration
 TASK_MCP_URL = os.environ.get("TASK_MCP_URL", "http://localhost:8001/sse")

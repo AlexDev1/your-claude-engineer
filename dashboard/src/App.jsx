@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { BarChart3, Activity, ClipboardList, Settings as SettingsIcon, Upload, Download, Radio } from 'lucide-react'
+import { BarChart3, Activity, ClipboardList, Settings as SettingsIcon, Upload, Download, Radio, Play } from 'lucide-react'
 import ThemeToggle from './components/ThemeToggle'
 import MobileNav from './components/MobileNav'
 import { useTheme } from './context/ThemeContext'
@@ -17,6 +17,7 @@ function App() {
     { path: '/live', label: 'Live', icon: Radio },
     { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { path: '/replay', label: 'Replay', icon: Play },
     { path: '/import', label: 'Import', icon: Upload },
     { path: '/export', label: 'Export', icon: Download },
     { path: '/settings', label: 'Settings', icon: SettingsIcon },
@@ -83,7 +84,7 @@ function App() {
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-2 mr-4">
               {navItems.map(({ path, label, icon: Icon }) => {
-                const isActive = location.pathname === path || (location.pathname === '/' && path === '/live')
+                const isActive = location.pathname === path || location.pathname.startsWith(path + '/') || (location.pathname === '/' && path === '/live')
                 return (
                   <Link
                     key={path}
