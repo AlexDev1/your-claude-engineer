@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 09:41:46*
+*Auto-generated: 2026-02-09 09:52:23*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -30,12 +30,12 @@ your-claude-engineer/
 ├── prompts/ (7 files)
 ├── screenshots/ (114 files)
 ├── scripts/ (5 files)
-├── tests/ (16 files)
+├── tests/ (17 files)
 │   ├── api/ (3 files)
 │   ├── e2e/ (3 files)
 │   ├── integration/ (3 files)
-│   ├── unit/ (5 files)
-├── [27 files in root]
+│   ├── unit/ (6 files)
+├── [28 files in root]
 ```
 
 ## Key Files
@@ -88,11 +88,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `f51faa8` feat(ENG-65): add GitHub commit status checks via gh CLI (45 секунд назад)
-- `4eb5743` fix(ENG-64): address code review feedback (6 минут назад)
-- `a5895f8` feat(ENG-64): add bidirectional GitHub Issues sync (12 минут назад)
-- `54f69f0` chore: update project map after ENG-63 (18 минут назад)
-- `dfccecb` feat(ENG-63): add auto-PR creation via gh CLI on issue Done transition (22 минуты назад)
+- `df723ae` feat(ENG-74): add session recording to structured JSON files (89 секунд назад)
+- `97a9b27` chore: update project map after ENG-65 (11 минут назад)
+- `f51faa8` feat(ENG-65): add GitHub commit status checks via gh CLI (11 минут назад)
+- `4eb5743` fix(ENG-64): address code review feedback (17 минут назад)
+- `a5895f8` feat(ENG-64): add bidirectional GitHub Issues sync (22 минуты назад)
 
 ## Import Graph (Hub Files)
 
