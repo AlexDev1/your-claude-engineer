@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 11:56:42*
+*Auto-generated: 2026-02-09 12:06:23*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -89,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `f3add59` feat(ENG-85): add daily digest report for Telegram (57 секунд назад)
+- `c5665ba` feat(ENG-86): add session summary report for Telegram (54 секунды назад)
+- `def6e0c` chore: update project map after ENG-85 (10 минут назад)
+- `f3add59` feat(ENG-85): add daily digest report for Telegram (11 минут назад)
 - `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (3 часа назад)
 - `1a09b70` chore: update memory and project map after ENG-62 (12 часов назад)
-- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (12 часов назад)
-- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (12 часов назад)
 
 ## Import Graph (Hub Files)
 
