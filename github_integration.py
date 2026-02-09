@@ -2144,3 +2144,247 @@ def sync_issue_from_github(
             message="gh CLI not found on PATH",
             direction="from_github",
         )
+
+
+# =============================================================================
+# GitHub Commit Status Checks via gh CLI (ENG-65)
+#
+# Sets commit statuses on GitHub PRs using the GitHub Commit Statuses API.
+# Three check contexts are used:
+#   - "agent/tests" — pass/fail based on pytest results
+#   - "agent/quality-gates" — pass/fail based on lint-gate.sh
+#   - "agent/verification" — pass/fail based on browser_snapshot verification
+#
+# These statuses block PR merge when configured as required status checks
+# in the repository's branch protection rules.
+# =============================================================================
+
+# Valid commit status states per GitHub API
+CommitStatusState = Literal["pending", "success", "failure", "error"]
+
+# Context names for the three agent status checks
+STATUS_CONTEXT_TESTS = "agent/tests"
+STATUS_CONTEXT_QUALITY = "agent/quality-gates"
+STATUS_CONTEXT_VERIFICATION = "agent/verification"
+
+
+def _get_repo_nwo() -> str | None:
+    """
+    Get the repository name-with-owner (NWO) string via gh CLI.
+
+    Uses `gh repo view --json nameWithOwner` to detect the current repo.
+    Returns None if gh CLI is unavailable or the repo cannot be determined.
+
+    Returns:
+        Repository NWO string (e.g., "AxonCode/your-claude-engineer"),
+        or None on failure
+    """
+    try:
+        result = _run_gh_command(
+            ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def set_commit_status(
+    sha: str,
+    state: CommitStatusState,
+    context: str,
+    description: str,
+    target_url: str | None = None,
+) -> StatusCheckResult:
+    """
+    Set a commit status check on GitHub via gh API.
+
+    Uses the GitHub Commit Statuses API:
+    POST /repos/{owner}/{repo}/statuses/{sha}
+
+    The status appears in PR checks and can block merge when configured
+    as a required status check in branch protection rules.
+
+    Args:
+        sha: Full commit SHA to set the status on
+        state: Status state ("pending", "success", "failure", "error")
+        context: Status check name (e.g., "agent/tests")
+        description: Short description (truncated to 140 chars by GitHub)
+        target_url: Optional URL linking to detailed results
+
+    Returns:
+        StatusCheckResult with success/failure details
+    """
+    if not _is_gh_cli_available():
+        return StatusCheckResult(
+            success=False,
+            message="gh CLI not available or not authenticated",
+        )
+
+    repo_nwo = _get_repo_nwo()
+    if not repo_nwo:
+        return StatusCheckResult(
+            success=False,
+            message="Could not determine repository from gh CLI",
+        )
+
+    # Build gh api command arguments
+    api_path = f"repos/{repo_nwo}/statuses/{sha}"
+    cmd: list[str] = [
+        "api", api_path,
+        "-X", "POST",
+        "-f", f"state={state}",
+        "-f", f"context={context}",
+        "-f", f"description={description[:140]}",
+    ]
+    if target_url:
+        cmd.extend(["-f", f"target_url={target_url}"])
+
+    try:
+        result = _run_gh_command(cmd)
+
+        if result.returncode == 0:
+            logger.info("Set commit status %s for %s on %s", state, context, sha[:8])
+            return StatusCheckResult(
+                success=True,
+                message=f"Status set: {context} = {state}",
+                target_url=target_url,
+            )
+
+        error_msg = result.stderr.strip() or result.stdout.strip()
+        logger.error("Failed to set commit status: %s", error_msg)
+        return StatusCheckResult(
+            success=False,
+            message=f"gh api failed ({result.returncode}): {error_msg}",
+        )
+
+    except subprocess.TimeoutExpired:
+        logger.error("gh api timed out setting commit status")
+        return StatusCheckResult(
+            success=False,
+            message="gh api timed out after 60 seconds",
+        )
+    except FileNotFoundError:
+        logger.error("gh CLI not found on PATH")
+        return StatusCheckResult(
+            success=False,
+            message="gh CLI not found on PATH",
+        )
+
+
+def report_test_status(
+    sha: str,
+    passed: bool,
+    details: str | None = None,
+) -> StatusCheckResult:
+    """
+    Report test results as a GitHub commit status.
+
+    Sets the "agent/tests" status check based on pytest results.
+
+    Args:
+        sha: Full commit SHA
+        passed: True if all tests passed, False otherwise
+        details: Optional description override (e.g., "12/12 tests passed")
+
+    Returns:
+        StatusCheckResult with success/failure details
+    """
+    state: CommitStatusState = "success" if passed else "failure"
+    description = details or ("All tests passed" if passed else "Tests failed")
+    return set_commit_status(
+        sha=sha,
+        state=state,
+        context=STATUS_CONTEXT_TESTS,
+        description=description,
+    )
+
+
+def report_quality_status(
+    sha: str,
+    passed: bool,
+    details: str | None = None,
+) -> StatusCheckResult:
+    """
+    Report quality gate results as a GitHub commit status.
+
+    Sets the "agent/quality-gates" status check based on lint-gate.sh results.
+
+    Args:
+        sha: Full commit SHA
+        passed: True if quality gates passed, False otherwise
+        details: Optional description override (e.g., "lint-gate passed")
+
+    Returns:
+        StatusCheckResult with success/failure details
+    """
+    state: CommitStatusState = "success" if passed else "failure"
+    description = details or (
+        "Quality gates passed" if passed else "Quality issues found"
+    )
+    return set_commit_status(
+        sha=sha,
+        state=state,
+        context=STATUS_CONTEXT_QUALITY,
+        description=description,
+    )
+
+
+def report_verification_status(
+    sha: str,
+    passed: bool,
+    details: str | None = None,
+) -> StatusCheckResult:
+    """
+    Report agent verification results as a GitHub commit status.
+
+    Sets the "agent/verification" status check based on browser_snapshot
+    verification results.
+
+    Args:
+        sha: Full commit SHA
+        passed: True if verification passed, False otherwise
+        details: Optional description override (e.g., "UI verified via snapshot")
+
+    Returns:
+        StatusCheckResult with success/failure details
+    """
+    state: CommitStatusState = "success" if passed else "failure"
+    description = details or (
+        "Agent verification passed" if passed else "Verification failed"
+    )
+    return set_commit_status(
+        sha=sha,
+        state=state,
+        context=STATUS_CONTEXT_VERIFICATION,
+        description=description,
+    )
+
+
+def report_all_statuses(
+    sha: str,
+    tests_passed: bool,
+    quality_passed: bool,
+    verification_passed: bool,
+) -> dict[str, StatusCheckResult]:
+    """
+    Report all three agent status checks at once.
+
+    Convenience function that calls report_test_status,
+    report_quality_status, and report_verification_status.
+
+    Args:
+        sha: Full commit SHA
+        tests_passed: Whether pytest tests passed
+        quality_passed: Whether lint-gate quality checks passed
+        verification_passed: Whether browser_snapshot verification passed
+
+    Returns:
+        Dict mapping check name to StatusCheckResult
+    """
+    return {
+        "tests": report_test_status(sha, tests_passed),
+        "quality": report_quality_status(sha, quality_passed),
+        "verification": report_verification_status(sha, verification_passed),
+    }

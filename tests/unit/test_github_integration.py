@@ -1,6 +1,6 @@
 """
-Tests for GitHub Integration — Auto-PR (ENG-63) + Issues Sync (ENG-64)
-=======================================================================
+Tests for GitHub Integration — Auto-PR (ENG-63) + Issues Sync (ENG-64) + Status Checks (ENG-65)
+================================================================================================
 
 ENG-63 (Auto-PR) verifies:
 1. create_auto_pr() creates PR via gh CLI on issue Done transition
@@ -25,6 +25,16 @@ ENG-64 (Issues Sync) verifies:
 18. Sync marker: "[Task MCP: ENG-XX]" embedded in issue body
 19. Conflict resolution: Task MCP is source of truth
 20. SyncResult and GitHubIssueResult dataclass fields
+
+ENG-65 (Status Checks) verifies:
+21. set_commit_status() sets commit status via gh api
+22. report_test_status() reports "agent/tests" check
+23. report_quality_status() reports "agent/quality-gates" check
+24. report_verification_status() reports "agent/verification" check
+25. report_all_statuses() sets all three checks at once
+26. Edge cases: gh CLI unavailable, repo detection failure, API errors, timeouts
+27. Description truncation to 140 chars
+28. target_url passed correctly when provided
 """
 
 import json
@@ -36,12 +46,17 @@ import pytest
 from github_integration import (
     AutoPRResult,
     GitHubIssueResult,
+    StatusCheckResult,
     SyncResult,
+    STATUS_CONTEXT_QUALITY,
+    STATUS_CONTEXT_TESTS,
+    STATUS_CONTEXT_VERIFICATION,
     _build_sync_marker,
     _check_existing_pr_via_gh,
     _extract_issue_id_from_body,
     _extract_issue_number_from_url,
     _extract_pr_number_from_url,
+    _get_repo_nwo,
     _has_commits_ahead_of_base,
     _is_gh_cli_available,
     _map_github_state_to_task,
@@ -49,6 +64,11 @@ from github_integration import (
     _sanitize_branch_name,
     create_auto_pr,
     create_github_issue,
+    report_all_statuses,
+    report_quality_status,
+    report_test_status,
+    report_verification_status,
+    set_commit_status,
     sync_issue_from_github,
     sync_issue_to_github,
     update_github_issue,
@@ -1449,3 +1469,635 @@ class TestSyncIssueFromGitHub:
 
         assert result.success is False
         assert "gh CLI not found" in result.message
+
+
+# ===========================================================================
+# ENG-65: GitHub Commit Status Checks via gh CLI
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# StatusCheckResult dataclass
+# ---------------------------------------------------------------------------
+
+
+class TestStatusCheckResult:
+    """Test StatusCheckResult dataclass fields."""
+
+    def test_success_result(self) -> None:
+        """Successful result stores message and optional target_url."""
+        result = StatusCheckResult(
+            success=True,
+            message="Status set: agent/tests = success",
+            target_url="https://example.com/logs",
+        )
+        assert result.success is True
+        assert "agent/tests" in result.message
+        assert result.target_url == "https://example.com/logs"
+
+    def test_failure_result(self) -> None:
+        """Failure result has no target_url by default."""
+        result = StatusCheckResult(
+            success=False,
+            message="gh CLI not available",
+        )
+        assert result.success is False
+        assert result.target_url is None
+
+    def test_default_target_url_is_none(self) -> None:
+        """target_url defaults to None when not provided."""
+        result = StatusCheckResult(success=True, message="ok")
+        assert result.target_url is None
+
+
+# ---------------------------------------------------------------------------
+# _get_repo_nwo
+# ---------------------------------------------------------------------------
+
+
+class TestGetRepoNWO:
+    """Test repository name-with-owner detection."""
+
+    def test_successful_detection(self) -> None:
+        """Returns NWO string when gh repo view succeeds."""
+        mock_result = MagicMock(returncode=0, stdout="AxonCode/your-claude-engineer\n")
+        with patch("github_integration._run_gh_command", return_value=mock_result):
+            nwo = _get_repo_nwo()
+
+        assert nwo == "AxonCode/your-claude-engineer"
+
+    def test_gh_failure_returns_none(self) -> None:
+        """Returns None when gh repo view fails."""
+        mock_result = MagicMock(returncode=1, stdout="", stderr="not a git repo")
+        with patch("github_integration._run_gh_command", return_value=mock_result):
+            nwo = _get_repo_nwo()
+
+        assert nwo is None
+
+    def test_empty_output_returns_none(self) -> None:
+        """Returns None when gh repo view returns empty output."""
+        mock_result = MagicMock(returncode=0, stdout="")
+        with patch("github_integration._run_gh_command", return_value=mock_result):
+            nwo = _get_repo_nwo()
+
+        assert nwo is None
+
+    def test_gh_not_found_returns_none(self) -> None:
+        """Returns None when gh CLI is not installed."""
+        with patch(
+            "github_integration._run_gh_command",
+            side_effect=FileNotFoundError("gh not found"),
+        ):
+            nwo = _get_repo_nwo()
+
+        assert nwo is None
+
+    def test_timeout_returns_none(self) -> None:
+        """Returns None when gh repo view times out."""
+        with patch(
+            "github_integration._run_gh_command",
+            side_effect=subprocess.TimeoutExpired("gh", 60),
+        ):
+            nwo = _get_repo_nwo()
+
+        assert nwo is None
+
+
+# ---------------------------------------------------------------------------
+# set_commit_status
+# ---------------------------------------------------------------------------
+
+
+class TestSetCommitStatus:
+    """Test setting commit statuses via gh api."""
+
+    SAMPLE_SHA = "abc123def456789012345678901234567890abcd"
+    SAMPLE_NWO = "AxonCode/your-claude-engineer"
+
+    def test_gh_cli_not_available(self) -> None:
+        """Returns failure when gh CLI is not available."""
+        with patch("github_integration._is_gh_cli_available", return_value=False):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "success", "agent/tests", "All tests passed"
+            )
+
+        assert result.success is False
+        assert "gh CLI not available" in result.message
+
+    def test_repo_detection_failure(self) -> None:
+        """Returns failure when repo NWO cannot be determined."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=None),
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "success", "agent/tests", "All tests passed"
+            )
+
+        assert result.success is False
+        assert "Could not determine repository" in result.message
+
+    def test_successful_status_set(self) -> None:
+        """Sets commit status successfully via gh api."""
+        mock_result = MagicMock(returncode=0, stdout='{"state":"success"}')
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "success", "agent/tests", "All tests passed"
+            )
+
+        assert result.success is True
+        assert "agent/tests" in result.message
+        assert "success" in result.message
+
+        # Verify gh api was called with correct arguments
+        call_args = mock_cmd.call_args[0][0]
+        assert call_args[0] == "api"
+        assert f"repos/{self.SAMPLE_NWO}/statuses/{self.SAMPLE_SHA}" in call_args[1]
+        assert "-X" in call_args
+        assert "POST" in call_args
+        assert "state=success" in " ".join(call_args)
+        assert "context=agent/tests" in " ".join(call_args)
+
+    def test_target_url_included_when_provided(self) -> None:
+        """Includes target_url in gh api call when provided."""
+        mock_result = MagicMock(returncode=0, stdout='{}')
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA,
+                "success",
+                "agent/tests",
+                "Passed",
+                target_url="https://example.com/logs/123",
+            )
+
+        assert result.success is True
+        assert result.target_url == "https://example.com/logs/123"
+
+        call_args = mock_cmd.call_args[0][0]
+        joined = " ".join(call_args)
+        assert "target_url=https://example.com/logs/123" in joined
+
+    def test_target_url_omitted_when_none(self) -> None:
+        """Does not include target_url in gh api call when not provided."""
+        mock_result = MagicMock(returncode=0, stdout='{}')
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            set_commit_status(
+                self.SAMPLE_SHA, "failure", "agent/tests", "Failed"
+            )
+
+        call_args = mock_cmd.call_args[0][0]
+        joined = " ".join(call_args)
+        assert "target_url" not in joined
+
+    def test_description_truncated_to_140_chars(self) -> None:
+        """Description is truncated to 140 characters (GitHub limit)."""
+        long_desc = "x" * 200
+        mock_result = MagicMock(returncode=0, stdout='{}')
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            set_commit_status(
+                self.SAMPLE_SHA, "success", "agent/tests", long_desc
+            )
+
+        call_args = mock_cmd.call_args[0][0]
+        # Find the description argument
+        desc_args = [a for a in call_args if a.startswith("description=")]
+        assert len(desc_args) == 1
+        desc_value = desc_args[0].split("=", 1)[1]
+        assert len(desc_value) == 140
+
+    def test_api_failure(self) -> None:
+        """Returns failure when gh api returns non-zero exit code."""
+        mock_result = MagicMock(
+            returncode=1, stdout="", stderr="HTTP 422: Validation Failed"
+        )
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "success", "agent/tests", "Passed"
+            )
+
+        assert result.success is False
+        assert "gh api failed" in result.message
+
+    def test_timeout(self) -> None:
+        """Returns failure when gh api times out."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command",
+                side_effect=subprocess.TimeoutExpired("gh", 60),
+            ),
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "success", "agent/tests", "Passed"
+            )
+
+        assert result.success is False
+        assert "timed out" in result.message
+
+    def test_gh_not_found(self) -> None:
+        """Returns failure when gh CLI binary disappears."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command",
+                side_effect=FileNotFoundError("gh not found"),
+            ),
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "success", "agent/tests", "Passed"
+            )
+
+        assert result.success is False
+        assert "gh CLI not found" in result.message
+
+    def test_pending_state(self) -> None:
+        """Sets pending status correctly."""
+        mock_result = MagicMock(returncode=0, stdout='{}')
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "pending", "agent/tests", "Running tests..."
+            )
+
+        assert result.success is True
+        call_args = mock_cmd.call_args[0][0]
+        assert "state=pending" in " ".join(call_args)
+
+    def test_error_state(self) -> None:
+        """Sets error status correctly."""
+        mock_result = MagicMock(returncode=0, stdout='{}')
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = set_commit_status(
+                self.SAMPLE_SHA, "error", "agent/tests", "Internal error"
+            )
+
+        assert result.success is True
+        call_args = mock_cmd.call_args[0][0]
+        assert "state=error" in " ".join(call_args)
+
+
+# ---------------------------------------------------------------------------
+# report_test_status
+# ---------------------------------------------------------------------------
+
+
+class TestReportTestStatus:
+    """Test the report_test_status convenience function."""
+
+    SAMPLE_SHA = "abc123def456789012345678901234567890abcd"
+
+    def test_passed(self) -> None:
+        """Reports success status with default description."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            result = report_test_status(self.SAMPLE_SHA, passed=True)
+
+        assert result.success is True
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="success",
+            context=STATUS_CONTEXT_TESTS,
+            description="All tests passed",
+        )
+
+    def test_failed(self) -> None:
+        """Reports failure status with default description."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_test_status(self.SAMPLE_SHA, passed=False)
+
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="failure",
+            context=STATUS_CONTEXT_TESTS,
+            description="Tests failed",
+        )
+
+    def test_custom_details(self) -> None:
+        """Reports status with custom description override."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_test_status(
+                self.SAMPLE_SHA, passed=True, details="12/12 tests passed"
+            )
+
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="success",
+            context=STATUS_CONTEXT_TESTS,
+            description="12/12 tests passed",
+        )
+
+    def test_uses_correct_context(self) -> None:
+        """Uses the agent/tests context name."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_test_status(self.SAMPLE_SHA, passed=True)
+
+        assert mock_set.call_args[1]["context"] == "agent/tests"
+
+
+# ---------------------------------------------------------------------------
+# report_quality_status
+# ---------------------------------------------------------------------------
+
+
+class TestReportQualityStatus:
+    """Test the report_quality_status convenience function."""
+
+    SAMPLE_SHA = "abc123def456789012345678901234567890abcd"
+
+    def test_passed(self) -> None:
+        """Reports success status with default description."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            result = report_quality_status(self.SAMPLE_SHA, passed=True)
+
+        assert result.success is True
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="success",
+            context=STATUS_CONTEXT_QUALITY,
+            description="Quality gates passed",
+        )
+
+    def test_failed(self) -> None:
+        """Reports failure status with default description."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_quality_status(self.SAMPLE_SHA, passed=False)
+
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="failure",
+            context=STATUS_CONTEXT_QUALITY,
+            description="Quality issues found",
+        )
+
+    def test_custom_details(self) -> None:
+        """Reports status with custom description override."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_quality_status(
+                self.SAMPLE_SHA, passed=True, details="lint-gate passed"
+            )
+
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="success",
+            context=STATUS_CONTEXT_QUALITY,
+            description="lint-gate passed",
+        )
+
+    def test_uses_correct_context(self) -> None:
+        """Uses the agent/quality-gates context name."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_quality_status(self.SAMPLE_SHA, passed=True)
+
+        assert mock_set.call_args[1]["context"] == "agent/quality-gates"
+
+
+# ---------------------------------------------------------------------------
+# report_verification_status
+# ---------------------------------------------------------------------------
+
+
+class TestReportVerificationStatus:
+    """Test the report_verification_status convenience function."""
+
+    SAMPLE_SHA = "abc123def456789012345678901234567890abcd"
+
+    def test_passed(self) -> None:
+        """Reports success status with default description."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            result = report_verification_status(self.SAMPLE_SHA, passed=True)
+
+        assert result.success is True
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="success",
+            context=STATUS_CONTEXT_VERIFICATION,
+            description="Agent verification passed",
+        )
+
+    def test_failed(self) -> None:
+        """Reports failure status with default description."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_verification_status(self.SAMPLE_SHA, passed=False)
+
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="failure",
+            context=STATUS_CONTEXT_VERIFICATION,
+            description="Verification failed",
+        )
+
+    def test_custom_details(self) -> None:
+        """Reports status with custom description override."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_verification_status(
+                self.SAMPLE_SHA, passed=True, details="UI verified via snapshot"
+            )
+
+        mock_set.assert_called_once_with(
+            sha=self.SAMPLE_SHA,
+            state="success",
+            context=STATUS_CONTEXT_VERIFICATION,
+            description="UI verified via snapshot",
+        )
+
+    def test_uses_correct_context(self) -> None:
+        """Uses the agent/verification context name."""
+        with patch(
+            "github_integration.set_commit_status",
+            return_value=StatusCheckResult(success=True, message="ok"),
+        ) as mock_set:
+            report_verification_status(self.SAMPLE_SHA, passed=True)
+
+        assert mock_set.call_args[1]["context"] == "agent/verification"
+
+
+# ---------------------------------------------------------------------------
+# report_all_statuses
+# ---------------------------------------------------------------------------
+
+
+class TestReportAllStatuses:
+    """Test the report_all_statuses convenience function."""
+
+    SAMPLE_SHA = "abc123def456789012345678901234567890abcd"
+
+    def test_all_passing(self) -> None:
+        """Reports all three statuses as success."""
+        success_result = StatusCheckResult(success=True, message="ok")
+
+        with patch(
+            "github_integration.set_commit_status", return_value=success_result
+        ):
+            results = report_all_statuses(
+                self.SAMPLE_SHA,
+                tests_passed=True,
+                quality_passed=True,
+                verification_passed=True,
+            )
+
+        assert len(results) == 3
+        assert "tests" in results
+        assert "quality" in results
+        assert "verification" in results
+        assert all(r.success for r in results.values())
+
+    def test_all_failing(self) -> None:
+        """Reports all three statuses as failure."""
+        failure_result = StatusCheckResult(success=True, message="ok")
+
+        with patch(
+            "github_integration.set_commit_status", return_value=failure_result
+        ) as mock_set:
+            report_all_statuses(
+                self.SAMPLE_SHA,
+                tests_passed=False,
+                quality_passed=False,
+                verification_passed=False,
+            )
+
+        # Verify set_commit_status was called 3 times
+        assert mock_set.call_count == 3
+
+        # All three calls should have state="failure"
+        for call in mock_set.call_args_list:
+            assert call[1]["state"] == "failure"
+
+    def test_mixed_results(self) -> None:
+        """Reports mixed pass/fail statuses correctly."""
+        success_result = StatusCheckResult(success=True, message="ok")
+
+        with patch(
+            "github_integration.set_commit_status", return_value=success_result
+        ) as mock_set:
+            report_all_statuses(
+                self.SAMPLE_SHA,
+                tests_passed=True,
+                quality_passed=False,
+                verification_passed=True,
+            )
+
+        # Verify the correct states were passed
+        calls = mock_set.call_args_list
+        states_by_context = {
+            call[1]["context"]: call[1]["state"] for call in calls
+        }
+        assert states_by_context["agent/tests"] == "success"
+        assert states_by_context["agent/quality-gates"] == "failure"
+        assert states_by_context["agent/verification"] == "success"
+
+    def test_returns_dict_with_correct_keys(self) -> None:
+        """Returns dict with 'tests', 'quality', 'verification' keys."""
+        success_result = StatusCheckResult(success=True, message="ok")
+
+        with patch(
+            "github_integration.set_commit_status", return_value=success_result
+        ):
+            results = report_all_statuses(
+                self.SAMPLE_SHA,
+                tests_passed=True,
+                quality_passed=True,
+                verification_passed=True,
+            )
+
+        assert set(results.keys()) == {"tests", "quality", "verification"}
+
+
+# ---------------------------------------------------------------------------
+# Status context constants
+# ---------------------------------------------------------------------------
+
+
+class TestStatusContextConstants:
+    """Test that status context constants have expected values."""
+
+    def test_tests_context(self) -> None:
+        """Tests context is 'agent/tests'."""
+        assert STATUS_CONTEXT_TESTS == "agent/tests"
+
+    def test_quality_context(self) -> None:
+        """Quality context is 'agent/quality-gates'."""
+        assert STATUS_CONTEXT_QUALITY == "agent/quality-gates"
+
+    def test_verification_context(self) -> None:
+        """Verification context is 'agent/verification'."""
+        assert STATUS_CONTEXT_VERIFICATION == "agent/verification"
