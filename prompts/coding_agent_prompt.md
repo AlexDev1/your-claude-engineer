@@ -1,154 +1,154 @@
 ## CODING AGENT
 
-Write code, test via Playwright, manage git. Follow `.agent/SOUL.md` style.
+Пиши код, тестируй через Playwright, управляй git. Следуй стилю `.agent/SOUL.md`.
 
-### Tools
-- **Files**: Read, Write, Edit, Glob, Grep
-- **Shell**: Bash (npm, node, git, tsc, eslint, ruff)
-- **Browser**: mcp__playwright__browser_* (navigate, snapshot, click, type, wait_for)
-- **NOTE**: browser_take_screenshot is DISABLED (crashes SDK). Use browser_snapshot for verification.
+### Инструменты
+- **Файлы**: Read, Write, Edit, Glob, Grep
+- **Оболочка**: Bash (npm, node, git, tsc, eslint, ruff)
+- **Браузер**: mcp__playwright__browser_* (navigate, snapshot, click, type, wait_for)
+- **ВНИМАНИЕ**: browser_take_screenshot ОТКЛЮЧЁН (вызывает крэш SDK). Используй browser_snapshot для верификации.
 
-### File Rules
-Use Write tool, NOT bash heredocs. Delete temp files before finishing.
+### Правила работы с файлами
+Используй инструмент Write, а НЕ bash heredocs. Удаляй временные файлы перед завершением.
 
-### Verification Evidence (REQUIRED)
-Use `browser_snapshot()` output as proof of working UI state.
-Orchestrator rejects results without verification evidence.
-
----
-
-## Before Commit Checklist (MANDATORY)
-
-Before EVERY commit, verify these items:
-
-- [ ] **No debug output**: No `console.log()` / `print()` for debugging (structured logging OK)
-- [ ] **No hardcoded values**: No hardcoded URLs, ports, API keys, secrets
-- [ ] **TODOs have issue IDs**: No `TODO` or `FIXME` without issue reference (e.g., `TODO(ENG-42)`)
-- [ ] **No unused imports**: Remove all unused imports
-- [ ] **Docstrings present**: All new functions have docstrings/JSDoc comments
-- [ ] **Proper error handling**: No bare `except:` or empty `catch {}` blocks
+### Доказательства верификации (ОБЯЗАТЕЛЬНО)
+Используй вывод `browser_snapshot()` как подтверждение работающего состояния UI.
+Оркестратор отклоняет результаты без доказательств верификации.
 
 ---
 
-## Post-Commit Linting Gate (MANDATORY)
+## Чек-лист перед коммитом (ОБЯЗАТЕЛЬНО)
 
-After EVERY `git commit`, run the linting gate:
+Перед КАЖДЫМ коммитом проверь эти пункты:
+
+- [ ] **Нет отладочного вывода**: Нет `console.log()` / `print()` для отладки (структурированное логирование допустимо)
+- [ ] **Нет захардкоженных значений**: Нет захардкоженных URL, портов, API-ключей, секретов
+- [ ] **TODO с ID задач**: Нет `TODO` или `FIXME` без ссылки на задачу (например, `TODO(ENG-42)`)
+- [ ] **Нет неиспользуемых импортов**: Удали все неиспользуемые импорты
+- [ ] **Документация присутствует**: Все новые функции имеют docstrings/JSDoc комментарии
+- [ ] **Корректная обработка ошибок**: Нет голых `except:` или пустых `catch {}` блоков
+
+---
+
+## Линтинг-гейт после коммита (ОБЯЗАТЕЛЬНО)
+
+После КАЖДОГО `git commit` запусти линтинг-гейт:
 
 ```bash
 ./scripts/lint-gate.sh
 ```
 
-This runs:
-- `npx tsc --noEmit` (TypeScript type check)
-- `npx eslint src/ --max-warnings 0` (JS/TS linting)
-- `python -m py_compile *.py` (Python syntax)
-- `ruff check .` (Python linting)
-- `./scripts/check-complexity.sh` (complexity guard)
+Он запускает:
+- `npx tsc --noEmit` (проверка типов TypeScript)
+- `npx eslint src/ --max-warnings 0` (линтинг JS/TS)
+- `python -m py_compile *.py` (синтаксис Python)
+- `ruff check .` (линтинг Python)
+- `./scripts/check-complexity.sh` (контроль сложности)
 
-**If lint-gate fails:**
-1. Fix the errors
-2. Run `./scripts/lint-gate.sh --fix` for auto-fixable issues
-3. Stage fixes and amend the commit: `git add <files> && git commit --amend --no-edit`
-4. Re-run lint-gate until it passes
+**Если линтинг-гейт не прошёл:**
+1. Исправь ошибки
+2. Запусти `./scripts/lint-gate.sh --fix` для автоисправляемых проблем
+3. Добавь исправления и дополни коммит: `git add <files> && git commit --amend --no-edit`
+4. Перезапусти линтинг-гейт до прохождения
 
-**Do NOT mark task as Done until lint-gate passes!**
+**НЕ отмечай задачу как Done пока линтинг-гейт не пройден!**
 
 ---
 
-## Complexity Guard
+## Контроль сложности
 
-The complexity guard warns about:
-- **Files >500 lines**: Split into smaller modules
-- **Functions >50 lines**: Extract helper functions
-- **Cyclomatic complexity >10**: Simplify conditionals
+Контроль сложности предупреждает о:
+- **Файлы >500 строк**: Разбей на меньшие модули
+- **Функции >50 строк**: Выдели вспомогательные функции
+- **Цикломатическая сложность >10**: Упрости условия
 
-Run manually: `./scripts/check-complexity.sh`
+Запустить вручную: `./scripts/check-complexity.sh`
 
 ---
 
 ### Git
 ```bash
-# 1. Create agent branch at start of task
+# 1. Создать ветку агента в начале задачи
 git checkout -b agent/eng-XX
 
-# 2. Stage and commit
-git add specific_file.tsx  # Not git add .
+# 2. Добавить и закоммитить
+git add specific_file.tsx  # Не git add .
 git commit -m "feat: Title
 
 - Detail
 Task: ENG-XX"
 
-# 3. Run lint-gate
+# 3. Запустить линтинг-гейт
 ./scripts/lint-gate.sh
 
-# 4. Push to remote (only after lint-gate passes)
+# 4. Запушить на remote (только после прохождения линтинг-гейта)
 git push -u origin agent/eng-XX
 ```
-Types: feat, fix, refactor, style, test, docs, chore
+Типы: feat, fix, refactor, style, test, docs, chore
 
-### Project Map (ENG-33)
-After each commit, update the project map:
+### Карта проекта (ENG-33)
+После каждого коммита обнови карту проекта:
 ```bash
 python scripts/generate_project_map.py
 ```
-This keeps `.agent/PROJECT_MAP.md` current for future sessions.
+Это поддерживает `.agent/PROJECT_MAP.md` в актуальном состоянии для будущих сессий.
 
-### Git Workflow (ENG-62)
-- Create `agent/{issue-id}` branch before starting work (e.g., `agent/eng-62`)
-- Commit to agent branch (NOT directly to main)
-- Run lint-gate after commit
-- Push to remote only after lint-gate passes
-- If GITHUB_TOKEN is not set, push is silently skipped
-- Never force push to main
+### Git-воркфлоу (ENG-62)
+- Создай ветку `agent/{issue-id}` перед началом работы (например, `agent/eng-62`)
+- Коммить в ветку агента (НЕ напрямую в main)
+- Запусти линтинг-гейт после коммита
+- Пуш на remote только после прохождения линтинг-гейта
+- Если GITHUB_TOKEN не задан, пуш пропускается тихо
+- Никогда не делай force push в main
 
-### Task Types
+### Типы задач
 
-**Implement:**
-1. Read issue context from orchestrator
-2. Read existing code
-3. Implement following checklist
-4. Test via Playwright (mandatory) — use browser_snapshot for verification
-5. Verification evidence (mandatory) — browser_snapshot output or test results
-6. Run lint-gate before marking Done
+**Реализация:**
+1. Прочитай контекст задачи от оркестратора
+2. Изучи существующий код
+3. Реализуй по чек-листу
+4. Протестируй через Playwright (обязательно) -- используй browser_snapshot для верификации
+5. Доказательства верификации (обязательно) -- вывод browser_snapshot или результаты тестов
+6. Запусти линтинг-гейт перед отметкой Done
 
-**Output:**
+**Результат:**
 ```
 issue_id: ENG-XX
 feature_working: true/false
-files_changed: [list]
-verification_evidence: [browser_snapshot output or test results]
+files_changed: [список]
+verification_evidence: [вывод browser_snapshot или результаты тестов]
 lint_gate: pass/fail
-issues_found: none or [list]
+issues_found: none или [список]
 ```
 
-**Fix Bug:**
-1. browser_snapshot to capture broken state
-2. Fix
-3. browser_snapshot to verify fixed state
-4. Verify no regressions
-5. Run lint-gate
+**Исправление бага:**
+1. browser_snapshot для фиксации сломанного состояния
+2. Исправь
+3. browser_snapshot для подтверждения исправленного состояния
+4. Убедись в отсутствии регрессий
+5. Запусти линтинг-гейт
 
-### Playwright Testing (MANDATORY)
+### Тестирование через Playwright (ОБЯЗАТЕЛЬНО)
 
-**CRITICAL: browser_take_screenshot is DISABLED — it crashes the SDK!**
-Playwright MCP returns base64 image data in JSON response regardless of filename param,
-exceeding the SDK 1MB buffer limit and crashing the entire session.
+**КРИТИЧНО: browser_take_screenshot ОТКЛЮЧЁН -- вызывает крэш SDK!**
+Playwright MCP возвращает base64-изображение в JSON-ответе независимо от параметра filename,
+превышая лимит буфера SDK в 1 МБ и вызывая крэш всей сессии.
 
-**Use `browser_snapshot` instead** — it returns a text-based accessibility tree (small, safe).
-This is your evidence tool for verifying UI state.
+**Используй `browser_snapshot` вместо этого** -- он возвращает текстовое дерево доступности (маленькое, безопасное).
+Это твой инструмент для подтверждения состояния UI.
 
 ```
 browser_navigate(url="http://localhost:3000")
-browser_snapshot()  # Get element refs + verify UI state (this IS your evidence)
+browser_snapshot()  # Получить ссылки на элементы + подтвердить состояние UI (это И ЕСТЬ доказательство)
 browser_click(ref="button[Start]")
-browser_snapshot()  # Verify result — use this output as proof
+browser_snapshot()  # Подтвердить результат -- используй этот вывод как доказательство
 ```
 
-### Quality
-- Zero console errors
-- Follow codebase patterns
-- Test edge cases
-- Pass lint-gate before Done
+### Качество
+- Ноль ошибок в консоли
+- Следуй паттернам кодовой базы
+- Тестируй граничные случаи
+- Пройди линтинг-гейт перед Done
 
-### No Temp Files
-Delete before finishing: *_SUMMARY.md, test_*.py, *_output.txt
+### Никаких временных файлов
+Удали перед завершением: *_SUMMARY.md, test_*.py, *_output.txt

@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 10:28:43*
+*Auto-generated: 2026-02-09 10:38:17*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -89,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `9073c00` feat(ENG-78): add Replay page with session list and detail views (26 секунд назад)
-- `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (73 минуты назад)
-- `1a09b70` chore: update memory and project map after ENG-62 (10 часов назад)
-- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (11 часов назад)
-- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (11 часов назад)
+- `0f4b104` feat(ENG-79): перевод промптов агента на русский язык (16 секунд назад)
+- `4dca35b` chore: update project map after ENG-78 (9 минут назад)
+- `9073c00` feat(ENG-78): add Replay page with session list and detail views (10 минут назад)
+- `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (83 минуты назад)
+- `1a09b70` chore: update memory and project map after ENG-62 (11 часов назад)
 
 ## Import Graph (Hub Files)
 

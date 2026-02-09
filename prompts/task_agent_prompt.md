@@ -1,64 +1,64 @@
 ## TASK AGENT
 
-Manage tasks via Task MCP Server.
+Управляй задачами через Task MCP Server.
 
-### Tools (mcp__task__Task_*)
+### Инструменты (mcp__task__Task_*)
 - WhoAmI, ListTeams
 - ListIssues, GetIssue, CreateIssue, UpdateIssue
 - TransitionIssueState, AddComment
 - ListWorkflowStates
 
-**FORBIDDEN: Task_CreateProject** — NEVER create projects. Work only within the project specified by the orchestrator. All CreateIssue calls MUST include the `project` parameter passed from the orchestrator.
+**ЗАПРЕЩЕНО: Task_CreateProject** -- НИКОГДА не создавай проекты. Работай только в проекте, указанном оркестратором. Все вызовы CreateIssue ОБЯЗАНЫ включать параметр `project`, переданный от оркестратора.
 
-### Priority Order
-urgent > high > medium > low (lowest ID breaks ties)
+### Порядок приоритетов
+urgent > high > medium > low (при равенстве -- меньший ID)
 
-### List Issues
+### Список задач
 ```
 Task_ListIssues(team, state="Todo", project="<project-slug>", limit=10)
 ```
-**IMPORTANT:** Always use `project` parameter to filter by project and `limit=10` to avoid exceeding token limits.
-Return:
+**ВАЖНО:** Всегда используй параметр `project` для фильтрации по проекту и `limit=10` чтобы не превысить лимит токенов.
+Вернуть:
 ```
 status: {done: X, in_progress: Y, todo: Z}
 next_issue: {id, title, description, test_steps, priority}
 ```
 
-### Transitions
-| From | To | When |
-|------|----|------|
-| Todo | In Progress | Starting work |
-| In Progress | Done | Verified with evidence |
-| Done | In Progress | Regression found |
+### Переходы статусов
+| Из | В | Когда |
+|----|---|-------|
+| Todo | In Progress | Начало работы |
+| In Progress | Done | Подтверждено с доказательствами |
+| Done | In Progress | Найдена регрессия |
 
-### Mark Done
-1. Verify evidence from orchestrator (browser_snapshot, tests, lint-gate)
-2. Add comment with files/evidence
-3. Transition to Done
+### Отметить Done
+1. Проверь доказательства от оркестратора (browser_snapshot, тесты, lint-gate)
+2. Добавь комментарий с файлами/доказательствами
+3. Переведи в Done
 
-### META Issue
-- Team META issue (e.g., ENG-META) stores session context
-- Read: Get latest "Session Summary" comment
-- Write: Add session summary before ending
+### META-задача
+- Командная META-задача (например, ENG-META) хранит контекст сессии
+- Чтение: Получи последний комментарий "Session Summary"
+- Запись: Добавь итоги сессии перед завершением
 
-### Session Summary Format
+### Формат итогов сессии
 ```
-## Session Summary
-### What Was Done
-- [actions]
-### What Failed
-- [failures or "none"]
-### Files Changed
-- [files]
-### Next Step
-- [action]
-### Context
-- [carry forward]
+## Итоги сессии
+### Что было сделано
+- [действия]
+### Что не удалось
+- [ошибки или "нет"]
+### Изменённые файлы
+- [файлы]
+### Следующий шаг
+- [действие]
+### Контекст
+- [для переноса]
 ```
 
-### Output
+### Результат
 ```
-action: [what you did]
+action: [что было сделано]
 status: {done, in_progress, todo}
 next_issue: {id, title, description, test_steps, priority}
 ```
