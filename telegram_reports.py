@@ -782,12 +782,20 @@ def format_all_tasks_complete() -> str:
 
 
 def escape_html(text: str) -> str:
-    """Escape HTML entities for Telegram."""
+    """Escape HTML special characters to prevent XSS in Telegram messages.
+
+    Args:
+        text: Raw text that may contain HTML special characters.
+
+    Returns:
+        Text with ``&``, ``<``, ``>``, and ``"`` replaced by HTML entities.
+    """
     return (
         text
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )
 
 
@@ -1318,10 +1326,10 @@ class TelegramReports:
             lines.append("<b>Завершено сегодня:</b>")
             for item in completed_today:
                 if isinstance(item, dict):
-                    task_id = item.get("id", "")
-                    title = item.get("title", "")
+                    task_id = escape_html(str(item.get("id", "")))
+                    title = escape_html(str(item.get("title", "")))
                     lines.append(f"- {task_id}: {title}")
                 else:
-                    lines.append(f"- {item}")
+                    lines.append(f"- {escape_html(str(item))}")
 
         return "\n".join(lines)

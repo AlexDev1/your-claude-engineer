@@ -186,6 +186,25 @@ class TestGenerateDailyDigest:
 
         assert "100%" in result
 
+    def test_xss_prevention_in_completed_today(self) -> None:
+        """Verify HTML special characters in task_id and title are escaped."""
+        stats = {
+            "done": 1,
+            "in_progress": 0,
+            "todo": 0,
+            "completed_today": [
+                {"id": "<script>alert(1)</script>", "title": "Test"},
+                {"id": "ENG-1", "title": "<img src=x onerror=alert(1)>"},
+            ],
+        }
+        result = self.reports.generate_daily_digest(stats)
+
+        # Dangerous tags must be escaped
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+        assert "<img" not in result
+        assert "&lt;img" in result
+
 
 # ---------------------------------------------------------------------------
 # HTML validation tests
