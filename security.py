@@ -1,9 +1,9 @@
 """
-Security Hooks for Autonomous Coding Agent
-==========================================
+Security хуки для автономного агента разработки
+===============================================
 
-Pre-tool-use hooks that validate bash commands for security.
-Uses an allowlist approach - only explicitly permitted commands can run.
+Pre-tool-use хуки, которые проверяют bash команды для безопасности.
+Использует подход allowlist - только явно разрешённые команды могут выполняться.
 """
 
 import os
@@ -16,7 +16,7 @@ from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 
 
 class ValidationResult(NamedTuple):
-    """Result of validating a command."""
+    """Результат валидации команды."""
 
     allowed: bool
     reason: str = ""
@@ -24,10 +24,10 @@ class ValidationResult(NamedTuple):
 
 
 
-# Allowed commands for development tasks
-# Minimal set needed for the autonomous coding demo
+# Разрешённые команды для задач разработки
+# Минимальный набор, необходимый для автономной демонстрации разработки
 ALLOWED_COMMANDS: set[str] = {
-    # File inspection
+    # Инспекция файлов
     "ls",
     "cat",
     "head",
@@ -35,56 +35,56 @@ ALLOWED_COMMANDS: set[str] = {
     "wc",
     "grep",
     "find",
-    # File operations (agent uses SDK tools for most file ops, but these are needed occasionally)
+    # Файловые операции (агент использует SDK инструменты для большинства файловых операций, но эти нужны иногда)
     "cp",
     "mv",
     "mkdir",
-    "rm",  # For cleanup; validated separately to prevent dangerous operations
+    "rm",  # Для очистки; валидируется отдельно для предотвращения опасных операций
     "touch",
-    "chmod",  # For making scripts executable; validated separately
-    "unzip",  # For extracting archives (e.g., browser binaries for Playwright)
-    # Directory navigation
+    "chmod",  # Для делания скриптов исполняемыми; валидируется отдельно
+    "unzip",  # Для извлечения архивов (например, бинарные файлы браузера для Playwright)
+    # Навигация по директориям
     "pwd",
     "cd",
-    # Text output
+    # Текстовый вывод
     "echo",
     "printf",
-    # HTTP/Network (for testing endpoints)
+    # HTTP/Сеть (для тестирования эндпоинтов)
     "curl",
-    # Environment inspection
+    # Инспекция окружения
     "which",
     "env",
-    # Python (for file creation scripts)
+    # Python (для скриптов создания файлов)
     "python",
     "python3",
-    # Node.js development
+    # Node.js разработка
     "npm",
     "npx",
     "node",
-    # Version control
+    # Контроль версий
     "git",
-    # Process management
+    # Управление процессами
     "ps",
     "lsof",
     "sleep",
-    "pkill",  # For killing dev servers; validated separately
-    # Script execution
-    "init.sh",  # Init scripts; validated separately
-    # Code quality tools (ENG-19)
+    "pkill",  # Для завершения dev серверов; валидируется отдельно
+    # Выполнение скриптов
+    "init.sh",  # Init скрипты; валидируется отдельно
+    # Инструменты качества кода (ENG-19)
     "tsc",  # TypeScript type checker (npx tsc --noEmit)
     "eslint",  # JavaScript/TypeScript linter (npx eslint)
     "ruff",  # Python linter (ruff check)
     "mypy",  # Python type checker
     "black",  # Python formatter
     "prettier",  # JS/TS/CSS formatter
-    "check-complexity.sh",  # Complexity guard script; validated separately
-    "lint-gate.sh",  # Post-commit linting gate; validated separately
-    # Shell interpreters (for running scripts)
-    "bash",  # For running shell scripts
-    "sh",  # For running shell scripts
+    "check-complexity.sh",  # Скрипт защиты от сложности; валидируется отдельно
+    "lint-gate.sh",  # Post-commit linting gate; валидируется отдельно
+    # Shell интерпретаторы (для запуска скриптов)
+    "bash",  # Для запуска shell скриптов
+    "sh",  # Для запуска shell скриптов
 }
 
-# Commands that need additional validation even when in the allowlist
+# Команды, требующие дополнительной валидации, даже когда в allowlist
 COMMANDS_NEEDING_EXTRA_VALIDATION: set[str] = {
     "pkill",
     "chmod",
@@ -98,21 +98,21 @@ COMMANDS_NEEDING_EXTRA_VALIDATION: set[str] = {
 
 def split_command_segments(command_string: str) -> list[str]:
     """
-    Split a compound command into individual command segments.
+    Разбивает составную команду на отдельные сегменты команд.
 
-    Handles command chaining operators (&&, ||, ;). Pipes are handled separately
-    by extract_commands(), which parses tokens within each segment and treats
-    "|" as indicating a new command follows.
+    Обрабатывает операторы цепочки команд (&&, ||, ;). Pipes обрабатываются отдельно
+    функцией extract_commands(), которая парсит токены внутри каждого сегмента и трактует
+    "|" как указание на следующую команду.
 
-    Note: Semicolon splitting uses a simple regex pattern that may not correctly
-    handle all edge cases with nested quotes. For security validation, this is
-    acceptable as malformed commands will fail parsing and be blocked.
+    Примечание: Разбиение по точке с запятой использует простой regex паттерн, который может
+    не обрабатывать корректно все крайние случаи с вложенными кавычками. Для валидации
+    безопасности это допустимо, так как неправильные команды не будут распарсены и будут заблокированы.
 
     Args:
-        command_string: The full shell command
+        command_string: Полная shell команда
 
     Returns:
-        List of individual command segments
+        Список отдельных сегментов команд
     """
     # Split on && and || while preserving the ability to handle each segment
     # This regex splits on && or || that aren't inside quotes
@@ -132,16 +132,16 @@ def split_command_segments(command_string: str) -> list[str]:
 
 def extract_commands(command_string: str) -> list[str]:
     """
-    Extract command names from a shell command string.
+    Извлекает имена команд из строки shell команды.
 
-    Handles pipes, command chaining (&&, ||, ;), and subshells.
-    Returns the base command names (without paths).
+    Обрабатывает pipes, цепочки команд (&&, ||, ;) и subshells.
+    Возвращает базовые имена команд (без путей).
 
     Args:
-        command_string: The full shell command
+        command_string: Полная shell команда
 
     Returns:
-        List of command names found in the string
+        Список имён команд, найденных в строке
     """
     commands: list[str] = []
 
@@ -617,17 +617,17 @@ async def bash_security_hook(
     context: HookContext | None = None,
 ) -> SyncHookJSONOutput:
     """
-    Pre-tool-use hook that validates bash commands using an allowlist.
+    Pre-tool-use хук, который валидирует bash команды с использованием allowlist.
 
-    Only commands in ALLOWED_COMMANDS are permitted.
+    Только команды из ALLOWED_COMMANDS разрешены.
 
     Args:
-        input_data: Dict containing tool_name and tool_input
-        tool_use_id: Optional tool use ID
-        context: Optional context
+        input_data: Словарь, содержащий tool_name и tool_input
+        tool_use_id: Опциональный ID использования инструмента
+        context: Опциональный контекст
 
     Returns:
-        Empty dict to allow, or dict with decision='block' to block
+        Пустой словарь для разрешения или словарь с decision='block' для блокировки
     """
     if input_data.get("tool_name") != "Bash":
         return {}

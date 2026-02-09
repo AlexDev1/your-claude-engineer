@@ -1,11 +1,11 @@
 """
-Prompt Loading Utilities
-========================
+Утилиты загрузки промптов
+==========================
 
-Functions for loading prompt templates from the prompts directory.
-Supports loading persistent agent memory from .agent/MEMORY.md.
-Supports loading project map from .agent/PROJECT_MAP.md (ENG-33).
-Integrates with context_manager for token budget tracking.
+Функции для загрузки шаблонов промптов из директории prompts.
+Поддерживает загрузку постоянной памяти агента из .agent/MEMORY.md.
+Поддерживает загрузку карты проекта из .agent/PROJECT_MAP.md (ENG-33).
+Интегрируется с context_manager для отслеживания токенового бюджета.
 """
 
 import json
@@ -22,10 +22,10 @@ AGENT_DIR: Path = Path(__file__).parent / ".agent"
 
 def load_project_config(project_dir: Path | None = None) -> dict:
     """
-    Load project config from .project.json.
+    Загружает конфигурацию проекта из .project.json.
 
-    Returns dict with keys: id, slug, name, team.
-    Returns empty dict if file doesn't exist or is invalid.
+    Возвращает словарь с ключами: id, slug, name, team.
+    Возвращает пустой словарь, если файл не существует или недействителен.
     """
     if project_dir is None:
         project_dir = Path(__file__).parent
@@ -44,17 +44,17 @@ def load_project_config(project_dir: Path | None = None) -> dict:
 
 def load_prompt(name: str) -> str:
     """
-    Load a prompt template from the prompts directory.
+    Загружает шаблон промпта из директории prompts.
 
     Args:
-        name: Prompt name (without .md extension)
+        name: Имя промпта (без расширения .md)
 
     Returns:
-        Prompt text content
+        Текстовое содержимое промпта
 
     Raises:
-        FileNotFoundError: If prompt file doesn't exist
-        IOError: If prompt file cannot be read
+        FileNotFoundError: Если файл промпта не существует
+        IOError: Если файл промпта не может быть прочитан
     """
     prompt_path: Path = PROMPTS_DIR / f"{name}.md"
 
