@@ -48,33 +48,33 @@ if DEFAULT_MODEL not in AVAILABLE_MODELS:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Autonomous Coding Agent - Task-driven agent harness",
+        description="Автономный агент-кодер — агентная система на основе задач",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Run in current directory, default team ENG
+Примеры:
+  # Запуск в текущей директории, команда по умолчанию ENG
   uv run python autonomous_agent_demo.py
 
-  # Specify team
+  # Указать команду
   uv run python autonomous_agent_demo.py --team ENG
 
-  # Use opus for orchestrator (more capable but costs more)
+  # Использовать opus для оркестратора (более способный, но дороже)
   uv run python autonomous_agent_demo.py --model opus
 
-  # Limit iterations for testing
+  # Ограничить итерации для тестирования
   uv run python autonomous_agent_demo.py --max-iterations 5
 
-  # Skip preflight checks for faster dev iteration
+  # Пропустить preflight проверки для быстрой разработки
   uv run python autonomous_agent_demo.py --skip-preflight
 
-  # Stop on first preflight failure
+  # Остановиться на первой ошибке preflight
   uv run python autonomous_agent_demo.py --fail-fast
 
-Environment Variables:
-  ORCHESTRATOR_MODEL         Orchestrator model (default: haiku)
-  TASK_MCP_URL               Task MCP server URL
-  TELEGRAM_MCP_URL           Telegram MCP server URL
-  MCP_API_KEY                API key for MCP servers
+Переменные окружения:
+  ORCHESTRATOR_MODEL         Модель оркестратора (по умолчанию: haiku)
+  TASK_MCP_URL               URL Task MCP сервера
+  TELEGRAM_MCP_URL           URL Telegram MCP сервера
+  MCP_API_KEY                API ключ для MCP серверов
         """,
     )
 
@@ -82,14 +82,14 @@ Environment Variables:
         "--team",
         type=str,
         default="ENG",
-        help="Team key for task management (default: ENG)",
+        help="Ключ команды для управления задачами (по умолчанию: ENG)",
     )
 
     parser.add_argument(
         "--max-iterations",
         type=int,
         default=None,
-        help="Maximum number of agent iterations (default: unlimited)",
+        help="Максимальное количество итераций агента (по умолчанию: без ограничений)",
     )
 
     parser.add_argument(
@@ -97,19 +97,19 @@ Environment Variables:
         type=str,
         choices=list(AVAILABLE_MODELS.keys()),
         default=DEFAULT_MODEL,
-        help=f"Model for orchestrator (sub-agents have fixed models: coding=sonnet, others=haiku) (default: {DEFAULT_MODEL})",
+        help=f"Модель для оркестратора (суб-агенты имеют фиксированные модели: coding=sonnet, остальные=haiku) (по умолчанию: {DEFAULT_MODEL})",
     )
 
     parser.add_argument(
         "--skip-preflight",
         action="store_true",
-        help="Skip preflight checks (for faster dev iteration)",
+        help="Пропустить preflight проверки (для быстрой разработки)",
     )
 
     parser.add_argument(
         "--fail-fast",
         action="store_true",
-        help="Exit on first preflight failure (default: run all checks)",
+        help="Выйти при первой ошибке preflight (по умолчанию: выполнить все проверки)",
     )
 
     return parser.parse_args()
@@ -128,7 +128,7 @@ def main() -> int:
     if not args.skip_preflight:
         preflight_passed: bool = run_preflight_checks(fail_fast=args.fail_fast)
         if not preflight_passed:
-            print("\nPreflight checks failed. Use --skip-preflight to bypass.")
+            print("\nПроверки preflight не пройдены. Используйте --skip-preflight для пропуска.")
             return 2  # Distinct exit code for preflight failure
         print()  # Blank line before starting agent
 
@@ -138,7 +138,7 @@ def main() -> int:
     # Resolve model short name to full model ID
     model_id: str = AVAILABLE_MODELS[args.model]
 
-    print("Starting autonomous agent...")
+    print("Запуск автономного агента...")
     print()
 
     # Run the agent
@@ -153,16 +153,16 @@ def main() -> int:
         )
         return 0
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
-        print("To resume, run the same command again")
+        print("\n\nПрервано пользователем")
+        print("Для возобновления запустите ту же команду снова")
         return 130  # Standard Unix exit code for SIGINT
     except Exception as e:
         error_type: str = type(e).__name__
-        print(f"\nFatal error ({error_type}): {e}")
-        print("\nCommon causes:")
-        print("  1. Missing Claude authentication (run: claude login)")
-        print("  2. MCP server connection issues (check TASK_MCP_URL, TELEGRAM_MCP_URL in .env)")
-        print("\nFull error details:")
+        print(f"\nКритическая ошибка ({error_type}): {e}")
+        print("\nРаспространённые причины:")
+        print("  1. Отсутствует аутентификация Claude (выполните: claude login)")
+        print("  2. Проблемы с подключением к MCP серверам (проверьте TASK_MCP_URL, TELEGRAM_MCP_URL в .env)")
+        print("\nПолные детали ошибки:")
         raise
 
 

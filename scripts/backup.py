@@ -37,7 +37,7 @@ BACKUPS_DIR = PROJECT_ROOT / "backups"
 def send_telegram_notification(message: str) -> bool:
     """Send notification via Telegram bot."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram not configured, skipping notification")
+        print("Telegram не настроен, пропуск уведомления")
         return False
 
     try:
@@ -49,7 +49,7 @@ def send_telegram_notification(message: str) -> bool:
         )
         return response.status_code == 200
     except Exception as e:
-        print(f"Failed to send Telegram notification: {e}")
+        print(f"Не удалось отправить уведомление в Telegram: {e}")
         return False
 
 
@@ -70,9 +70,9 @@ def cleanup_old_backups() -> int:
             if file_date < cutoff:
                 backup_file.unlink()
                 deleted_count += 1
-                print(f"Deleted old backup: {backup_file.name}")
+                print(f"Удалена старая резервная копия: {backup_file.name}")
         except (ValueError, OSError) as e:
-            print(f"Error processing {backup_file}: {e}")
+            print(f"Ошибка обработки {backup_file}: {e}")
 
     return deleted_count
 
@@ -134,7 +134,7 @@ async def create_local_backup() -> dict:
                     },
                 }
     except Exception as e:
-        print(f"API backup failed, creating empty backup: {e}")
+        print(f"Резервное копирование через API не удалось, создание пустой копии: {e}")
 
     # Create empty backup as fallback
     backup_data = {
@@ -163,7 +163,7 @@ async def create_local_backup() -> dict:
 
 async def main():
     """Main backup routine."""
-    print(f"[{datetime.now().isoformat()}] Starting scheduled backup...")
+    print(f"[{datetime.now().isoformat()}] Запуск запланированного резервного копирования...")
 
     success = False
     result = None
@@ -176,39 +176,39 @@ async def main():
         # Cleanup old backups first
         deleted = cleanup_old_backups()
         if deleted > 0:
-            print(f"Cleaned up {deleted} old backup(s)")
+            print(f"Очищено {deleted} старых резервных копий")
 
         # Try API backup first, fall back to local
         try:
             result = await create_backup()
         except Exception as e:
-            print(f"API backup failed: {e}")
+            print(f"Резервное копирование через API не удалось: {e}")
             result = await create_local_backup()
 
         if result.get("success"):
             backup_info = result.get("backup", {})
-            print(f"Backup created successfully: {backup_info.get('filename')}")
-            print(f"  - Issues: {backup_info.get('issue_count', 0)}")
-            print(f"  - Size: {backup_info.get('size_bytes', 0)} bytes")
+            print(f"Резервная копия успешно создана: {backup_info.get('filename')}")
+            print(f"  - Задач: {backup_info.get('issue_count', 0)}")
+            print(f"  - Размер: {backup_info.get('size_bytes', 0)} байт")
 
             if result.get("warning"):
-                print(f"  - Warning: {result['warning']}")
+                print(f"  - Предупреждение: {result['warning']}")
 
             success = True
         else:
-            error_message = result.get("error", "Unknown error")
-            print(f"Backup failed: {error_message}")
+            error_message = result.get("error", "Неизвестная ошибка")
+            print(f"Резервное копирование не удалось: {error_message}")
 
     except Exception as e:
         error_message = str(e)
-        print(f"Backup error: {error_message}")
+        print(f"Ошибка резервного копирования: {error_message}")
 
     # Send notification on failure
     if not success and (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
-        message = f"<b>Backup Failed</b>\n\nTime: {datetime.now().isoformat()}\nError: {error_message}"
+        message = f"<b>Резервное копирование не удалось</b>\n\nВремя: {datetime.now().isoformat()}\nОшибка: {error_message}"
         send_telegram_notification(message)
 
-    print(f"[{datetime.now().isoformat()}] Backup {'completed' if success else 'failed'}")
+    print(f"[{datetime.now().isoformat()}] Резервное копирование {'завершено' if success else 'не удалось'}")
 
     return 0 if success else 1
 

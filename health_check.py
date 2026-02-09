@@ -262,7 +262,7 @@ async def send_telegram_escalation(project_dir: Path, reason: str) -> bool:
         telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
 
         if not telegram_bot_token or not telegram_chat_id:
-            print("Warning: Telegram credentials not configured, cannot send escalation")
+            print("Предупреждение: Учётные данные Telegram не настроены, невозможно отправить эскалацию")
             return False
 
         # Format the escalation message
@@ -278,14 +278,14 @@ async def send_telegram_escalation(project_dir: Path, reason: str) -> bool:
             }
             response = await client.post(url, json=payload, timeout=10.0)
             response.raise_for_status()
-            print(f"Sent escalation to Telegram: {reason}")
+            print(f"Отправлена эскалация в Telegram: {reason}")
             return True
 
     except ImportError:
-        print("Warning: httpx not installed, cannot send Telegram escalation")
+        print("Предупреждение: httpx не установлен, невозможно отправить эскалацию в Telegram")
         return False
     except Exception as e:
-        print(f"Warning: Could not send Telegram escalation: {e}")
+        print(f"Предупреждение: Не удалось отправить эскалацию в Telegram: {e}")
         return False
 
 
@@ -316,14 +316,14 @@ async def run_health_check(
         HealthCheckResult with overall pass/fail status
     """
     print("=" * 70)
-    print("  HEALTH CHECK")
+    print("  ПРОВЕРКА ЗДОРОВЬЯ СИСТЕМЫ")
     print("=" * 70)
     print()
 
     last_failure_reason = ""
 
     for attempt in range(1, max_retries + 1):
-        print(f"Health check attempt {attempt}/{max_retries}...")
+        print(f"Попытка проверки {attempt}/{max_retries}...")
 
         all_passed = True
         failure_reasons = []
@@ -331,20 +331,20 @@ async def run_health_check(
         # Check 1: MCP Servers
         mcp_result = check_mcp_servers(project_dir)
         if mcp_result.passed:
-            print("  [OK] MCP servers configured")
+            print("  [OK] MCP серверы настроены")
         else:
-            print(f"  [FAIL] MCP servers: {mcp_result.reason}")
+            print(f"  [ОШИБКА] MCP серверы: {mcp_result.reason}")
             all_passed = False
             failure_reasons.append(f"MCP: {mcp_result.reason}")
 
         # Check 2: Disk Space
         disk_result = check_disk_space(project_dir)
         if disk_result.passed:
-            print(f"  [OK] Disk space: {disk_result.details.get('free_gb', '?')}GB free")
+            print(f"  [OK] Дисковое пространство: {disk_result.details.get('free_gb', '?')}ГБ свободно")
         else:
-            print(f"  [FAIL] Disk space: {disk_result.reason}")
+            print(f"  [ОШИБКА] Дисковое пространство: {disk_result.reason}")
             all_passed = False
-            failure_reasons.append(f"Disk: {disk_result.reason}")
+            failure_reasons.append(f"Диск: {disk_result.reason}")
 
         # Check 3: Orphan Processes
         orphan_result = check_orphan_processes()
@@ -352,17 +352,17 @@ async def run_health_check(
             orphan_count = orphan_result.details.get("orphan_count", "0")
             warning = orphan_result.details.get("warning", "")
             if warning:
-                print(f"  [OK] Orphan processes: {warning}")
+                print(f"  [OK] Потерянные процессы: {warning}")
             else:
-                print(f"  [OK] No orphan processes ({orphan_count} found)")
+                print(f"  [OK] Нет потерянных процессов ({orphan_count} найдено)")
         else:
-            print(f"  [FAIL] Orphan processes: {orphan_result.reason}")
+            print(f"  [ОШИБКА] Потерянные процессы: {orphan_result.reason}")
             all_passed = False
-            failure_reasons.append(f"Orphans: {orphan_result.reason}")
+            failure_reasons.append(f"Процессы: {orphan_result.reason}")
 
         if all_passed:
             print()
-            print("  Health check PASSED")
+            print("  Проверка здоровья ПРОЙДЕНА")
             print("-" * 70)
             return HealthCheckResult(
                 passed=True,
@@ -379,17 +379,17 @@ async def run_health_check(
         last_failure_reason = "; ".join(failure_reasons)
 
         if attempt < max_retries:
-            print(f"\n  Retrying in {retry_delay_seconds}s...")
+            print(f"\n  Повтор через {retry_delay_seconds}с...")
             await asyncio.sleep(retry_delay_seconds)
             print()
         else:
-            print(f"\n  All {max_retries} attempts failed")
+            print(f"\n  Все {max_retries} попыток не удались")
 
     # All retries exhausted - send escalation
     print()
     print("!" * 70)
-    print(f"  HEALTH CHECK FAILED after {max_retries} retries")
-    print(f"  Reason: {last_failure_reason}")
+    print(f"  ПРОВЕРКА НЕ ПРОЙДЕНА после {max_retries} попыток")
+    print(f"  Причина: {last_failure_reason}")
     print("!" * 70)
 
     if send_telegram_on_failure:
@@ -430,7 +430,7 @@ async def run_health_check_cli(project_dir: Path, output_json: bool = False) -> 
         }, indent=2))
     else:
         if not result.passed:
-            print(f"\nHealth check failed: {result.reason}")
+            print(f"\nПроверка здоровья не пройдена: {result.reason}")
 
     return 0 if result.passed else 1
 
@@ -440,18 +440,18 @@ def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Health check for autonomous agent"
+        description="Проверка здоровья для автономного агента"
     )
     parser.add_argument(
         "--json",
         action="store_true",
-        help="Output results in JSON format",
+        help="Вывести результаты в JSON формате",
     )
     parser.add_argument(
         "--project-dir",
         type=str,
         default=".",
-        help="Project directory to check (default: current directory)",
+        help="Директория проекта для проверки (по умолчанию: текущая директория)",
     )
 
     args = parser.parse_args()

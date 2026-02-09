@@ -526,7 +526,7 @@ def run_diagnostics() -> DiagnosticsReport:
 def print_report(report: DiagnosticsReport) -> None:
     """Print the diagnostics report in human-readable format."""
     print("=" * 70)
-    print("  SELF-DIAGNOSTICS REPORT")
+    print("  ОТЧЁТ САМОДИАГНОСТИКИ")
     print("=" * 70)
     print()
 
@@ -559,10 +559,10 @@ def print_report(report: DiagnosticsReport) -> None:
 
     # Summary
     print("-" * 70)
-    print(f"  Summary: {report.summary['ok']} OK, "
-          f"{report.summary['warning']} warnings, "
-          f"{report.summary['error']} errors")
-    print(f"  Overall Status: {status_symbols[report.overall_status]}")
+    print(f"  Итого: {report.summary['ok']} OK, "
+          f"{report.summary['warning']} предупреждений, "
+          f"{report.summary['error']} ошибок")
+    print(f"  Общий статус: {status_symbols[report.overall_status]}")
     print("-" * 70)
 
     # All recommendations
@@ -571,11 +571,11 @@ def print_report(report: DiagnosticsReport) -> None:
         all_recs.extend(check.recommendations)
 
     if all_recs:
-        print("\n  All Recommendations:")
+        print("\n  Все рекомендации:")
         for i, rec in enumerate(all_recs, 1):
             print(f"    {i}. {rec}")
     else:
-        print("\n  No issues found. Environment is healthy.")
+        print("\n  Проблем не найдено. Окружение здорово.")
 
 
 def main() -> int:
@@ -583,17 +583,17 @@ def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Self-diagnostics tool for development environment health checks"
+        description="Инструмент самодиагностики для проверки здоровья окружения разработки"
     )
     parser.add_argument(
         "--json",
         action="store_true",
-        help="Output results in JSON format",
+        help="Вывести результаты в JSON формате",
     )
     parser.add_argument(
         "--check",
         choices=["ports", "node_modules", "npm_cache", "git"],
-        help="Run only a specific check",
+        help="Запустить только конкретную проверку",
     )
 
     args = parser.parse_args()

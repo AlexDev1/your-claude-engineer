@@ -89,22 +89,22 @@ async def wait_while_paused(project_dir: Path) -> bool:
         return False
 
     print("\n" + "=" * 70)
-    print("  AGENT PAUSED")
+    print("  АГЕНТ НА ПАУЗЕ")
     print("=" * 70)
-    print(f"\nAgent is paused. Checking every {PAUSE_CHECK_INTERVAL_SECONDS}s...")
-    print("Use /resume command in Telegram to continue.\n")
+    print(f"\nАгент на паузе. Проверка каждые {PAUSE_CHECK_INTERVAL_SECONDS}с...")
+    print("Используйте команду /resume в Telegram для продолжения.\n")
 
     was_paused = True
 
     while is_agent_paused(project_dir):
         await asyncio.sleep(PAUSE_CHECK_INTERVAL_SECONDS)
-        print(f"[{asyncio.get_event_loop().time():.0f}] Still paused, waiting...")
+        print(f"[{asyncio.get_event_loop().time():.0f}] Всё ещё на паузе, ожидание...")
 
     # Агент возобновлён
     print("\n" + "=" * 70)
-    print("  AGENT RESUMED")
+    print("  АГЕНТ ВОЗОБНОВЛЁН")
     print("=" * 70)
-    print("\nAgent has been resumed. Continuing with next task...\n")
+    print("\nАгент был возобновлён. Продолжаю выполнение следующей задачи...\n")
 
     # Попытка отправить Telegram-уведомление
     try:
@@ -125,9 +125,9 @@ async def wait_while_paused(project_dir: Path) -> bool:
                     "parse_mode": "HTML",
                 }
                 await client.post(url, json=payload, timeout=10.0)
-                print("Sent resume notification to Telegram.")
+                print("Отправлено уведомление в Telegram о возобновлении.")
     except Exception as e:
-        print(f"Note: Could not send Telegram notification: {e}")
+        print(f"Примечание: Не удалось отправить уведомление в Telegram: {e}")
 
     return was_paused
 
@@ -190,7 +190,7 @@ async def run_agent_session(
         - status=COMPLETE: Все задачи выполнены, обнаружен сигнал ALL_TASKS_DONE
         - status=CONTEXT_LIMIT: Превышен бюджет контекста, плавное завершение
     """
-    print("Sending prompt to Claude Agent SDK...\n")
+    print("Отправка промпта в Claude Agent SDK...\n")
 
     # Использовать предоставленный менеджер контекста или получить глобальный
     if ctx_manager is None:
@@ -249,8 +249,8 @@ async def run_agent_session(
             # Проверить бюджет контекста после каждого сообщения (ENG-29)
             if ctx_manager.should_trigger_shutdown():
                 print("\n" + "!" * 70)
-                print("  CONTEXT LIMIT WARNING: 85%+ context used")
-                print("  Triggering graceful shutdown...")
+                print("  ПРЕДУПРЕЖДЕНИЕ О ЛИМИТЕ КОНТЕКСТА: использовано 85%+ контекста")
+                print("  Запуск плавного завершения...")
                 print("!" * 70 + "\n")
 
                 # Prepare shutdown checkpoint
@@ -281,14 +281,14 @@ async def run_agent_session(
         return SessionResult(status=SESSION_CONTINUE, response=response_text)
 
     except ConnectionError as e:
-        print(f"\nNetwork error during agent session: {e}")
-        print("Check your internet connection and try again.")
+        print(f"\nСетевая ошибка во время сессии агента: {e}")
+        print("Проверьте подключение к Интернету и повторите попытку.")
         traceback.print_exc()
         return SessionResult(status=SESSION_ERROR, response=str(e))
 
     except TimeoutError as e:
-        print(f"\nTimeout during agent session: {e}")
-        print("The API request timed out. Will retry with fresh session.")
+        print(f"\nТаймаут во время сессии агента: {e}")
+        print("Истекло время ожидания ответа API. Будет повтор с новой сессией.")
         traceback.print_exc()
         return SessionResult(status=SESSION_ERROR, response=str(e))
 
@@ -296,37 +296,37 @@ async def run_agent_session(
         error_type: str = type(e).__name__
         error_msg: str = str(e)
 
-        print(f"\nError during agent session ({error_type}): {error_msg}")
-        print("\nFull traceback:")
+        print(f"\nОшибка во время сессии агента ({error_type}): {error_msg}")
+        print("\nПолная трассировка:")
         traceback.print_exc()
 
         # Provide actionable guidance based on error type
         error_lower = error_msg.lower()
         if "auth" in error_lower or "token" in error_lower:
-            print("\nThis appears to be an authentication error.")
-            print("Check your CLAUDE_CODE_OAUTH_TOKEN environment variable.")
+            print("\nПохоже на ошибку аутентификации.")
+            print("Проверьте переменную окружения CLAUDE_CODE_OAUTH_TOKEN.")
         elif "rate" in error_lower or "limit" in error_lower:
-            print("\nThis appears to be a rate limit error.")
-            print("The agent will retry after a delay.")
+            print("\nПохоже на ошибку превышения лимита запросов.")
+            print("Агент повторит попытку после задержки.")
         elif "buffer size" in error_lower or "1048576" in error_lower:
-            print("\nJSON message exceeded 1MB buffer limit.")
-            print("This is usually caused by browser_take_screenshot() without filename parameter or with fullPage=True.")
-            print("Fix: Always use browser_take_screenshot(filename='screenshots/ENG-XX.png') WITHOUT fullPage=True")
-            print("The agent will retry with a fresh session.")
+            print("\nJSON-сообщение превысило лимит буфера 1МБ.")
+            print("Обычно это вызвано browser_take_screenshot() без параметра filename или с fullPage=True.")
+            print("Исправление: Всегда используйте browser_take_screenshot(filename='screenshots/ENG-XX.png') БЕЗ fullPage=True")
+            print("Агент повторит попытку с новой сессией.")
         elif "task" in error_lower:
-            print("\nThis appears to be a Task MCP Server error.")
-            print("Check your TASK_MCP_URL and ensure the server is running.")
+            print("\nПохоже на ошибку Task MCP Server.")
+            print("Проверьте TASK_MCP_URL и убедитесь, что сервер запущен.")
         elif "telegram" in error_lower:
-            print("\nThis appears to be a Telegram MCP Server error.")
-            print("Check your TELEGRAM_MCP_URL and ensure the server is running.")
+            print("\nПохоже на ошибку Telegram MCP Server.")
+            print("Проверьте TELEGRAM_MCP_URL и убедитесь, что сервер запущен.")
         elif "mcp" in error_lower:
-            print("\nThis appears to be an MCP server error.")
-            print("Check your MCP server URLs and ensure they are accessible.")
+            print("\nПохоже на ошибку MCP-сервера.")
+            print("Проверьте URL MCP-серверов и убедитесь, что они доступны.")
         else:
             # Unexpected error type - make this visible
-            print(f"\nUnexpected error type: {error_type}")
-            print("This may indicate a bug or an unhandled edge case.")
-            print("The agent will retry, but please report this if it persists.")
+            print(f"\nНеожиданный тип ошибки: {error_type}")
+            print("Это может указывать на баг или необработанный крайний случай.")
+            print("Агент повторит попытку, но пожалуйста сообщите об этом, если ошибка повторяется.")
 
         return SessionResult(status=SESSION_ERROR, response=error_msg)
 
@@ -362,24 +362,24 @@ async def run_autonomous_agent(
         raise ValueError(f"max_iterations must be positive, got {max_iterations}")
 
     print("\n" + "=" * 70)
-    print("  AUTONOMOUS CODING AGENT")
+    print("  АВТОНОМНЫЙ АГЕНТ-КОДЕР")
     print("=" * 70)
-    print(f"\nWorking directory: {project_dir}")
-    print(f"Team: {team}")
-    print(f"Model: {model}")
+    print(f"\nРабочая директория: {project_dir}")
+    print(f"Команда: {team}")
+    print(f"Модель: {model}")
     if max_iterations:
-        print(f"Max iterations: {max_iterations}")
+        print(f"Макс. итераций: {max_iterations}")
     else:
-        print("Max iterations: Unlimited (will run until all tasks done)")
+        print("Макс. итераций: без ограничений (будет работать до завершения всех задач)")
     print()
 
     # Сгенерировать/обновить карту проекта при запуске (ENG-33)
-    print("Generating project map...")
+    print("Генерация карты проекта...")
     project_map = ensure_project_map(project_dir)
     if project_map:
-        print(f"Project map loaded ({len(project_map)} bytes)")
+        print(f"Карта проекта загружена ({len(project_map)} байт)")
     else:
-        print("No project map available")
+        print("Карта проекта недоступна")
 
     # Установить директорию проекта по умолчанию для автономных функций состояния сессии (ENG-66)
     set_default_project_dir(project_dir)
@@ -398,21 +398,21 @@ async def run_autonomous_agent(
         recovery_info = recovery.get_recovery_info(saved_state)
 
         print("\n" + "-" * 70)
-        print("  CRASH RECOVERY: Resuming from interrupted session")
-        print(f"  Issue: {recovery_info['issue_id']}")
-        print(f"  Last phase: {recovery_info['last_phase']}")
-        print(f"  Resume phase: {recovery_info['resume_phase']}")
+        print("  ВОССТАНОВЛЕНИЕ ПОСЛЕ СБОЯ: Возобновление прерванной сессии")
+        print(f"  Задача: {recovery_info['issue_id']}")
+        print(f"  Последняя фаза: {recovery_info['last_phase']}")
+        print(f"  Фаза возобновления: {recovery_info['resume_phase']}")
         if recovery_info["uncommitted_changes"]:
-            print("  Status: Uncommitted changes detected")
+            print("  Статус: Обнаружены незакоммиченные изменения")
         if recovery_info["degraded_services"]:
-            print(f"  Degraded services: {', '.join(recovery_info['degraded_services'])}")
+            print(f"  Деградированные сервисы: {', '.join(recovery_info['degraded_services'])}")
         if recovery_info["error_count"] > 0:
-            print(f"  Errors in previous session: {recovery_info['error_count']}")
+            print(f"  Ошибок в предыдущей сессии: {recovery_info['error_count']}")
         print("-" * 70 + "\n")
 
         # Determine resume point
         resume_phase = state_manager.get_resume_phase(saved_state)
-        print(f"Resuming at phase: {resume_phase.phase_name}")
+        print(f"Возобновление на фазе: {resume_phase.phase_name}")
 
         # Format recovery context for prompt injection (ENG-69)
         recovery_context_text = get_recovery_context(recovery_info)
@@ -430,8 +430,8 @@ async def run_autonomous_agent(
 
         # Check max iterations
         if max_iterations and iteration > max_iterations:
-            print(f"\nReached max iterations ({max_iterations})")
-            print("To continue, run the script again without --max-iterations")
+            print(f"\nДостигнут максимум итераций ({max_iterations})")
+            print("Для продолжения запустите скрипт снова без --max-iterations")
             break
 
         # Print session header
@@ -449,7 +449,7 @@ async def run_autonomous_agent(
 
         if iteration == 1:
             prompt: str = get_execute_task_with_memory(team, project_dir)
-            print("(Loading project map and memory from .agent/)")
+            print("(Загрузка карты проекта и памяти из .agent/)")
 
             # If recovering, inject structured recovery context (ENG-69)
             if resume_phase and recovery_context_text:
@@ -458,18 +458,18 @@ async def run_autonomous_agent(
                 recovery_context_text = ""  # Clear after first use
         else:
             prompt = get_continuation_task_with_memory(team, project_dir)
-            print("(Using continuation prompt - will check previous session context)")
-            print("(Loading project map and memory from .agent/)")
+            print("(Использование промпта продолжения - будет проверен контекст предыдущей сессии)")
+            print("(Загрузка карты проекта и памяти из .agent/)")
 
         # Track prompt tokens
         ctx_manager.set_system_prompt(prompt)
         stats = ctx_manager.get_stats()
         mode_info = f" [{stats['mode'].upper()}]" if stats['mode'] != "normal" else ""
-        print(f"(Context budget: {stats['total_used']:,} / {stats['max_tokens']:,} tokens{mode_info})")
+        print(f"(Бюджет контекста: {stats['total_used']:,} / {stats['max_tokens']:,} токенов{mode_info})")
 
         # Show compact mode instructions if active
         if ctx_manager.is_compact_mode:
-            print("(COMPACT MODE: Using minimal context for issue details)")
+            print("(КОМПАКТНЫЙ РЕЖИМ: Использование минимального контекста для деталей задачи)")
 
         # Run session with error recovery
         result: SessionResult = SessionResult(status=SESSION_ERROR, response="uninitialized")
@@ -486,36 +486,36 @@ async def run_autonomous_agent(
             # Context limit - trigger graceful shutdown with memory flush (ENG-29)
             if result.status == SESSION_CONTEXT_LIMIT:
                 print("\n" + "=" * 70)
-                print("  GRACEFUL SHUTDOWN: Context limit reached (85%)")
+                print("  ПЛАВНОЕ ЗАВЕРШЕНИЕ: Достигнут лимит контекста (85%)")
                 print("=" * 70)
-                print("\nCheckpoint saved. Session will resume from this point.")
+                print("\nКонтрольная точка сохранена. Сессия возобновится с этого места.")
 
                 # Prepare for continuation
                 memory_path = project_dir / ".agent" / "MEMORY.md"
                 ctx_manager.prepare_graceful_shutdown(memory_path)
 
                 # Let the loop continue to next iteration with fresh context
-                print(f"\nWill start fresh session in {AUTO_CONTINUE_DELAY_SECONDS}s...")
+                print(f"\nЗапуск новой сессии через {AUTO_CONTINUE_DELAY_SECONDS}с...")
                 await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
                 continue
 
         except ConnectionError as e:
-            print(f"\nNetwork error during agent session: {e}")
-            print("Check your internet connection and try again.")
+            print(f"\nСетевая ошибка во время сессии агента: {e}")
+            print("Проверьте подключение к Интернету и повторите попытку.")
             traceback.print_exc()
             error_type_detected = recovery.classify_error(e)
             state_manager.record_error(e, error_type_detected)
             result = SessionResult(status=SESSION_ERROR, response=str(e))
 
         except TimeoutError as e:
-            print(f"\nTimeout during agent session: {e}")
+            print(f"\nТаймаут во время сессии агента: {e}")
             error_type_detected = ErrorType.MCP_TIMEOUT
             state_manager.record_error(e, error_type_detected)
             result = SessionResult(status=SESSION_ERROR, response=str(e))
 
         except Exception as e:
             error_type_name: str = type(e).__name__
-            print(f"\nUnexpected error in session context ({error_type_name}): {e}")
+            print(f"\nНеожиданная ошибка в контексте сессии ({error_type_name}): {e}")
             traceback.print_exc()
             error_type_detected = recovery.classify_error(e)
             state_manager.record_error(e, error_type_detected)
@@ -524,17 +524,17 @@ async def run_autonomous_agent(
         # Handle status
         if result.status == SESSION_COMPLETE:
             print("\n" + "=" * 70)
-            print("  ALL TASKS DONE")
+            print("  ВСЕ ЗАДАЧИ ВЫПОЛНЕНЫ")
             print("=" * 70)
-            print("\nNo remaining tasks in Todo.")
+            print("\nНет оставшихся задач в Todo.")
             state_manager.clear_state()
             break
 
         elif result.status == SESSION_CONTINUE:
-            print(f"\nAgent will auto-continue in {AUTO_CONTINUE_DELAY_SECONDS}s...")
+            print(f"\nАгент автоматически продолжит работу через {AUTO_CONTINUE_DELAY_SECONDS}с...")
 
         elif result.status == SESSION_ERROR:
-            print("\nSession encountered an error")
+            print("\nВ сессии произошла ошибка")
 
             # Apply phase-level retry strategy (ENG-67)
             if error_type_detected:
@@ -552,9 +552,9 @@ async def run_autonomous_agent(
                 strategy = recovery.get_retry_strategy(
                     current_phase, attempt_tracker.attempt,
                 )
-                print(f"Phase: {current_phase.phase_name}, "
-                      f"attempt: {attempt_tracker.attempt}/{MAX_PHASE_RETRIES}, "
-                      f"strategy: {strategy.value}")
+                print(f"Фаза: {current_phase.phase_name}, "
+                      f"попытка: {attempt_tracker.attempt}/{MAX_PHASE_RETRIES}, "
+                      f"стратегия: {strategy.value}")
 
                 if strategy == RetryStrategy.ESCALATE:
                     # Check graceful degradation before fully escalating
@@ -564,7 +564,7 @@ async def run_autonomous_agent(
                         msg = GracefulDegradation.get_degradation_message(
                             error_type_detected, current_phase,
                         )
-                        print(f"Graceful degradation: {msg}")
+                        print(f"Плавная деградация: {msg}")
                         state_manager.mark_degraded(current_phase.phase_name)
                         delay = AUTO_CONTINUE_DELAY_SECONDS
                     else:
@@ -573,53 +573,53 @@ async def run_autonomous_agent(
                             error_type_detected == ErrorType.GIT_ERROR
                             and current_phase == SessionPhase.COMMIT
                         ):
-                            print("Attempting to save uncommitted changes...")
+                            print("Попытка сохранить незакоммиченные изменения...")
                             diff_file = await recovery.save_git_diff_to_file()
                             if diff_file:
-                                print(f"Changes saved to: {diff_file}")
+                                print(f"Изменения сохранены в: {diff_file}")
                             else:
                                 await recovery.stash_changes()
 
                         # Mark issue as blocked and notify
-                        print(f"ESCALATED: Phase {current_phase.phase_name} "
-                              f"failed after {MAX_PHASE_RETRIES} retries")
+                        print(f"ЭСКАЛАЦИЯ: Фаза {current_phase.phase_name} "
+                              f"не удалась после {MAX_PHASE_RETRIES} попыток")
                         if state_manager.current_state:
                             state_manager.current_state.last_error = (
-                                f"Escalated: {current_phase.phase_name} "
-                                f"failed after {MAX_PHASE_RETRIES} retries"
+                                f"Эскалация: {current_phase.phase_name} "
+                                f"не удалась после {MAX_PHASE_RETRIES} попыток"
                             )
                             state_manager.save_state()
 
                 elif strategy == RetryStrategy.RETRY_FROM_ORIENT:
-                    print("Restarting from ORIENT phase (early phase failure)")
+                    print("Перезапуск с фазы ORIENT (сбой на ранней фазе)")
                     if state_manager.current_state:
                         state_manager._current_state.phase = SessionPhase.ORIENT
 
                 elif strategy == RetryStrategy.RETRY_IMPLEMENTATION:
-                    print("Retrying from IMPLEMENTATION phase")
+                    print("Повтор с фазы IMPLEMENTATION")
                     if state_manager.current_state:
                         state_manager._current_state.phase = SessionPhase.IMPLEMENTATION
 
                 elif strategy == RetryStrategy.RETRY_CURRENT:
-                    print(f"Retrying phase {current_phase.phase_name}")
+                    print(f"Повтор фазы {current_phase.phase_name}")
 
-                print(f"Will retry with backoff delay of {delay:.1f}s...")
+                print(f"Повтор с задержкой {delay:.1f}с...")
                 await asyncio.sleep(delay)
                 continue
             else:
-                print("Will retry with a fresh session...")
+                print("Повтор с новой сессией...")
 
         # Always wait before next iteration
         await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)
 
         # Small delay between sessions
         if max_iterations is None or iteration < max_iterations:
-            print("\nPreparing next session...\n")
+            print("\nПодготовка следующей сессии...\n")
             await asyncio.sleep(1)
 
     # Final summary
     print("\n" + "=" * 70)
-    print("  SESSION COMPLETE")
+    print("  СЕССИЯ ЗАВЕРШЕНА")
     print("=" * 70)
-    print(f"\nWorking directory: {project_dir}")
-    print("\nDone!")
+    print(f"\nРабочая директория: {project_dir}")
+    print("\nГотово!")

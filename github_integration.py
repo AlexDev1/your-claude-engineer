@@ -292,11 +292,11 @@ class GitHubClient:
         if branch_name in result.stdout:
             # Branch exists, switch to it
             subprocess.run(["git", "checkout", branch_name], check=True)
-            logger.info(f"Switched to existing branch: {branch_name}")
+            logger.info(f"Переключились на существующую ветку: {branch_name}")
         else:
             # Create new branch from main
             subprocess.run(["git", "checkout", "-b", branch_name], check=True)
-            logger.info(f"Created new branch: {branch_name}")
+            logger.info(f"Создана новая ветка: {branch_name}")
 
         return branch_name
 
@@ -341,28 +341,28 @@ class GitHubClient:
             )
 
             if result.returncode == 0:
-                logger.info(f"Pushed branch {branch} to {remote}")
+                logger.info(f"Ветка {branch} отправлена в {remote}")
                 return PushResult(
                     success=True,
                     branch=branch,
-                    message=f"Successfully pushed {branch} to {remote}",
+                    message=f"Успешно отправлено {branch} в {remote}",
                     remote_url=f"https://github.com/{self.repo_full_name}/tree/{branch}",
                 )
             else:
                 error_msg = result.stderr.strip() or result.stdout.strip()
-                logger.error(f"Push failed: {error_msg}")
+                logger.error(f"Push не удался: {error_msg}")
                 return PushResult(
                     success=False,
                     branch=branch,
-                    message=f"Push failed: {error_msg}",
+                    message=f"Push не удался: {error_msg}",
                 )
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"Git command failed: {e}")
+            logger.error(f"Git команда не удалась: {e}")
             return PushResult(
                 success=False,
                 branch=branch or "unknown",
-                message=f"Git error: {e}",
+                message=f"Ошибка Git: {e}",
             )
 
     def get_current_sha(self) -> str:
@@ -431,7 +431,7 @@ class GitHubClient:
                 pr_number = data["number"]
                 pr_url = data["html_url"]
 
-                logger.info(f"Created PR #{pr_number}: {pr_url}")
+                logger.info(f"Создан PR #{pr_number}: {pr_url}")
 
                 # Add labels if any
                 if labels:
@@ -465,21 +465,21 @@ class GitHubClient:
                 )
             else:
                 error_msg = response.text
-                logger.error(f"Failed to create PR: {error_msg}")
+                logger.error(f"Не удалось создать PR: {error_msg}")
                 return PRResult(
                     success=False,
                     pr_number=None,
                     pr_url=None,
-                    message=f"API error ({response.status_code}): {error_msg}",
+                    message=f"Ошибка API ({response.status_code}): {error_msg}",
                 )
 
         except httpx.RequestError as e:
-            logger.error(f"Request failed: {e}")
+            logger.error(f"Запрос не удался: {e}")
             return PRResult(
                 success=False,
                 pr_number=None,
                 pr_url=None,
-                message=f"Request error: {e}",
+                message=f"Ошибка запроса: {e}",
             )
 
     def _add_labels_to_pr(self, pr_number: int, labels: list[str]) -> None:
@@ -1027,11 +1027,11 @@ def push_to_github(
         and an informational message.
     """
     if not is_github_configured():
-        logger.warning("GitHub push skipped: GITHUB_TOKEN not set")
+        logger.warning("GitHub push пропущен: GITHUB_TOKEN не установлен")
         return PushResult(
             success=False,
             branch=branch or "unknown",
-            message="Push skipped: GITHUB_TOKEN not configured",
+            message="Push пропущен: GITHUB_TOKEN не настроен",
         )
 
     try:
@@ -1039,18 +1039,18 @@ def push_to_github(
             return client.push_branch(branch=branch, remote=remote)
     except ValueError as e:
         # Token or repo configuration error
-        logger.warning("GitHub push skipped due to config error: %s", e)
+        logger.warning("GitHub push пропущен из-за ошибки конфигурации: %s", e)
         return PushResult(
             success=False,
             branch=branch or "unknown",
-            message=f"Push skipped: {e}",
+            message=f"Push пропущен: {e}",
         )
     except Exception as e:
-        logger.error("Unexpected error during push: %s", e)
+        logger.error("Неожиданная ошибка во время push: %s", e)
         return PushResult(
             success=False,
             branch=branch or "unknown",
-            message=f"Push failed: {e}",
+            message=f"Push не удался: {e}",
         )
 
 
@@ -1075,11 +1075,11 @@ def auto_push_after_commit(issue_id: str | None = None) -> PushResult:
         PushResult with success status and details
     """
     if not is_github_configured():
-        logger.warning("Auto-push skipped: GITHUB_TOKEN not set")
+        logger.warning("Авто-push пропущен: GITHUB_TOKEN не установлен")
         return PushResult(
             success=False,
             branch="unknown",
-            message="Auto-push skipped: GITHUB_TOKEN not configured",
+            message="Авто-push пропущен: GITHUB_TOKEN не настроен",
         )
 
     # Determine current branch
@@ -1092,11 +1092,11 @@ def auto_push_after_commit(issue_id: str | None = None) -> PushResult:
         )
         current_branch = result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        logger.error("Failed to determine current branch: %s", e)
+        logger.error("Не удалось определить текущую ветку: %s", e)
         return PushResult(
             success=False,
             branch="unknown",
-            message=f"Git error: could not determine current branch: {e}",
+            message=f"Ошибка Git: не удалось определить текущую ветку: {e}",
         )
 
     # If issue_id provided and not already on an agent branch, create one
@@ -1104,11 +1104,11 @@ def auto_push_after_commit(issue_id: str | None = None) -> PushResult:
         try:
             current_branch = create_agent_branch(issue_id)
         except subprocess.CalledProcessError as e:
-            logger.error("Failed to create agent branch: %s", e)
+            logger.error("Не удалось создать ветку агента: %s", e)
             return PushResult(
                 success=False,
                 branch=current_branch,
-                message=f"Failed to create agent branch: {e}",
+                message=f"Не удалось создать ветку агента: {e}",
             )
 
     # Push the branch
@@ -1164,9 +1164,9 @@ def run_lint_gate(project_dir: str | None = None) -> LintGateResult:
             combined_output += "\n" + result.stderr
 
         if passed:
-            logger.info("Lint gate passed")
+            logger.info("Lint gate пройден")
         else:
-            logger.warning("Lint gate failed (exit code %d)", result.returncode)
+            logger.warning("Lint gate не пройден (код выхода %d)", result.returncode)
 
         return LintGateResult(
             passed=passed,
@@ -1174,17 +1174,17 @@ def run_lint_gate(project_dir: str | None = None) -> LintGateResult:
             exit_code=result.returncode,
         )
     except subprocess.TimeoutExpired:
-        logger.error("Lint gate timed out after 120s")
+        logger.error("Lint gate превысил время ожидания 120с")
         return LintGateResult(
             passed=False,
-            output="Lint gate timed out after 120 seconds",
+            output="Lint gate превысил время ожидания 120 секунд",
             exit_code=-1,
         )
     except FileNotFoundError:
-        logger.warning("bash not found, cannot run lint-gate.sh")
+        logger.warning("bash не найден, невозможно запустить lint-gate.sh")
         return LintGateResult(
             passed=True,
-            output="bash not found, skipping quality gate",
+            output="bash не найден, пропуск quality gate",
             exit_code=0,
         )
 
@@ -1218,16 +1218,16 @@ def auto_push_with_gate(
     if not skip_gate:
         gate_result = run_lint_gate(project_dir)
         if not gate_result.passed:
-            logger.warning("Push blocked: lint-gate failed")
+            logger.warning("Push заблокирован: lint-gate не пройден")
             return PushResult(
                 success=False,
                 branch="unknown",
                 message=(
-                    f"Push blocked: lint-gate failed (exit code {gate_result.exit_code}). "
-                    f"Fix errors before pushing."
+                    f"Push заблокирован: lint-gate не пройден (код выхода {gate_result.exit_code}). "
+                    f"Исправьте ошибки перед push."
                 ),
             )
-        logger.info("Lint gate passed, proceeding with push")
+        logger.info("Lint gate пройден, продолжаем push")
 
     return auto_push_after_commit(issue_id)
 

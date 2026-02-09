@@ -302,7 +302,7 @@ def format_stale_issues_alert(data: dict[str, Any]) -> str:
 
 async def run_heartbeat_check() -> None:
     """Run a single heartbeat check cycle."""
-    logger.info("Running heartbeat check...")
+    logger.info("Запуск проверки heartbeat...")
 
     async with httpx.AsyncClient() as client:
         # 1. Check MCP server health
@@ -334,32 +334,32 @@ async def run_heartbeat_check() -> None:
             if stale_alert:
                 await send_telegram_alert(stale_alert, client)
         else:
-            logger.warning("  Skipping stale issues check (Task MCP unhealthy)")
+            logger.warning("  Пропуск проверки застоявшихся задач (Task MCP недоступен)")
 
-    logger.info("Heartbeat check complete")
+    logger.info("Проверка heartbeat завершена")
 
 
 async def main() -> None:
     """Main entry point - run heartbeat loop."""
     logger.info("=" * 60)
-    logger.info("Heartbeat Daemon Starting (Local Development)")
+    logger.info("Запуск Heartbeat Daemon (Локальная разработка)")
     logger.info("=" * 60)
     logger.info(f"Task MCP Health URL: {config.task_mcp_health_url}")
     logger.info(f"Telegram MCP Health URL: {config.telegram_mcp_health_url}")
     logger.info(f"Stale Issues URL: {config.task_stale_url}")
-    logger.info(f"Check interval: {config.interval_minutes} minutes")
-    logger.info(f"Stale threshold: {config.stale_threshold_hours} hours")
+    logger.info(f"Интервал проверки: {config.interval_minutes} минут")
+    logger.info(f"Порог застаивания: {config.stale_threshold_hours} часов")
     if config.team:
-        logger.info(f"Team filter: {config.team}")
-    logger.info(f"Telegram configured: {bool(config.telegram_bot_token)}")
-    logger.info(f"API key configured: {bool(config.mcp_api_key)}")
+        logger.info(f"Фильтр команды: {config.team}")
+    logger.info(f"Telegram настроен: {bool(config.telegram_bot_token)}")
+    logger.info(f"API ключ настроен: {bool(config.mcp_api_key)}")
     logger.info("=" * 60)
 
     # Validate configuration
     errors = config.validate()
     if errors:
         for error in errors:
-            logger.warning(f"Config warning: {error}")
+            logger.warning(f"Предупреждение конфигурации: {error}")
 
     # Run initial check
     await run_heartbeat_check()
@@ -367,7 +367,7 @@ async def main() -> None:
     # Main loop
     interval_seconds = config.interval_minutes * 60
     while True:
-        logger.info(f"Next check in {config.interval_minutes} minutes...")
+        logger.info(f"Следующая проверка через {config.interval_minutes} минут...")
         await asyncio.sleep(interval_seconds)
         await run_heartbeat_check()
 
@@ -376,7 +376,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Heartbeat daemon stopped by user")
+        logger.info("Heartbeat daemon остановлен пользователем")
     except Exception as e:
-        logger.error(f"Heartbeat daemon crashed: {e}")
+        logger.error(f"Heartbeat daemon упал с ошибкой: {e}")
         sys.exit(1)

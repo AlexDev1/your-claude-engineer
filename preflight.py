@@ -392,7 +392,7 @@ def run_preflight_checks(fail_fast: bool = False) -> bool:
         True if all checks passed, False if any check failed.
     """
     print("=" * 70)
-    print("  PREFLIGHT CHECKS")
+    print("  ПРОВЕРКИ ПЕРЕД ЗАПУСКОМ")
     print("=" * 70)
 
     passed = 0
@@ -417,25 +417,25 @@ def run_preflight_checks(fail_fast: bool = False) -> bool:
             if fail_fast:
                 print()
                 print("-" * 70)
-                print(f"  Results: {passed} passed, {failed} failed (stopped early)")
+                print(f"  Результаты: {passed} пройдено, {failed} не пройдено (остановлено досрочно)")
                 print("-" * 70)
-                print(f"\n  PREFLIGHT CHECK FAILED: {name}")
-                print("  Use --skip-preflight to bypass checks if needed.")
+                print(f"\n  ПРОВЕРКА НЕ ПРОЙДЕНА: {name}")
+                print("  Используйте --skip-preflight для пропуска проверок при необходимости.")
                 return False
 
     # Summary
     print()
     print("-" * 70)
-    print(f"  Results: {passed} passed, {failed} failed")
+    print(f"  Результаты: {passed} пройдено, {failed} не пройдено")
     print("-" * 70)
 
     if failed == 0:
-        print("\n  ALL PREFLIGHT CHECKS PASSED")
-        print("  System is ready for agent operation.")
+        print("\n  ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ")
+        print("  Система готова к работе агента.")
         return True
     else:
-        print(f"\n  {failed} CHECK(S) FAILED")
-        print("  Please resolve the issues above before proceeding.")
+        print(f"\n  {failed} ПРОВЕРОК НЕ ПРОЙДЕНО")
+        print("  Пожалуйста, устраните указанные проблемы перед продолжением.")
         return False
 
 
