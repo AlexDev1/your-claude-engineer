@@ -1333,3 +1333,206 @@ class TelegramReports:
                     lines.append(f"- {escape_html(str(item))}")
 
         return "\n".join(lines)
+
+    # -----------------------------------------------------------------
+    # Session Summary (ENG-86)
+    # -----------------------------------------------------------------
+
+    def _format_duration(self, minutes: int) -> str:
+        """Format duration in minutes as human-readable Russian string.
+
+        Args:
+            minutes: Duration in minutes (non-negative).
+
+        Returns:
+            Formatted string like ``1ч 30м`` or ``45м``.
+            Returns ``0м`` when *minutes* is zero or negative.
+        """
+        if minutes <= 0:
+            return "0м"
+        hours = minutes // 60
+        mins = minutes % 60
+        if hours > 0 and mins > 0:
+            return f"{hours}ч {mins}м"
+        if hours > 0:
+            return f"{hours}ч"
+        return f"{mins}м"
+
+    def _format_tokens(self, count: int) -> str:
+        """Format token count with thousands separator.
+
+        Args:
+            count: Token count (non-negative integer).
+
+        Returns:
+            Comma-separated string like ``150,000``.
+        """
+        return f"{count:,}"
+
+    def generate_session_summary(self, session_data: dict[str, object]) -> str:
+        """Generate an HTML session summary report for Telegram.
+
+        Sections with empty data are omitted automatically.
+        All user-supplied strings are HTML-escaped for XSS protection.
+
+        Args:
+            session_data: Dictionary with session information containing:
+                - ``start_time`` (str): ISO-format start timestamp, e.g. ``"2026-02-09T10:00:00"``.
+                - ``end_time`` (str): ISO-format end timestamp.
+                - ``duration_minutes`` (int): Session length in minutes.
+                - ``tokens_used`` (int): Total tokens consumed.
+                - ``cost_usd`` (float): Estimated cost in USD.
+                - ``tool_calls`` (dict[str, int]): Counts by tool name.
+                - ``commits`` (list[str]): Commit summaries (``"hash: message"``).
+                - ``issues_completed`` (list[str]): Issue IDs completed.
+                - ``retries`` (int): Number of retry attempts.
+                - ``errors`` (list[str]): Error descriptions.
+
+        Returns:
+            HTML-formatted string ready for ``parse_mode="HTML"`` in Telegram.
+
+        Example output::
+
+            <b>Итоги сессии</b>
+
+            <b>Время:</b> 10:00 -> 11:30 (1ч 30м)
+
+            <b>Токены:</b> 150,000 (~$0.45)
+
+            <b>Инструменты:</b>
+            - Read: 25
+            - Write: 10
+            - Bash: 15
+
+            <b>Коммиты:</b>
+            - abc123: feat(ENG-85): add daily digest
+
+            <b>Завершено:</b> ENG-85
+
+            <b>Проблемы:</b> 2 retry
+            - MCP timeout on first attempt
+        """
+        start_time = str(session_data.get("start_time", "") or "")
+        end_time = str(session_data.get("end_time", "") or "")
+        duration_minutes = int(session_data.get("duration_minutes", 0) or 0)
+        tokens_used = int(session_data.get("tokens_used", 0) or 0)
+        cost_usd = float(session_data.get("cost_usd", 0) or 0)
+        tool_calls: dict[str, int] = dict(
+            session_data.get("tool_calls", {}) or {}  # type: ignore[arg-type]
+        )
+        commits: list[str] = list(
+            session_data.get("commits", []) or []  # type: ignore[arg-type]
+        )
+        issues_completed: list[str] = list(
+            session_data.get("issues_completed", []) or []  # type: ignore[arg-type]
+        )
+        retries = int(session_data.get("retries", 0) or 0)
+        errors: list[str] = list(
+            session_data.get("errors", []) or []  # type: ignore[arg-type]
+        )
+
+        lines: list[str] = ["<b>Итоги сессии</b>"]
+
+        # -- Time section --
+        self._append_time_section(lines, start_time, end_time, duration_minutes)
+
+        # -- Tokens section --
+        if tokens_used > 0:
+            lines.append("")
+            token_str = self._format_tokens(tokens_used)
+            if cost_usd > 0:
+                lines.append(f"<b>Токены:</b> {token_str} (~${cost_usd:.2f})")
+            else:
+                lines.append(f"<b>Токены:</b> {token_str}")
+
+        # -- Tool calls section --
+        if tool_calls:
+            lines.append("")
+            lines.append("<b>Инструменты:</b>")
+            for tool_name, count in tool_calls.items():
+                safe_name = escape_html(str(tool_name))
+                lines.append(f"- {safe_name}: {count}")
+
+        # -- Commits section --
+        if commits:
+            lines.append("")
+            lines.append("<b>Коммиты:</b>")
+            for commit in commits:
+                lines.append(f"- {escape_html(str(commit))}")
+
+        # -- Issues completed section --
+        if issues_completed:
+            lines.append("")
+            safe_issues = ", ".join(escape_html(str(i)) for i in issues_completed)
+            lines.append(f"<b>Завершено:</b> {safe_issues}")
+
+        # -- Problems / retries section --
+        if retries > 0 or errors:
+            lines.append("")
+            if retries > 0:
+                lines.append(f"<b>Проблемы:</b> {retries} retry")
+            else:
+                lines.append("<b>Проблемы:</b>")
+            for error in errors:
+                lines.append(f"- {escape_html(str(error))}")
+
+        return "\n".join(lines)
+
+    def _append_time_section(
+        self,
+        lines: list[str],
+        start_time: str,
+        end_time: str,
+        duration_minutes: int,
+    ) -> None:
+        """Append the time section to report lines.
+
+        Builds the time line from start/end timestamps and duration.
+        Skips the section entirely when no time data is available.
+
+        Args:
+            lines: Accumulator list of report lines (mutated in place).
+            start_time: ISO-format start timestamp string.
+            end_time: ISO-format end timestamp string.
+            duration_minutes: Duration in minutes.
+        """
+        has_times = bool(start_time and end_time)
+        has_duration = duration_minutes > 0
+
+        if not has_times and not has_duration:
+            return
+
+        lines.append("")
+
+        if has_times:
+            start_short = self._extract_time_hhmm(start_time)
+            end_short = self._extract_time_hhmm(end_time)
+            duration_str = self._format_duration(duration_minutes)
+
+            if has_duration:
+                lines.append(
+                    f"<b>Время:</b> {start_short} -> {end_short} ({duration_str})"
+                )
+            else:
+                lines.append(f"<b>Время:</b> {start_short} -> {end_short}")
+        elif has_duration:
+            duration_str = self._format_duration(duration_minutes)
+            lines.append(f"<b>Время:</b> {duration_str}")
+
+    @staticmethod
+    def _extract_time_hhmm(iso_timestamp: str) -> str:
+        """Extract HH:MM from an ISO-format timestamp string.
+
+        Falls back to the raw string (HTML-escaped) if parsing fails.
+
+        Args:
+            iso_timestamp: Timestamp like ``"2026-02-09T10:00:00"``.
+
+        Returns:
+            Time portion as ``"HH:MM"`` or escaped fallback.
+        """
+        try:
+            dt = datetime.fromisoformat(iso_timestamp)
+            return dt.strftime("%H:%M")
+        except (ValueError, TypeError):
+            return escape_html(iso_timestamp)

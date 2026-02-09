@@ -1,6 +1,6 @@
 """
-Tests for TelegramReports daily digest (ENG-85)
-=================================================
+Tests for TelegramReports (ENG-85, ENG-86)
+============================================
 
 Verifies:
 1. Daily digest generation with all fields
@@ -8,6 +8,11 @@ Verifies:
 3. HTML formatting uses only Telegram-supported tags
 4. Completed-today list with dict and string items
 5. Empty / missing fields handled gracefully
+6. Session summary: full report generation (ENG-86)
+7. Session summary: empty commits/errors (ENG-86)
+8. Session summary: time formatting (ENG-86)
+9. Session summary: token formatting with thousands separators (ENG-86)
+10. Session summary: XSS protection (ENG-86)
 """
 
 import re
@@ -255,3 +260,371 @@ class TestHtmlFormatting:
         # Remove known HTML entities before checking
         cleaned = result.replace("&amp;", "").replace("&lt;", "").replace("&gt;", "")
         assert "&" not in cleaned, "Found unescaped '&' in output"
+
+
+# ---------------------------------------------------------------------------
+# Session summary generation tests (ENG-86)
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateSessionSummary:
+    """Test TelegramReports.generate_session_summary."""
+
+    def setup_method(self) -> None:
+        """Create a TelegramReports instance for each test."""
+        self.reports = TelegramReports()
+
+    def _full_session_data(self) -> dict:
+        """Return a complete session data dictionary for reuse.
+
+        Returns:
+            Dict with all supported session_data keys populated.
+        """
+        return {
+            "start_time": "2026-02-09T10:00:00",
+            "end_time": "2026-02-09T11:30:00",
+            "duration_minutes": 90,
+            "tokens_used": 150000,
+            "cost_usd": 0.45,
+            "tool_calls": {"Read": 25, "Write": 10, "Bash": 15},
+            "commits": ["abc123: feat(ENG-85): add daily digest"],
+            "issues_completed": ["ENG-85"],
+            "retries": 2,
+            "errors": ["MCP timeout on first attempt"],
+        }
+
+    def test_full_report_header(self) -> None:
+        """Full report starts with the session summary header."""
+        result = self.reports.generate_session_summary(self._full_session_data())
+        assert "<b>Итоги сессии</b>" in result
+
+    def test_full_report_time_section(self) -> None:
+        """Time section shows start, end, and duration."""
+        result = self.reports.generate_session_summary(self._full_session_data())
+        assert "10:00" in result
+        assert "11:30" in result
+        assert "1ч 30м" in result
+
+    def test_full_report_tokens_section(self) -> None:
+        """Tokens section shows formatted count and cost."""
+        result = self.reports.generate_session_summary(self._full_session_data())
+        assert "150,000" in result
+        assert "~$0.45" in result
+
+    def test_full_report_tool_calls_section(self) -> None:
+        """Tool calls section lists each tool with its count."""
+        result = self.reports.generate_session_summary(self._full_session_data())
+        assert "<b>Инструменты:</b>" in result
+        assert "- Read: 25" in result
+        assert "- Write: 10" in result
+        assert "- Bash: 15" in result
+
+    def test_full_report_commits_section(self) -> None:
+        """Commits section lists each commit."""
+        result = self.reports.generate_session_summary(self._full_session_data())
+        assert "<b>Коммиты:</b>" in result
+        assert "abc123: feat(ENG-85): add daily digest" in result
+
+    def test_full_report_issues_completed(self) -> None:
+        """Issues completed section lists finished issues."""
+        result = self.reports.generate_session_summary(self._full_session_data())
+        assert "<b>Завершено:</b>" in result
+        assert "ENG-85" in result
+
+    def test_full_report_problems_section(self) -> None:
+        """Problems section shows retry count and error messages."""
+        result = self.reports.generate_session_summary(self._full_session_data())
+        assert "<b>Проблемы:</b> 2 retry" in result
+        assert "- MCP timeout on first attempt" in result
+
+    def test_empty_commits_and_errors(self) -> None:
+        """Sections with empty lists are omitted from the report."""
+        data = {
+            "start_time": "2026-02-09T10:00:00",
+            "end_time": "2026-02-09T10:45:00",
+            "duration_minutes": 45,
+            "tokens_used": 50000,
+            "cost_usd": 0.15,
+            "tool_calls": {"Read": 5},
+            "commits": [],
+            "issues_completed": [],
+            "retries": 0,
+            "errors": [],
+        }
+        result = self.reports.generate_session_summary(data)
+
+        assert "Коммиты" not in result
+        assert "Завершено" not in result
+        assert "Проблемы" not in result
+
+    def test_empty_session_data(self) -> None:
+        """Empty dict produces only the header without crashing."""
+        result = self.reports.generate_session_summary({})
+
+        assert "<b>Итоги сессии</b>" in result
+        # No optional sections should appear
+        assert "Время" not in result
+        assert "Токены" not in result
+        assert "Инструменты" not in result
+        assert "Коммиты" not in result
+        assert "Завершено" not in result
+        assert "Проблемы" not in result
+
+    def test_none_values_treated_as_defaults(self) -> None:
+        """None values for optional fields default safely."""
+        data = {
+            "start_time": None,
+            "end_time": None,
+            "duration_minutes": None,
+            "tokens_used": None,
+            "cost_usd": None,
+            "tool_calls": None,
+            "commits": None,
+            "issues_completed": None,
+            "retries": None,
+            "errors": None,
+        }
+        result = self.reports.generate_session_summary(data)
+        assert "<b>Итоги сессии</b>" in result
+
+    def test_multiple_issues_completed(self) -> None:
+        """Multiple issues are listed comma-separated."""
+        data = {
+            "issues_completed": ["ENG-85", "ENG-86", "ENG-87"],
+        }
+        result = self.reports.generate_session_summary(data)
+        assert "ENG-85, ENG-86, ENG-87" in result
+
+    def test_errors_without_retries(self) -> None:
+        """Errors section appears even when retries is 0."""
+        data = {
+            "retries": 0,
+            "errors": ["Unexpected timeout"],
+        }
+        result = self.reports.generate_session_summary(data)
+        assert "<b>Проблемы:</b>" in result
+        assert "- Unexpected timeout" in result
+        # Should not show "0 retry"
+        assert "0 retry" not in result
+
+    def test_retries_without_errors(self) -> None:
+        """Retry count shown even when error list is empty."""
+        data = {"retries": 3, "errors": []}
+        result = self.reports.generate_session_summary(data)
+        assert "<b>Проблемы:</b> 3 retry" in result
+
+
+# ---------------------------------------------------------------------------
+# Session summary: time formatting (ENG-86)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionSummaryTimeFormatting:
+    """Test duration and time formatting in session summary."""
+
+    def setup_method(self) -> None:
+        """Create a TelegramReports instance for each test."""
+        self.reports = TelegramReports()
+
+    def test_format_duration_hours_and_minutes(self) -> None:
+        """90 minutes formats as '1ч 30м'."""
+        assert self.reports._format_duration(90) == "1ч 30м"
+
+    def test_format_duration_only_minutes(self) -> None:
+        """45 minutes formats as '45м'."""
+        assert self.reports._format_duration(45) == "45м"
+
+    def test_format_duration_only_hours(self) -> None:
+        """120 minutes (exact hours) formats as '2ч'."""
+        assert self.reports._format_duration(120) == "2ч"
+
+    def test_format_duration_zero(self) -> None:
+        """Zero minutes formats as '0м'."""
+        assert self.reports._format_duration(0) == "0м"
+
+    def test_format_duration_negative(self) -> None:
+        """Negative minutes treated as zero."""
+        assert self.reports._format_duration(-5) == "0м"
+
+    def test_format_duration_one_minute(self) -> None:
+        """Single minute."""
+        assert self.reports._format_duration(1) == "1м"
+
+    def test_format_duration_large(self) -> None:
+        """Large durations like 300 minutes = 5 hours."""
+        assert self.reports._format_duration(300) == "5ч"
+
+    def test_time_only_duration_no_timestamps(self) -> None:
+        """When only duration is given, show just duration."""
+        data = {"duration_minutes": 45}
+        result = self.reports.generate_session_summary(data)
+        assert "<b>Время:</b> 45м" in result
+
+    def test_time_with_start_end_no_duration(self) -> None:
+        """When timestamps given but no duration, show times only."""
+        data = {
+            "start_time": "2026-02-09T14:00:00",
+            "end_time": "2026-02-09T15:00:00",
+            "duration_minutes": 0,
+        }
+        result = self.reports.generate_session_summary(data)
+        assert "14:00" in result
+        assert "15:00" in result
+        # No duration parenthetical
+        assert "0м" not in result
+
+    def test_time_section_omitted_when_all_empty(self) -> None:
+        """No time section when no time data is provided."""
+        data = {"tokens_used": 1000}
+        result = self.reports.generate_session_summary(data)
+        assert "Время" not in result
+
+
+# ---------------------------------------------------------------------------
+# Session summary: token formatting (ENG-86)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionSummaryTokenFormatting:
+    """Test token count formatting with thousands separators."""
+
+    def setup_method(self) -> None:
+        """Create a TelegramReports instance for each test."""
+        self.reports = TelegramReports()
+
+    def test_format_tokens_thousands(self) -> None:
+        """150000 formats as '150,000'."""
+        assert self.reports._format_tokens(150000) == "150,000"
+
+    def test_format_tokens_millions(self) -> None:
+        """1500000 formats as '1,500,000'."""
+        assert self.reports._format_tokens(1500000) == "1,500,000"
+
+    def test_format_tokens_small(self) -> None:
+        """999 formats without separator."""
+        assert self.reports._format_tokens(999) == "999"
+
+    def test_format_tokens_zero(self) -> None:
+        """Zero formats as '0'."""
+        assert self.reports._format_tokens(0) == "0"
+
+    def test_tokens_without_cost(self) -> None:
+        """Tokens shown without cost when cost_usd is 0."""
+        data = {"tokens_used": 50000, "cost_usd": 0}
+        result = self.reports.generate_session_summary(data)
+        assert "50,000" in result
+        assert "$" not in result
+
+    def test_tokens_with_cost(self) -> None:
+        """Tokens shown with cost when both provided."""
+        data = {"tokens_used": 150000, "cost_usd": 0.45}
+        result = self.reports.generate_session_summary(data)
+        assert "150,000" in result
+        assert "~$0.45" in result
+
+    def test_zero_tokens_omitted(self) -> None:
+        """Token section omitted when tokens_used is 0."""
+        data = {"tokens_used": 0}
+        result = self.reports.generate_session_summary(data)
+        assert "Токены" not in result
+
+
+# ---------------------------------------------------------------------------
+# Session summary: XSS protection (ENG-86)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionSummaryXssProtection:
+    """Test that user-supplied data is HTML-escaped."""
+
+    def setup_method(self) -> None:
+        """Create a TelegramReports instance for each test."""
+        self.reports = TelegramReports()
+
+    def test_xss_in_commit_message(self) -> None:
+        """HTML in commit messages is escaped."""
+        data = {
+            "commits": ['abc: <script>alert("xss")</script>'],
+        }
+        result = self.reports.generate_session_summary(data)
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+
+    def test_xss_in_tool_name(self) -> None:
+        """HTML in tool names is escaped."""
+        data = {
+            "tool_calls": {"<b>evil</b>": 5},
+        }
+        result = self.reports.generate_session_summary(data)
+        # The literal <b>evil</b> should not appear as HTML tag
+        assert "&lt;b&gt;evil&lt;/b&gt;" in result
+
+    def test_xss_in_error_message(self) -> None:
+        """HTML in error messages is escaped."""
+        data = {
+            "retries": 1,
+            "errors": ["<img src=x onerror=alert(1)>"],
+        }
+        result = self.reports.generate_session_summary(data)
+        assert "<img" not in result
+        assert "&lt;img" in result
+
+    def test_xss_in_issue_id(self) -> None:
+        """HTML in issue IDs is escaped."""
+        data = {
+            "issues_completed": ['<a href="evil">click</a>'],
+        }
+        result = self.reports.generate_session_summary(data)
+        assert 'href="evil"' not in result
+        assert "&lt;a" in result
+
+    def test_only_allowed_tags_in_session_summary(self) -> None:
+        """Session summary uses only Telegram-allowed HTML tags."""
+        data = {
+            "start_time": "2026-02-09T10:00:00",
+            "end_time": "2026-02-09T11:30:00",
+            "duration_minutes": 90,
+            "tokens_used": 150000,
+            "cost_usd": 0.45,
+            "tool_calls": {"Read": 25},
+            "commits": ["abc123: feat: test"],
+            "issues_completed": ["ENG-85"],
+            "retries": 1,
+            "errors": ["timeout"],
+        }
+        result = self.reports.generate_session_summary(data)
+        used_tags = _extract_tags(result)
+        assert used_tags.issubset(ALLOWED_TAGS), (
+            f"Found disallowed tags: {used_tags - ALLOWED_TAGS}"
+        )
+
+    def test_tags_properly_closed_in_session_summary(self) -> None:
+        """Every opening tag in session summary has a matching close."""
+        data = self._full_session_data()
+        result = self.reports.generate_session_summary(data)
+
+        for tag in _extract_tags(result):
+            open_count = result.count(f"<{tag}>") + result.count(f"<{tag} ")
+            close_count = result.count(f"</{tag}>")
+            assert open_count == close_count, (
+                f"Tag <{tag}> opened {open_count} but closed {close_count} times"
+            )
+
+    def _full_session_data(self) -> dict:
+        """Return complete session data for XSS test.
+
+        Returns:
+            Dict with all supported session_data keys populated.
+        """
+        return {
+            "start_time": "2026-02-09T10:00:00",
+            "end_time": "2026-02-09T11:30:00",
+            "duration_minutes": 90,
+            "tokens_used": 150000,
+            "cost_usd": 0.45,
+            "tool_calls": {"Read": 25, "Write": 10},
+            "commits": ["abc123: feat(ENG-85): add digest"],
+            "issues_completed": ["ENG-85"],
+            "retries": 2,
+            "errors": ["MCP timeout"],
+        }
