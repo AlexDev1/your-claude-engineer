@@ -17,6 +17,7 @@ Security:
 - Branch names are sanitized to prevent injection
 """
 
+import json
 import os
 import re
 import logging
@@ -1230,6 +1231,244 @@ def auto_push_with_gate(
         logger.info("Lint gate passed, proceeding with push")
 
     return auto_push_after_commit(issue_id)
+
+
+@dataclass
+class AutoPRResult:
+    """Result of automatic PR creation when an issue transitions to Done."""
+
+    success: bool
+    pr_url: str | None
+    pr_number: int | None
+    message: str
+
+
+def _has_commits_ahead_of_base(branch: str, base: str = "main") -> bool:
+    """
+    Check if a branch has commits ahead of the base branch.
+
+    Args:
+        branch: Source branch name
+        base: Target branch name (default: main)
+
+    Returns:
+        True if branch has at least one commit ahead of base
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-list", "--count", f"{base}..{branch}"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        count = int(result.stdout.strip())
+        return count > 0
+    except (subprocess.CalledProcessError, ValueError):
+        return False
+
+
+def _check_existing_pr_via_gh(branch: str) -> dict[str, str | int] | None:
+    """
+    Check if a PR already exists for the given branch using gh CLI.
+
+    Args:
+        branch: Source branch name to check
+
+    Returns:
+        Dict with 'url' and 'number' keys if PR exists, None otherwise
+    """
+    try:
+        result = subprocess.run(
+            ["gh", "pr", "view", branch, "--json", "number,url"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout.strip())
+            return {"url": data["url"], "number": data["number"]}
+    except (subprocess.CalledProcessError, FileNotFoundError, KeyError, ValueError):
+        pass
+    return None
+
+
+def _is_gh_cli_available() -> bool:
+    """
+    Check if the GitHub CLI (gh) is installed and authenticated.
+
+    Returns:
+        True if gh CLI is available and authenticated
+    """
+    try:
+        result = subprocess.run(
+            ["gh", "auth", "status"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def create_auto_pr(
+    issue_id: str,
+    issue_title: str,
+    issue_description: str,
+    session_summary: str | None = None,
+    base_branch: str = "main",
+) -> AutoPRResult:
+    """
+    Create a PR from agent/{issue-id} branch to main when issue transitions to Done.
+
+    Uses the gh CLI for PR creation. Handles edge cases:
+    - No commits to push (branch is up to date with main)
+    - PR already exists for this branch
+    - GitHub token / gh CLI not configured
+
+    Args:
+        issue_id: Issue identifier (e.g., "ENG-63")
+        issue_title: Human-readable issue title
+        issue_description: Issue description body (markdown)
+        session_summary: Optional session summary to include in PR body
+        base_branch: Target branch for the PR (default: main)
+
+    Returns:
+        AutoPRResult with success status, PR URL, PR number, and message
+    """
+    # Step 1: Check gh CLI availability
+    if not _is_gh_cli_available():
+        logger.warning("Auto-PR skipped: gh CLI not available or not authenticated")
+        return AutoPRResult(
+            success=False,
+            pr_url=None,
+            pr_number=None,
+            message="Auto-PR skipped: gh CLI not available or not authenticated",
+        )
+
+    # Step 2: Determine branch name
+    head_branch = f"{AGENT_BRANCH_PREFIX}{_sanitize_branch_name(issue_id)}"
+
+    # Step 3: Check if PR already exists
+    existing = _check_existing_pr_via_gh(head_branch)
+    if existing:
+        logger.info("PR already exists for branch %s: %s", head_branch, existing["url"])
+        return AutoPRResult(
+            success=True,
+            pr_url=str(existing["url"]),
+            pr_number=int(existing["number"]),
+            message=f"PR already exists: #{existing['number']}",
+        )
+
+    # Step 4: Check if branch has commits ahead of base
+    if not _has_commits_ahead_of_base(head_branch, base_branch):
+        logger.info("No commits ahead of %s on branch %s", base_branch, head_branch)
+        return AutoPRResult(
+            success=False,
+            pr_url=None,
+            pr_number=None,
+            message=f"No commits ahead of {base_branch} — nothing to create a PR for",
+        )
+
+    # Step 5: Construct PR title and body
+    pr_title = f"[Agent] {issue_title}"
+
+    body_parts = [
+        f"## Issue: {issue_id}",
+        "",
+        issue_description,
+        "",
+        "---",
+        "",
+        "## Session Summary",
+        "",
+        session_summary or "_No session summary provided._",
+        "",
+        "---",
+        "",
+        "_This PR was automatically created by the autonomous coding agent._",
+    ]
+    pr_body = "\n".join(body_parts)
+
+    # Step 6: Create PR via gh CLI
+    try:
+        cmd = [
+            "gh", "pr", "create",
+            "--title", pr_title,
+            "--body", pr_body,
+            "--base", base_branch,
+            "--head", head_branch,
+            "--label", "agent,automated",
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if result.returncode == 0:
+            pr_url = result.stdout.strip()
+            # Extract PR number from URL (last path segment)
+            pr_number = _extract_pr_number_from_url(pr_url)
+            logger.info("Created PR %s for %s", pr_url, issue_id)
+            return AutoPRResult(
+                success=True,
+                pr_url=pr_url,
+                pr_number=pr_number,
+                message=f"Created PR for {issue_id}",
+            )
+        else:
+            error_msg = result.stderr.strip() or result.stdout.strip()
+            # Check for "already exists" in error output
+            if "already exists" in error_msg.lower():
+                existing = _check_existing_pr_via_gh(head_branch)
+                if existing:
+                    return AutoPRResult(
+                        success=True,
+                        pr_url=str(existing["url"]),
+                        pr_number=int(existing["number"]),
+                        message=f"PR already exists: #{existing['number']}",
+                    )
+            logger.error("gh pr create failed: %s", error_msg)
+            return AutoPRResult(
+                success=False,
+                pr_url=None,
+                pr_number=None,
+                message=f"gh pr create failed: {error_msg}",
+            )
+
+    except subprocess.TimeoutExpired:
+        logger.error("gh pr create timed out after 60s")
+        return AutoPRResult(
+            success=False,
+            pr_url=None,
+            pr_number=None,
+            message="gh pr create timed out after 60 seconds",
+        )
+    except FileNotFoundError:
+        logger.error("gh CLI not found")
+        return AutoPRResult(
+            success=False,
+            pr_url=None,
+            pr_number=None,
+            message="gh CLI not found on PATH",
+        )
+
+
+def _extract_pr_number_from_url(url: str) -> int | None:
+    """
+    Extract a PR number from a GitHub PR URL.
+
+    Args:
+        url: GitHub PR URL (e.g., "https://github.com/owner/repo/pull/42")
+
+    Returns:
+        PR number as int, or None if extraction fails
+    """
+    match = re.search(r"/pull/(\d+)", url)
+    if match:
+        return int(match.group(1))
+    return None
 
 
 def is_github_configured() -> bool:
