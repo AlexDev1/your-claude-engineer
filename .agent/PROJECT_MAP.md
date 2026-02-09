@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 12:12:20*
+*Auto-generated: 2026-02-09 12:20:46*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -89,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `fb5bc5c` feat(ENG-87): add error alerts for Telegram reports (16 секунд назад)
-- `46eccd1` chore: update project map after ENG-86 (6 минут назад)
-- `c5665ba` feat(ENG-86): add session summary report for Telegram (7 минут назад)
-- `def6e0c` chore: update project map after ENG-85 (16 минут назад)
-- `f3add59` feat(ENG-85): add daily digest report for Telegram (17 минут назад)
+- `40dc586` feat(ENG-88): add weekly summary report for Telegram (11 секунд назад)
+- `ff0605b` chore: update project map after ENG-87 (8 минут назад)
+- `fb5bc5c` feat(ENG-87): add error alerts for Telegram reports (9 минут назад)
+- `46eccd1` chore: update project map after ENG-86 (14 минут назад)
+- `c5665ba` feat(ENG-86): add session summary report for Telegram (15 минут назад)
 
 ## Import Graph (Hub Files)
 
