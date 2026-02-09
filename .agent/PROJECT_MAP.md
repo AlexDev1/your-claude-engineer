@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 11:26:34*
+*Auto-generated: 2026-02-09 11:40:35*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -89,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `438ba55` chore: update project map after ENG-82 (4 минуты назад)
-- `c26b485` feat(ENG-82): русификация docstrings в основных Python файлах (4 минуты назад)
-- `eec6323` chore: update project map after ENG-80 (14 минут назад)
-- `d3602c6` feat(ENG-80): русификация Telegram сообщений (14 минут назад)
-- `8c50b0a` chore: update project map after ENG-81 (23 минуты назад)
+- `e4a65b0` feat(ENG-83): русификация CLI сообщений и логов (26 секунд назад)
+- `7784a31` chore: update project map after ENG-82 JSX/JS translation (14 минут назад)
+- `438ba55` chore: update project map after ENG-82 (18 минут назад)
+- `c26b485` feat(ENG-82): русификация docstrings в основных Python файлах (18 минут назад)
+- `eec6323` chore: update project map after ENG-80 (28 минут назад)
 
 ## Import Graph (Hub Files)
 
