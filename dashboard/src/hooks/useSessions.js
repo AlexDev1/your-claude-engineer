@@ -3,10 +3,10 @@ import { useState, useEffect, useCallback } from 'react'
 const API_BASE = '/api/sessions'
 
 /**
- * Generate mock session data for demo/development mode.
+ * Генерировать mock-данные сессий для демо/разработки.
  *
- * @param {number} count - Number of mock sessions to generate
- * @returns {Array} Array of mock session summary objects
+ * @param {number} count - Количество mock-сессий для генерации
+ * @returns {Array} Массив объектов сводки mock-сессий
  */
 function generateMockSessions(count = 12) {
   const statuses = ['completed', 'completed', 'completed', 'failed', 'running', 'completed']
@@ -37,10 +37,10 @@ function generateMockSessions(count = 12) {
 }
 
 /**
- * Generate mock event data for a single session replay.
+ * Генерировать mock-данные событий для воспроизведения одной сессии.
  *
- * @param {number} sessionId - The session ID to generate events for
- * @returns {Object} Full session object with events
+ * @param {number} sessionId - ID сессии для генерации событий
+ * @returns {Object} Полный объект сессии с событиями
  */
 function generateMockSessionDetail(sessionId) {
   const eventTypes = ['tool_call', 'file_write', 'bash', 'agent_call']
@@ -112,13 +112,13 @@ function generateMockSessionDetail(sessionId) {
 }
 
 /**
- * Hook for fetching session list with filtering and pagination.
+ * Hook для получения списка сессий с фильтрацией и пагинацией.
  *
  * @param {Object} options
- * @param {string} options.status - Filter by status (null for all)
- * @param {string} options.issueId - Filter by issue ID (null for all)
- * @param {number} options.limit - Page size
- * @param {number} options.offset - Pagination offset
+ * @param {string} options.status - Фильтр по статусу (null для всех)
+ * @param {string} options.issueId - Фильтр по ID задачи (null для всех)
+ * @param {number} options.limit - Размер страницы
+ * @param {number} options.offset - Смещение пагинации
  * @returns {Object} { sessions, total, loading, error, refetch }
  */
 export function useSessions({ status = null, issueId = null, limit = 50, offset = 0 } = {}) {
@@ -148,7 +148,7 @@ export function useSessions({ status = null, issueId = null, limit = 50, offset 
       setTotal(result.total || 0)
     } catch (err) {
       setError(err.message)
-      // Fall back to mock data in development
+      // Переключиться на mock-данные при разработке
       const mockData = generateMockSessions()
       let filtered = mockData
       if (status) {
@@ -174,9 +174,9 @@ export function useSessions({ status = null, issueId = null, limit = 50, offset 
 }
 
 /**
- * Hook for fetching a single session's full data (including events) for replay.
+ * Hook для получения полных данных одной сессии (включая события) для воспроизведения.
  *
- * @param {number|string} sessionId - The session ID to fetch
+ * @param {number|string} sessionId - ID сессии для получения
  * @returns {Object} { session, loading, error, refetch }
  */
 export function useSessionDetail(sessionId) {
@@ -200,7 +200,7 @@ export function useSessionDetail(sessionId) {
       setSession(result)
     } catch (err) {
       setError(err.message)
-      // Fall back to mock data in development
+      // Переключиться на mock-данные при разработке
       setSession(generateMockSessionDetail(Number(sessionId)))
     } finally {
       setLoading(false)

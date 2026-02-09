@@ -23,7 +23,7 @@ function App() {
     { path: '/settings', label: 'Настройки', icon: SettingsIcon },
   ]
 
-  // Show install banner after a delay on mobile
+  // Показать баннер установки с задержкой на мобильных устройствах
   useEffect(() => {
     if (canInstall) {
       const timer = setTimeout(() => {
@@ -33,7 +33,7 @@ function App() {
     }
   }, [canInstall])
 
-  // Close mobile menu on route change
+  // Закрыть мобильное меню при смене маршрута
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [location.pathname])

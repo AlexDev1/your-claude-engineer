@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useSessions } from '../hooks/useSessions'
 
-/** Map session status values to display colors */
+/** Соответствие значений статуса сессии цветам отображения */
 const STATUS_COLORS = {
   completed: '#22c55e',
   failed: '#ef4444',
@@ -22,7 +22,7 @@ const STATUS_COLORS = {
   unknown: '#6b7280',
 }
 
-/** Map session status values to icons */
+/** Соответствие значений статуса сессии иконкам */
 const STATUS_ICONS = {
   completed: CheckCircle,
   failed: XCircle,
@@ -30,7 +30,7 @@ const STATUS_ICONS = {
   unknown: Clock,
 }
 
-/** Available status filter options */
+/** Доступные варианты фильтра по статусу */
 const STATUS_OPTIONS = [
   { value: '', label: 'Все статусы' },
   { value: 'completed', label: 'Завершённые' },
@@ -39,10 +39,10 @@ const STATUS_OPTIONS = [
 ]
 
 /**
- * Format a duration in seconds to a human-readable string.
+ * Форматировать длительность в секундах в читаемую строку.
  *
- * @param {number|null} seconds - Duration in seconds
- * @returns {string} Formatted duration (e.g. "2h 15m" or "45m")
+ * @param {number|null} seconds - Длительность в секундах
+ * @returns {string} Отформатированная длительность (например, "2h 15m" или "45m")
  */
 function formatDuration(seconds) {
   if (seconds == null) return 'Выполняется'
@@ -54,10 +54,10 @@ function formatDuration(seconds) {
 }
 
 /**
- * Format an ISO timestamp to a localized, human-readable string.
+ * Форматировать ISO временную метку в локализованную, читаемую строку.
  *
- * @param {string} iso - ISO 8601 timestamp
- * @returns {string} Formatted date/time
+ * @param {string} iso - ISO 8601 временная метка
+ * @returns {string} Отформатированная дата/время
  */
 function formatTimestamp(iso) {
   if (!iso) return 'N/A'
@@ -74,10 +74,10 @@ function formatTimestamp(iso) {
 }
 
 /**
- * StatusBadge renders a colored pill showing the session status.
+ * StatusBadge отображает цветной бейдж с статусом сессии.
  *
  * @param {Object} props
- * @param {string} props.status - Session status string
+ * @param {string} props.status - Строка статуса сессии
  */
 function StatusBadge({ status }) {
   const color = STATUS_COLORS[status] || STATUS_COLORS.unknown
@@ -99,11 +99,11 @@ function StatusBadge({ status }) {
 }
 
 /**
- * SessionCard renders a single session summary as a clickable card.
+ * SessionCard отображает сводку одной сессии как кликабельную карточку.
  *
  * @param {Object} props
- * @param {Object} props.session - Session summary object
- * @param {function} props.onClick - Callback when card is clicked
+ * @param {Object} props.session - Объект сводки сессии
+ * @param {function} props.onClick - Callback при клике на карточку
  */
 function SessionCard({ session, onClick }) {
   return (
@@ -208,8 +208,8 @@ function SessionCard({ session, onClick }) {
 }
 
 /**
- * Replay page component showing a searchable, filterable list of recorded sessions.
- * Navigates to /replay/:id when a session card is clicked.
+ * Компонент страницы Replay, показывающий поисковый, фильтруемый список записанных сессий.
+ * Переходит на /replay/:id при клике на карточку сессии.
  */
 function Replay() {
   const navigate = useNavigate()
@@ -221,7 +221,7 @@ function Replay() {
     issueId: searchQuery || null,
   })
 
-  /** Sessions with client-side search applied on top of API filter */
+  /** Сессии с клиентским поиском поверх API-фильтра */
   const displayedSessions = useMemo(() => {
     if (!searchQuery) return sessions
     const query = searchQuery.toLowerCase()
