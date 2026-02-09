@@ -9,6 +9,8 @@ import LiveDashboard from './pages/LiveDashboard'
 import Settings from './pages/Settings'
 import Import from './pages/Import'
 import Export from './pages/Export'
+import Replay from './pages/Replay'
+import ReplayDetail from './pages/ReplayDetail'
 import './styles/themes.css'
 import './styles/mobile.css'
 import './index.css'
@@ -25,6 +27,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="analytics" element={<Analytics />} />
             <Route path="import" element={<Import />} />
             <Route path="export" element={<Export />} />
+            <Route path="replay" element={<Replay />} />
+            <Route path="replay/:id" element={<ReplayDetail />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

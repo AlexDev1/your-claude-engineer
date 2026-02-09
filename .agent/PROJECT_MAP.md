@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 10:13:51*
+*Auto-generated: 2026-02-09 10:28:43*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -18,25 +18,25 @@ your-claude-engineer/
 ├── agents/ (2 files)
 ├── analytics_server/ (3 files)
 ├── backups/ (3 files)
-├── dashboard/ (55 files)
+├── dashboard/ (59 files)
 │   ├── public/ (9 files)
 │   │   ├── icons/ (1 files)
-│   ├── src/ (40 files)
-│   │   ├── components/ (22 files)
+│   ├── src/ (44 files)
+│   │   ├── components/ (23 files)
 │   │   ├── context/ (1 files)
-│   │   ├── hooks/ (6 files)
-│   │   ├── pages/ (6 files)
+│   │   ├── hooks/ (7 files)
+│   │   ├── pages/ (8 files)
 │   │   ├── styles/ (2 files)
 │   │   ├── utils/
 ├── prompts/ (7 files)
 ├── screenshots/ (114 files)
 ├── scripts/ (5 files)
-├── tests/ (18 files)
-│   ├── api/ (4 files)
+├── tests/ (15 files)
+│   ├── api/ (3 files)
 │   ├── e2e/ (3 files)
 │   ├── integration/ (3 files)
-│   ├── unit/ (6 files)
-├── [28 files in root]
+│   ├── unit/ (4 files)
+├── [27 files in root]
 ```
 
 ## Key Files
@@ -89,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `ed769d6` feat(ENG-76): add TimelineSlider component for session replay (2 минуты назад)
-- `7fb42f6` chore: update project map after ENG-75 (8 минут назад)
-- `922367a` feat(ENG-75): add session replay API endpoints (9 минут назад)
-- `13f8497` fix(ENG-74): fix TOCTOU race condition in record_event (18 минут назад)
-- `1978404` chore: update project map after ENG-74 (21 минута назад)
+- `9073c00` feat(ENG-78): add Replay page with session list and detail views (26 секунд назад)
+- `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (73 минуты назад)
+- `1a09b70` chore: update memory and project map after ENG-62 (10 часов назад)
+- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (11 часов назад)
+- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (11 часов назад)
 
 ## Import Graph (Hub Files)
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Radio, ClipboardList, BarChart3, Settings, Menu, X } from 'lucide-react'
+import { Radio, ClipboardList, BarChart3, Play, Settings, Menu, X } from 'lucide-react'
 
 const NAV_ITEMS = [
   { path: '/live', label: 'Live', icon: Radio, isHome: true },
@@ -99,6 +99,19 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
 
               {/* Additional Menu Items */}
               <div className="space-y-2">
+                <Link
+                  to="/replay"
+                  onClick={onMenuToggle}
+                  className="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: location.pathname.startsWith('/replay') ? 'var(--color-bgTertiary)' : 'transparent',
+                    color: 'var(--color-text)'
+                  }}
+                >
+                  <Play className="w-5 h-5" />
+                  <span className="text-lg">Session Replay</span>
+                </Link>
+
                 <Link
                   to="/import"
                   onClick={onMenuToggle}
