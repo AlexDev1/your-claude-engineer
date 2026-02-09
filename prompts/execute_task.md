@@ -1,28 +1,28 @@
-Execute next task for team: {team}
-Working directory: {cwd}
-Project filter: {project}
+Выполни следующую задачу для команды: {team}
+Рабочая директория: {cwd}
+Фильтр по проекту: {project}
 
-## Flow
+## Процесс
 
-### 1. Get Task
-task agent: "List Todo issues for {team} with project={project}, limit=10, return highest priority (urgent>high>medium>low). IMPORTANT: always use project={project} and limit=10."
+### 1. Получить задачу
+task agent: "Список Todo-задач для {team} с project={project}, limit=10, вернуть задачу с наивысшим приоритетом (urgent>high>medium>low). ВАЖНО: всегда используй project={project} и limit=10."
 
-If no Todo: telegram ":tada: All tasks complete!" then output `ALL_TASKS_DONE:` and stop.
+Если нет Todo: telegram ":tada: Все задачи выполнены!" затем вывести `ALL_TASKS_DONE:` и остановиться.
 
-### 1.5 Evaluate Task Size (ENG-27)
+### 1.5 Оценка размера задачи (ENG-27)
 
-Check if task is Large based on:
-- **Keywords**: "create service", "build dashboard", "implement pipeline", "full", "complete", "entire", "web app", "API server", "new project"
-- **Scope**: Multiple components, 5+ files expected, 300+ lines estimated
+Проверь, является ли задача большой, на основе:
+- **Ключевые слова**: "create service", "build dashboard", "implement pipeline", "full", "complete", "entire", "web app", "API server", "new project"
+- **Масштаб**: Множество компонентов, ожидается 5+ файлов, оценка 300+ строк
 
-**If Large Task → Decompose:**
-1. Analyze task description, break into 3-7 logical subtasks
-2. Create each subtask via task agent (Task_CreateIssue):
-   - Title: "[Parent Title]: [Subtask description]"
-   - Priority: Same as parent
-   - Project: {project} (MUST match parent project)
-   - Description: Specific scope for this subtask
-3. Add comment to original task:
+**Если большая задача -- декомпозиция:**
+1. Проанализируй описание задачи, разбей на 3-7 логических подзадач
+2. Создай каждую подзадачу через task agent (Task_CreateIssue):
+   - Заголовок: "[Заголовок родителя]: [Описание подзадачи]"
+   - Приоритет: Такой же как у родителя
+   - Проект: {project} (ОБЯЗАН совпадать с проектом родителя)
+   - Описание: Конкретный объём для данной подзадачи
+3. Добавь комментарий к исходной задаче:
    ```
    Epic: This task has been decomposed into subtasks:
    - [subtask-id-1]: [title]
@@ -30,12 +30,12 @@ Check if task is Large based on:
    ...
    Will mark Done when all subtasks complete.
    ```
-4. Continue with first subtask as current task
+4. Продолжи с первой подзадачей как текущей
 
-**Decomposition Example:**
+**Пример декомпозиции:**
 ```
-Original: "Build Web Dashboard" (ENG-50)
-Subtasks created:
+Оригинал: "Build Web Dashboard" (ENG-50)
+Созданные подзадачи:
 - ENG-51: "Build Web Dashboard: REST API endpoints"
 - ENG-52: "Build Web Dashboard: React project setup"
 - ENG-53: "Build Web Dashboard: Projects list page"
@@ -43,71 +43,70 @@ Subtasks created:
 - ENG-55: "Build Web Dashboard: Docker integration"
 ```
 
-**If Small/Medium Task:** Continue to Step 2 (no decomposition needed).
+**Если маленькая/средняя задача:** Переходи к Шагу 2 (декомпозиция не нужна).
 
-### 2. Start
-task agent: Transition to In Progress
-telegram: ":construction: Starting: [title] ([id])"
-coding agent: Create branch `agent/{{issue-id}}` (e.g., `git checkout -b agent/eng-62`)
+### 2. Начало
+task agent: Перевести в In Progress
+telegram: ":construction: Начинаю: [title] ([id])"
+coding agent: Создать ветку `agent/{{issue-id}}` (например, `git checkout -b agent/eng-62`)
 
-### 3. Implement
-coding agent with FULL context:
-- ID, Title, Description, Test Steps
-- Requirements: read code, implement, Playwright test, browser_snapshot verification
+### 3. Реализация
+coding agent с ПОЛНЫМ контекстом:
+- ID, Заголовок, Описание, Шаги тестирования
+- Требования: прочитать код, реализовать, тест Playwright, верификация browser_snapshot
 
-**If COMPACT MODE active (70%+ context):**
-- Use only: ID + Title + 1-line description
-- Skip detailed requirements
-- Pass minimal context to coding agent
+**Если активен КОМПАКТНЫЙ РЕЖИМ (70%+ контекста):**
+- Используй только: ID + Заголовок + 1 строка описания
+- Пропусти подробные требования
+- Передай минимальный контекст coding agent
 
-### 3b. Code Review Gate (ENG-42)
-See orchestrator_prompt.md "Review Gate" section for full rules.
-- Auto-approve: docs-only, config-only, or <20 lines
-- Otherwise: reviewer agent checks diff, max 2 review cycles
+### 3b. Гейт ревью кода (ENG-42)
+Смотри раздел "Гейт ревью" в orchestrator_prompt.md для полных правил.
+- Авто-одобрение: только документация, только конфиг, или <20 строк
+- Иначе: reviewer agent проверяет diff, максимум 2 цикла ревью
 
-### 4. Commit
-coding agent: Commit with task ID
+### 4. Коммит
+coding agent: Коммит с ID задачи
 
-### 4b. Push (ENG-62)
-coding agent: After lint-gate passes, push to remote:
-- Run `./scripts/lint-gate.sh`
-- If passes: `git push -u origin agent/{{issue-id}}`
-- If fails: fix lint errors, re-commit, re-run lint-gate
-- If GITHUB_TOKEN not set: skip push silently
+### 4b. Пуш (ENG-62)
+coding agent: После прохождения линтинг-гейта, пуш на remote:
+- Запусти `./scripts/lint-gate.sh`
+- Если прошёл: `git push -u origin agent/{{issue-id}}`
+- Если не прошёл: исправь ошибки линтинга, перекоммить, перезапусти линтинг-гейт
+- Если GITHUB_TOKEN не задан: пропустить пуш тихо
 
-### 5. Done
-task agent: Mark Done with files/verification evidence/results
+### 5. Отметить Done
+task agent: Отметить Done с файлами/доказательствами верификации/результатами
 
-### 6. Notify
-telegram: ":white_check_mark: Completed: [title]"
+### 6. Уведомить
+telegram: ":white_check_mark: Завершено: [title]"
 
-### 7. Memory
-coding agent: Update .agent/MEMORY.md
-task agent: Add session summary to META issue
+### 7. Память
+coding agent: Обновить .agent/MEMORY.md
+task agent: Добавить итоги сессии в META-задачу
 
-## Recovery Mode (ENG-69)
+## Режим восстановления (ENG-69)
 
-When a `## Recovery Mode` section is appended to this prompt, the agent is resuming
-from a crashed or interrupted session. Follow these rules:
+Когда раздел `## Recovery Mode` добавлен к этому промпту, агент возобновляет работу
+после крэша или прерванной сессии. Следуй этим правилам:
 
-1. **Skip completed phases.** The recovery section lists phases that already succeeded.
-   Do NOT repeat them.
-2. **Resume from the indicated phase.** The `resume_phase` field tells you exactly where
-   to pick up work.
-3. **Check git state first.** If `uncommitted_changes` is flagged, run `git status` and
-   `git diff` before writing any code. Decide whether to commit, stash, or discard.
-4. **Late phases (commit, mark_done, notify, flush):** The code is already written.
-   Do NOT re-implement. Only retry the failed operation.
-5. **Fetch issue details.** Use the `issue_id` from recovery context to fetch the issue
-   and continue from where the previous session left off.
-6. **Degraded services.** If services are listed as degraded, skip those integrations
-   (e.g., skip Telegram notification if `notify` is degraded).
+1. **Пропусти завершённые фазы.** В разделе восстановления перечислены уже успешные фазы.
+   НЕ повторяй их.
+2. **Возобнови с указанной фазы.** Поле `resume_phase` указывает точно, откуда продолжить.
+3. **Сначала проверь состояние git.** Если указан `uncommitted_changes`, запусти `git status` и
+   `git diff` перед написанием кода. Реши: закоммитить, stash или отбросить.
+4. **Поздние фазы (commit, mark_done, notify, flush):** Код уже написан.
+   НЕ реализуй заново. Только повтори неудавшуюся операцию.
+5. **Получи детали задачи.** Используй `issue_id` из контекста восстановления для получения задачи
+   и продолжения с того места, где остановилась предыдущая сессия.
+6. **Деградированные сервисы.** Если сервисы отмечены как деградированные, пропусти эти интеграции
+   (например, пропусти Telegram-уведомление если `notify` деградирован).
 
-## Rules
-- No Done without verification (browser_snapshot, tests, or lint-gate)
-- Pass FULL context to coding agent (unless COMPACT MODE)
-- One issue per session
-- Memory flush before ending
-- If 85%+ context used: output `CONTEXT_LIMIT_REACHED:` for graceful shutdown
-- **NEVER create projects** (Task_CreateProject is FORBIDDEN). Work only in project={project}
-- All new tasks (subtasks from decomposition) MUST use project={project}
+## Правила
+- Не отмечать Done без верификации (browser_snapshot, тесты или lint-gate)
+- Передавай ПОЛНЫЙ контекст coding agent (если не КОМПАКТНЫЙ РЕЖИМ)
+- Одна задача за сессию
+- Сброс памяти перед завершением
+- Если использовано 85%+ контекста: вывести `CONTEXT_LIMIT_REACHED:` для плавного завершения
+- **НИКОГДА не создавать проекты** (Task_CreateProject ЗАПРЕЩЁН). Работать только в project={project}
+- Все новые задачи (подзадачи декомпозиции) ОБЯЗАНЫ использовать project={project}

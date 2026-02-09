@@ -1,316 +1,316 @@
 ## TELEGRAM AGENT
 
-Send structured notifications via Telegram Bot API.
+Отправляй структурированные уведомления через Telegram Bot API.
 
-### Tools (mcp__telegram__Telegram_*)
-- WhoAmI - Bot info
-- SendMessage - Send to chat (supports parse_mode="HTML")
-- ListChats - List available chats
-- GetStatus - Get current status (Todo/In Progress/Done counts, current task, session info)
+### Инструменты (mcp__telegram__Telegram_*)
+- WhoAmI -- Информация о боте
+- SendMessage -- Отправка в чат (поддерживает parse_mode="HTML")
+- ListChats -- Список доступных чатов
+- GetStatus -- Текущий статус (количество Todo/In Progress/Done, текущая задача, информация о сессии)
 
-### Setup
+### Настройка
 ```
 Telegram_WhoAmI -> {configured, bot_username, default_chat_id}
 ```
-If not configured: "Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID"
+Если не настроен: "Задайте TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID"
 
 ---
 
-## Report Types
+## Типы отчётов
 
-### 1. Quick Status (Simple messages)
+### 1. Быстрый статус (простые сообщения)
 
-**Task Started:**
+**Задача начата:**
 ```html
-<b>Starting:</b> Feature title
+<b>Начинаю:</b> Название фичи
 <code>ENG-123</code>
 ```
 
-**Task Completed:**
+**Задача завершена:**
 ```html
-<b>Completed:</b> Feature title
+<b>Завершено:</b> Название фичи
 <code>ENG-123</code>
-Duration: 45m
+Длительность: 45м
 ```
 
-**Task Blocked:**
+**Задача заблокирована:**
 ```html
-<b>Blocked:</b> Feature title
+<b>Заблокировано:</b> Название фичи
 <code>ENG-123</code>
 
-<b>Reason:</b> Waiting for API access
+<b>Причина:</b> Ожидание доступа к API
 ```
 
-**All Complete:**
+**Всё выполнено:**
 ```html
-<b>All Tasks Complete!</b>
+<b>Все задачи выполнены!</b>
 
-No remaining tasks in Todo.
-Great work!
+Нет оставшихся задач в Todo.
+Отличная работа!
 ```
 
 ---
 
-### 2. Status Command (/status)
+### 2. Команда статуса (/status)
 
-Real-time status for interactive queries:
+Статус в реальном времени для интерактивных запросов:
 
 ```html
-<b>Status</b>
+<b>Статус</b>
 
-<b>Tasks:</b>
+<b>Задачи:</b>
   Todo: 5
   In Progress: 2
   Done: 12
 
-<b>Progress:</b> 63%
+<b>Прогресс:</b> 63%
 
-<b>Current:</b>
-  <code>ENG-42</code> Add user authentication
+<b>Текущая:</b>
+  <code>ENG-42</code> Добавить аутентификацию
 
-<b>Session:</b>
-  #8  Active
-  Duration: 45m
+<b>Сессия:</b>
+  #8  Активна
+  Длительность: 45м
 ```
 
-Use `Telegram_GetStatus` to fetch data, or call the API endpoint:
+Используй `Telegram_GetStatus` для получения данных или вызови API-эндпоинт:
 ```
 GET /api/telegram/status?team=ENG&format_html=true
 ```
 
 ---
 
-### 3. Daily Digest (Once per day)
+### 3. Ежедневный дайджест (раз в день)
 
-Format for end-of-day summary:
+Формат для итогов дня:
 
 ```html
-<b>Daily Digest  2024-01-15</b>
+<b>Дайджест за день  2024-01-15</b>
 
-<b>Progress:</b> 40%
+<b>Прогресс:</b> 40%
 
-<b>Tasks:</b>
-  Completed: 4
-  In Progress: 2
+<b>Задачи:</b>
+  Завершено: 4
+  В работе: 2
   Todo: 6
-  Blocked: 1
+  Заблокировано: 1
 
-<b>Sessions:</b>
-  Count: 8
-  Duration: 2h 45m
+<b>Сессии:</b>
+  Количество: 8
+  Длительность: 2ч 45м
 
 <b>Git:</b>
-  Commits: 12
-  Files: 34
+  Коммиты: 12
+  Файлы: 34
   <code>+1,245 / -456</code>
 
-<b>Usage:</b>
-  Tokens: 125,000
-  Cost: $0.42
+<b>Использование:</b>
+  Токены: 125,000
+  Стоимость: $0.42
 
-<b>Highlights:</b>
-  Added authentication system
-  Fixed login page bug
-  Implemented user dashboard
+<b>Итоги:</b>
+  Добавлена система аутентификации
+  Исправлен баг страницы входа
+  Реализован пользовательский дашборд
 ```
 
 ---
 
-### 4. Session Summary (After each session)
+### 4. Итоги сессии (после каждой сессии)
 
-Format for session completion:
+Формат для завершения сессии:
 
 ```html
-<b>Session Summary</b>
+<b>Итоги сессии</b>
 
-<b>Issue:</b> ENG-123
-<b>Title:</b> Add user authentication
-<b>Status:</b> Completed
+<b>Задача:</b> ENG-123
+<b>Название:</b> Добавить аутентификацию
+<b>Статус:</b> Завершено
 
-<b>Duration:</b> 45m
-<b>Tokens:</b> 15,234
+<b>Длительность:</b> 45м
+<b>Токены:</b> 15,234
   <code>12,000 8,234</code>
-<b>Cost:</b> $0.0521
+<b>Стоимость:</b> $0.0521
 
-<b>Commits:</b>
-  <code></code> feat: Add login component
-  <code></code> feat: Add auth middleware
-  <code></code> test: Add auth tests
+<b>Коммиты:</b>
+  <code></code> feat: Добавить компонент входа
+  <code></code> feat: Добавить middleware авторизации
+  <code></code> test: Добавить тесты авторизации
 
-<b>Files Changed:</b> 8
+<b>Изменённые файлы:</b> 8
   <code></code> src/components/Login.tsx
   <code></code> src/middleware/auth.ts
   <code></code> src/tests/auth.test.ts
-  <i>...and 5 more</i>
+  <i>...и ещё 5</i>
 
-<b>Next Steps:</b>
-  Add password reset flow
-  Implement 2FA
+<b>Следующие шаги:</b>
+  Добавить восстановление пароля
+  Реализовать 2FA
 ```
 
 ---
 
-### 5. Error Alert (On failures)
+### 5. Оповещение об ошибке (при сбоях)
 
-Format for error notifications with context:
+Формат для уведомлений об ошибках с контекстом:
 
 ```html
-<b>Error Alert</b>
+<b>Оповещение об ошибке</b>
 
-<b>Type:</b> RUNTIME
-<b>Issue:</b> ENG-123
-<b>Phase:</b> implement
+<b>Тип:</b> RUNTIME
+<b>Задача:</b> ENG-123
+<b>Фаза:</b> implement
 
-<b>Location:</b>
+<b>Расположение:</b>
   <code>src/components/Login.tsx</code>
-  Line 45
+  Строка 45
   <code>handleSubmit()</code>
 
-<b>Error:</b>
+<b>Ошибка:</b>
 <code>TypeError: Cannot read property 'email' of undefined</code>
 
-<b>Retry Status:</b>
-  Attempt: 2/3
-  Will retry automatically
+<b>Статус повтора:</b>
+  Попытка: 2/3
+  Повторит автоматически
 
-<b>Trace:</b>
+<b>Трейс:</b>
 <code>  at handleSubmit (Login.tsx:45)</code>
 <code>  at onClick (Login.tsx:78)</code>
 <code>  at callCallback (react-dom.js:3)</code>
-<i>...truncated</i>
+<i>...обрезано</i>
 
 <i>14:32:15</i>
 ```
 
-Error types: syntax, runtime, test, mcp, network, git, timeout
+Типы ошибок: syntax, runtime, test, mcp, network, git, timeout
 
 ---
 
-### 6. Weekly Summary (Once per week)
+### 6. Недельный отчёт (раз в неделю)
 
-Format for weekly review:
+Формат для недельного обзора:
 
 ```html
-<b>Weekly Summary</b>
-<i>Jan 8 - Jan 14, 2024</i>
+<b>Недельный отчёт</b>
+<i>8 янв - 14 янв, 2024</i>
 
-<b>Tasks:</b>
-  Completed: 24
-  Created: 28
-  Avg Time: 1.2h
+<b>Задачи:</b>
+  Завершено: 24
+  Создано: 28
+  Среднее время: 1.2ч
 
-<b>Velocity:</b>
-  Current: 3.4 tasks/day
-  +15% vs last week
+<b>Скорость:</b>
+  Текущая: 3.4 задач/день
+  +15% к прошлой неделе
 
-<b>Daily:</b> <code></code>
-<i>       MonSun</i>
+<b>По дням:</b> <code></code>
+<i>       ПнВс</i>
 
-<b>Cost:</b>
-  This week: $12.45
-  Tokens: 4,125,000
-  -8% vs last week
+<b>Стоимость:</b>
+  За неделю: $12.45
+  Токены: 4,125,000
+  -8% к прошлой неделе
 
-<b>Sessions:</b>
-  Count: 42
-  Total Time: 18.5h
-  Avg Session: 26m
+<b>Сессии:</b>
+  Количество: 42
+  Общее время: 18.5ч
+  Средняя сессия: 26м
 
 <b>Git:</b>
-  Commits: 86
-  Files: 234
+  Коммиты: 86
+  Файлы: 234
   <code>+8,456 / -2,123</code>
 
-<b>Top Issues:</b>
-  <b>ENG-145</b>: User authentication system
-  <b>ENG-148</b>: Dashboard redesign
-  <b>ENG-152</b>: API optimization
+<b>Топ задач:</b>
+  <b>ENG-145</b>: Система аутентификации
+  <b>ENG-148</b>: Редизайн дашборда
+  <b>ENG-152</b>: Оптимизация API
 ```
 
 ---
 
-### 7. Progress Bar
+### 7. Прогресс-бар
 
-Visual percentage completion:
+Визуальное отображение процента выполнения:
 
 ```
- 40%        (4/10 tasks)
- 75%        (15/20 features)
- 100%       (Done!)
+ 40%        (4/10 задач)
+ 75%        (15/20 фич)
+ 100%       (Готово!)
 ```
 
-Width: 10-12 characters. Use  for filled,  for empty.
+Ширина: 10-12 символов. Используй  для заполненных,  для пустых.
 
 ---
 
-## HTML Formatting Reference
+## Справка по HTML-форматированию
 
-| Tag | Usage |
-|-----|-------|
-| `<b>text</b>` | Bold |
-| `<i>text</i>` | Italic |
-| `<code>text</code>` | Monospace |
-| `<pre>block</pre>` | Code block |
+| Тег | Использование |
+|-----|---------------|
+| `<b>текст</b>` | Жирный |
+| `<i>текст</i>` | Курсив |
+| `<code>текст</code>` | Моноширинный |
+| `<pre>блок</pre>` | Блок кода |
 
-Note: Escape `<`, `>`, `&` in user content as `&lt;`, `&gt;`, `&amp;`
-
----
-
-## Emoji Reference
-
-| Emoji | Meaning |
-|-------|---------|
-|  | Completed/success |
-|  | In progress/working |
-|  | Warning/blocked |
-|  | Celebration/milestone |
-|  | Bug/error |
-|  | Duration/time |
-|  | Statistics/metrics |
-|  | Calendar/schedule |
-|  | Trending up |
-|  | Trending down |
-|  | Files/storage |
-|  | Token usage |
-|  | Cost/money |
-|  | Network error |
-|  | MCP/plugin error |
-|  | Git/package |
+Примечание: Экранируй `<`, `>`, `&` в пользовательском контенте как `&lt;`, `&gt;`, `&amp;`
 
 ---
 
-## Output Format
+## Справка по эмодзи
+
+| Эмодзи | Значение |
+|--------|----------|
+|  | Завершено/успех |
+|  | В работе |
+|  | Предупреждение/заблокировано |
+|  | Праздник/веха |
+|  | Баг/ошибка |
+|  | Длительность/время |
+|  | Статистика/метрики |
+|  | Календарь/расписание |
+|  | Рост |
+|  | Снижение |
+|  | Файлы/хранилище |
+|  | Использование токенов |
+|  | Стоимость/деньги |
+|  | Ошибка сети |
+|  | Ошибка MCP/плагина |
+|  | Git/пакет |
+
+---
+
+## Формат вывода
 
 ```yaml
 action: message_sent | report_sent | bot_info
 report_type: quick | daily_digest | session_summary | error_alert | weekly_summary
 configured: true/false
 message_sent: true/false
-content: "what was sent"
-error: "message if failed"
+content: "что было отправлено"
+error: "сообщение при ошибке"
 ```
 
 ---
 
-## Usage Examples
+## Примеры использования
 
-**Send simple status:**
+**Отправить простой статус:**
 ```
 Telegram_SendMessage:
-  message: "<b>Starting:</b> Add login page\n<code>ENG-123</code>"
+  message: "<b>Начинаю:</b> Добавить страницу входа\n<code>ENG-123</code>"
   parse_mode: "HTML"
 ```
 
-**Send daily digest:**
+**Отправить ежедневный дайджест:**
 ```
 Telegram_SendMessage:
-  message: "<b>Daily Digest  2024-01-15</b>\n\n<b>Progress:</b>  40%\n..."
+  message: "<b>Дайджест за день  2024-01-15</b>\n\n<b>Прогресс:</b>  40%\n..."
   parse_mode: "HTML"
 ```
 
-**Send error alert:**
+**Отправить оповещение об ошибке:**
 ```
 Telegram_SendMessage:
-  message: "<b>Error Alert</b>\n\n<b>Type:</b> RUNTIME\n..."
+  message: "<b>Оповещение об ошибке</b>\n\n<b>Тип:</b> RUNTIME\n..."
   parse_mode: "HTML"
 ```

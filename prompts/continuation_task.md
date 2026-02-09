@@ -1,105 +1,105 @@
-Execute next task for team: {team}
-Working directory: {cwd}
-Project filter: {project}
+Выполни следующую задачу для команды: {team}
+Рабочая директория: {cwd}
+Фильтр по проекту: {project}
 
-## CONTINUATION MODE
+## РЕЖИМ ПРОДОЛЖЕНИЯ
 
-### 0. Load Previous Context
-task agent: Get META issue comments, find latest "Session Summary"
-Return: what was done, failures, files, next step, context
+### 0. Загрузить предыдущий контекст
+task agent: Получить комментарии META-задачи, найти последний "Session Summary"
+Вернуть: что было сделано, ошибки, файлы, следующий шаг, контекст
 
-Use to: resume work, skip analyzed files, avoid failed approaches.
+Использовать для: возобновления работы, пропуска проанализированных файлов, избежания неудачных подходов.
 
-### 0.1 Check for Interrupted Session (ENG-29)
-Check .agent/MEMORY.md for "Context Limit Shutdown" entry.
-If found:
-- Note the interrupted issue ID and step
-- Resume from that exact step, don't restart from zero
-- The previous work is still valid, just continue
+### 0.1 Проверить прерванную сессию (ENG-29)
+Проверь .agent/MEMORY.md на наличие записи "Context Limit Shutdown".
+Если найдена:
+- Запомни ID прерванной задачи и шаг
+- Возобнови с этого точного шага, не начинай с нуля
+- Предыдущая работа всё ещё актуальна, просто продолжай
 
-## Flow
+## Процесс
 
-### 1. Get Task
-task agent: List Todo and In Progress for {team} with project={project}, limit=10
-- If In Progress: resume it (check if context-limit interrupted)
-- Else: highest priority Todo
-**IMPORTANT: Always use project={project} and limit=10 in Task_ListIssues.**
+### 1. Получить задачу
+task agent: Список Todo и In Progress для {team} с project={project}, limit=10
+- Если In Progress: возобнови её (проверь, было ли прерывание по лимиту контекста)
+- Иначе: Todo с наивысшим приоритетом
+**ВАЖНО: Всегда используй project={project} и limit=10 в Task_ListIssues.**
 
-If no Todo/In Progress: telegram ":tada: All complete!" then `ALL_TASKS_DONE:` and stop.
+Если нет Todo/In Progress: telegram ":tada: Всё выполнено!" затем `ALL_TASKS_DONE:` и остановиться.
 
-### 1.5 Check for Epic (ENG-27)
+### 1.5 Проверить наличие Epic (ENG-27)
 
-After getting task, check if it's an Epic (decomposed task):
-- Look for comment starting with "Epic: This task has been decomposed"
-- If found, extract subtask IDs from the comment
+После получения задачи проверь, является ли она Epic (декомпозированная задача):
+- Ищи комментарий начинающийся с "Epic: This task has been decomposed"
+- Если найден, извлеки ID подзадач из комментария
 
-**If Task is Epic:**
-1. List all subtask IDs from Epic comment
-2. Check status of each subtask via task agent
-3. Find first subtask that is NOT Done
-4. If all subtasks Done:
-   - Mark Epic as Done
-   - telegram: ":white_check_mark: Epic completed: [title]"
-   - Return to Step 1 for next task
-5. If incomplete subtask found:
-   - Report Epic progress: "Epic [id]: 3/5 subtasks done"
-   - Continue with incomplete subtask as current task
+**Если задача -- Epic:**
+1. Перечисли все ID подзадач из комментария Epic
+2. Проверь статус каждой подзадачи через task agent
+3. Найди первую подзадачу НЕ в статусе Done
+4. Если все подзадачи Done:
+   - Отметь Epic как Done
+   - telegram: ":white_check_mark: Epic завершён: [title]"
+   - Вернись к Шагу 1 для следующей задачи
+5. Если найдена незавершённая подзадача:
+   - Сообщи прогресс Epic: "Epic [id]: 3/5 подзадач выполнено"
+   - Продолжи с незавершённой подзадачей как текущей
 
-**If Task is NOT Epic:**
-- Check if Large task (see evaluate_task.md Step 1.5)
-- If Large and not yet decomposed: decompose it
-- Otherwise: continue normally
+**Если задача -- НЕ Epic:**
+- Проверь, является ли задача большой (смотри evaluate_task.md Шаг 1.5)
+- Если большая и ещё не декомпозирована: декомпозируй
+- Иначе: продолжай нормально
 
-### 2. Start
-task agent: Transition to In Progress (if needed)
-telegram: ":construction: Starting: [title]" or ":repeat: Resuming: [title]"
-coding agent: Create or switch to branch `agent/{{issue-id}}`
+### 2. Начало
+task agent: Перевести в In Progress (если нужно)
+telegram: ":construction: Начинаю: [title]" или ":repeat: Возобновляю: [title]"
+coding agent: Создать или переключиться на ветку `agent/{{issue-id}}`
 
-### 3. Implement
-coding agent with FULL context + previous context:
-- ID, Title, Description, Test Steps
-- Previous Context (if resuming)
-- Interrupted step (if context-limit recovery)
+### 3. Реализация
+coding agent с ПОЛНЫМ контекстом + предыдущий контекст:
+- ID, Заголовок, Описание, Шаги тестирования
+- Предыдущий контекст (при возобновлении)
+- Прерванный шаг (при восстановлении после лимита контекста)
 
-**If COMPACT MODE active (70%+ context):**
-- Use only: ID + Title + 1-line description
-- Skip META issue history lookup
-- Pass minimal context to coding agent
+**Если активен КОМПАКТНЫЙ РЕЖИМ (70%+ контекста):**
+- Используй только: ID + Заголовок + 1 строка описания
+- Пропусти просмотр истории META-задачи
+- Передай минимальный контекст coding agent
 
-### 4. Commit
-coding agent: Commit with task ID
+### 4. Коммит
+coding agent: Коммит с ID задачи
 
-### 4a. Push (ENG-62)
-coding agent: After lint-gate passes, push to remote:
-- Run `./scripts/lint-gate.sh`
-- If passes: `git push -u origin agent/{{issue-id}}`
-- If fails: fix lint errors, re-commit, re-run lint-gate
-- If GITHUB_TOKEN not set: skip push silently
+### 4a. Пуш (ENG-62)
+coding agent: После прохождения линтинг-гейта, пуш на remote:
+- Запусти `./scripts/lint-gate.sh`
+- Если прошёл: `git push -u origin agent/{{issue-id}}`
+- Если не прошёл: исправь ошибки линтинга, перекоммить, перезапусти линтинг-гейт
+- Если GITHUB_TOKEN не задан: пропустить пуш тихо
 
-### 4b. Code Review Gate (ENG-42)
-See orchestrator_prompt.md "Review Gate" section for full rules.
-- Auto-approve: docs-only, config-only, or <20 lines
-- Otherwise: reviewer agent checks diff, max 2 review cycles
+### 4b. Гейт ревью кода (ENG-42)
+Смотри раздел "Гейт ревью" в orchestrator_prompt.md для полных правил.
+- Авто-одобрение: только документация, только конфиг, или <20 строк
+- Иначе: reviewer agent проверяет diff, максимум 2 цикла ревью
 
-### 5. Done
-task agent: Mark Done with files/verification evidence
+### 5. Отметить Done
+task agent: Отметить Done с файлами/доказательствами верификации
 
-### 6. Notify
-telegram: ":white_check_mark: Completed: [title]"
+### 6. Уведомить
+telegram: ":white_check_mark: Завершено: [title]"
 
-### 7. Memory
-coding agent: Update .agent/MEMORY.md
-task agent: Session summary to META issue
+### 7. Память
+coding agent: Обновить .agent/MEMORY.md
+task agent: Итоги сессии в META-задачу
 
-## Context Limit Recovery (ENG-29)
+## Восстановление после лимита контекста (ENG-29)
 
-If session was interrupted by context limit:
-1. Check MEMORY.md for "Context Limit Shutdown" note
-2. Find the interrupted_at step
-3. Resume from that step (don't re-do completed work)
-4. The issue is likely still In Progress
+Если сессия была прервана из-за лимита контекста:
+1. Проверь MEMORY.md на наличие записи "Context Limit Shutdown"
+2. Найди шаг interrupted_at
+3. Возобнови с этого шага (не переделывай завершённую работу)
+4. Задача скорее всего всё ещё в In Progress
 
-Example MEMORY.md entry:
+Пример записи в MEMORY.md:
 ```
 ### Context Limit Shutdown (2024-01-15T10:30:00)
 - Issue: ENG-29
@@ -107,12 +107,12 @@ Example MEMORY.md entry:
 - Resume from step: implement
 ```
 
-## Rules
-- Check previous context first
-- Check for context-limit interruption
-- No Done without verification (browser_snapshot, tests, or lint-gate)
-- One issue per session
-- Memory flush before ending
-- In COMPACT MODE: minimal context only
-- **NEVER create projects** (Task_CreateProject is FORBIDDEN). Work only in project={project}
-- All new tasks (subtasks from decomposition) MUST use project={project}
+## Правила
+- Сначала проверь предыдущий контекст
+- Проверь прерывание по лимиту контекста
+- Не отмечать Done без верификации (browser_snapshot, тесты или lint-gate)
+- Одна задача за сессию
+- Сброс памяти перед завершением
+- В КОМПАКТНОМ РЕЖИМЕ: только минимальный контекст
+- **НИКОГДА не создавать проекты** (Task_CreateProject ЗАПРЕЩЁН). Работать только в project={project}
+- Все новые задачи (подзадачи декомпозиции) ОБЯЗАНЫ использовать project={project}
