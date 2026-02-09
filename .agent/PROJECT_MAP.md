@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 00:02:01*
+*Auto-generated: 2026-02-09 10:28:43*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -12,19 +12,20 @@
 ```
 your-claude-engineer/
 ├── .agent/ (4 files)
+│   ├── sessions/
 ├── .github/ (1 files)
 │   └── workflows/ (1 files)
 ├── agents/ (2 files)
-├── analytics_server/ (2 files)
+├── analytics_server/ (3 files)
 ├── backups/ (3 files)
-├── dashboard/ (54 files)
+├── dashboard/ (59 files)
 │   ├── public/ (9 files)
 │   │   ├── icons/ (1 files)
-│   ├── src/ (39 files)
-│   │   ├── components/ (21 files)
+│   ├── src/ (44 files)
+│   │   ├── components/ (23 files)
 │   │   ├── context/ (1 files)
-│   │   ├── hooks/ (6 files)
-│   │   ├── pages/ (6 files)
+│   │   ├── hooks/ (7 files)
+│   │   ├── pages/ (8 files)
 │   │   ├── styles/ (2 files)
 │   │   ├── utils/
 ├── prompts/ (7 files)
@@ -88,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (3 минуты назад)
-- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (15 минут назад)
-- `fddc098` feat: add crash recovery on startup with stale detection and prompt injection (21 минута назад)
-- `a2376ec` chore: update project map, memory, and settings after ENG-67/ENG-68 (28 минут назад)
-- `8b0d1d9` feat: add phase-level retry logic with RetryStrategy enum (29 минут назад)
+- `9073c00` feat(ENG-78): add Replay page with session list and detail views (26 секунд назад)
+- `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (73 минуты назад)
+- `1a09b70` chore: update memory and project map after ENG-62 (10 часов назад)
+- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (11 часов назад)
+- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (11 часов назад)
 
 ## Import Graph (Hub Files)
 
