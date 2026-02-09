@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 11:49:03*
+*Auto-generated: 2026-02-09 11:56:42*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -16,26 +16,26 @@ your-claude-engineer/
 ├── .github/ (1 files)
 │   └── workflows/ (1 files)
 ├── agents/ (2 files)
-├── analytics_server/ (3 files)
+├── analytics_server/ (2 files)
 ├── backups/ (3 files)
-├── dashboard/ (59 files)
+├── dashboard/ (54 files)
 │   ├── public/ (9 files)
 │   │   ├── icons/ (1 files)
-│   ├── src/ (44 files)
-│   │   ├── components/ (23 files)
+│   ├── src/ (39 files)
+│   │   ├── components/ (21 files)
 │   │   ├── context/ (1 files)
-│   │   ├── hooks/ (7 files)
-│   │   ├── pages/ (8 files)
+│   │   ├── hooks/ (6 files)
+│   │   ├── pages/ (6 files)
 │   │   ├── styles/ (2 files)
 │   │   ├── utils/
 ├── prompts/ (7 files)
 ├── screenshots/ (114 files)
 ├── scripts/ (5 files)
-├── tests/ (15 files)
+├── tests/ (16 files)
 │   ├── api/ (3 files)
 │   ├── e2e/ (3 files)
 │   ├── integration/ (3 files)
-│   ├── unit/ (4 files)
+│   ├── unit/ (5 files)
 ├── [27 files in root]
 ```
 
@@ -83,17 +83,17 @@ your-claude-engineer/
 | Port | Description |
 |------|-------------|
 | 3000 | vite.config.js |
-| 5173 | Dashboard (Vite dev сервер) |
+| 5173 | Dashboard (Vite dev server) |
 | 8003 | vite.config.js |
 | 8080 | Analytics API (FastAPI) |
 
 ## Recent Commits
 
-- `eb48eea` feat(ENG-84): русификация документации проекта (11 секунд назад)
-- `0e3941a` chore: update project map after ENG-83 (8 минут назад)
-- `e4a65b0` feat(ENG-83): русификация CLI сообщений и логов (9 минут назад)
-- `7784a31` chore: update project map after ENG-82 JSX/JS translation (22 минуты назад)
-- `438ba55` chore: update project map after ENG-82 (26 минут назад)
+- `f3add59` feat(ENG-85): add daily digest report for Telegram (57 секунд назад)
+- `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (3 часа назад)
+- `1a09b70` chore: update memory and project map after ENG-62 (12 часов назад)
+- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (12 часов назад)
+- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (12 часов назад)
 
 ## Import Graph (Hub Files)
 

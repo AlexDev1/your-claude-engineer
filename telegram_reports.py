@@ -782,12 +782,20 @@ def format_all_tasks_complete() -> str:
 
 
 def escape_html(text: str) -> str:
-    """Escape HTML entities for Telegram."""
+    """Escape HTML special characters to prevent XSS in Telegram messages.
+
+    Args:
+        text: Raw text that may contain HTML special characters.
+
+    Returns:
+        Text with ``&``, ``<``, ``>``, and ``"`` replaced by HTML entities.
+    """
     return (
         text
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
+        .replace('"', "&quot;")
     )
 
 
@@ -1202,3 +1210,126 @@ def format_budget_status(
         lines.append('<code>{"limit_usd": 100}</code>')
 
     return "\n".join(lines)
+
+
+# =============================================================================
+# TelegramReports Class (ENG-85): Class-based API for report generation
+# =============================================================================
+
+
+class TelegramReports:
+    """Class-based API for generating Telegram reports.
+
+    Provides methods for generating structured HTML reports compatible
+    with Telegram's parse_mode="HTML".
+
+    Supported HTML tags: <b>, <i>, <code>, <pre>, <a>
+
+    Usage:
+        reports = TelegramReports()
+        digest = reports.generate_daily_digest({
+            "done": 5,
+            "in_progress": 2,
+            "todo": 10,
+            "completed_today": [
+                {"id": "ENG-1", "title": "Add auth"},
+                {"id": "ENG-2", "title": "Fix login"},
+            ],
+        })
+    """
+
+    PROGRESS_BAR_WIDTH: int = 10
+    FILL_CHAR: str = "\u2588"      # Full block
+    EMPTY_CHAR: str = "\u2591"     # Light shade
+
+    def format_progress_bar(self, done: int, total: int) -> str:
+        """Create a textual progress bar showing completion percentage.
+
+        Args:
+            done: Number of completed items.
+            total: Total number of items.
+
+        Returns:
+            Progress bar string like ``[█████░░░░░] 50%``.
+            Returns ``[░░░░░░░░░░] 0%`` when *total* is zero or negative.
+
+        Examples:
+            >>> TelegramReports().format_progress_bar(5, 10)
+            '[█████░░░░░] 50%'
+            >>> TelegramReports().format_progress_bar(0, 10)
+            '[░░░░░░░░░░] 0%'
+        """
+        if total <= 0:
+            bar = self.EMPTY_CHAR * self.PROGRESS_BAR_WIDTH
+            return f"[{bar}] 0%"
+
+        percentage = min(100, max(0, (done / total) * 100))
+        filled = int((percentage / 100) * self.PROGRESS_BAR_WIDTH)
+        empty = self.PROGRESS_BAR_WIDTH - filled
+
+        bar = self.FILL_CHAR * filled + self.EMPTY_CHAR * empty
+        return f"[{bar}] {percentage:.0f}%"
+
+    def generate_daily_digest(self, tasks_stats: dict[str, object]) -> str:
+        """Generate a daily digest report in Telegram-compatible HTML.
+
+        Args:
+            tasks_stats: Dictionary with task statistics containing:
+                - ``done`` (int): Number of completed tasks.
+                - ``in_progress`` (int): Number of tasks in progress.
+                - ``todo`` (int): Number of tasks still to do.
+                - ``completed_today`` (list): Tasks finished today.
+                  Each element can be either a plain string (task ID) or a
+                  dict with ``id`` and ``title`` keys.
+
+        Returns:
+            HTML-formatted string ready for ``parse_mode="HTML"`` in Telegram.
+
+        Example output::
+
+            <b>Ежедневный дайджест</b>
+
+            <b>Прогресс:</b> [██████░░░░] 60%
+
+            <b>Статистика:</b>
+            Завершено: 12
+            В работе: 3
+            К выполнению: 5
+
+            <b>Завершено сегодня:</b>
+            - ENG-79: Перевод промптов
+            - ENG-80: Русификация Telegram
+        """
+        done = int(tasks_stats.get("done", 0) or 0)
+        in_progress = int(tasks_stats.get("in_progress", 0) or 0)
+        todo = int(tasks_stats.get("todo", 0) or 0)
+        completed_today: list[object] = list(
+            tasks_stats.get("completed_today", []) or []  # type: ignore[arg-type]
+        )
+
+        total = done + in_progress + todo
+        progress_bar = self.format_progress_bar(done, total)
+
+        lines: list[str] = [
+            "<b>Ежедневный дайджест</b>",
+            "",
+            f"<b>Прогресс:</b> {progress_bar}",
+            "",
+            "<b>Статистика:</b>",
+            f"Завершено: {done}",
+            f"В работе: {in_progress}",
+            f"К выполнению: {todo}",
+        ]
+
+        if completed_today:
+            lines.append("")
+            lines.append("<b>Завершено сегодня:</b>")
+            for item in completed_today:
+                if isinstance(item, dict):
+                    task_id = escape_html(str(item.get("id", "")))
+                    title = escape_html(str(item.get("title", "")))
+                    lines.append(f"- {task_id}: {title}")
+                else:
+                    lines.append(f"- {escape_html(str(item))}")
+
+        return "\n".join(lines)
