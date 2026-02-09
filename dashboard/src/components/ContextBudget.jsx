@@ -5,11 +5,11 @@ const API_BASE = '/api'
 
 // Category icons and colors
 const CATEGORY_CONFIG = {
-  system_prompt: { icon: FileText, color: 'bg-blue-500', label: 'System Prompt' },
-  files: { icon: HardDrive, color: 'bg-green-500', label: 'Files' },
-  history: { icon: History, color: 'bg-purple-500', label: 'History' },
-  memory: { icon: Brain, color: 'bg-yellow-500', label: 'Memory' },
-  issue: { icon: ClipboardList, color: 'bg-pink-500', label: 'Issue Context' },
+  system_prompt: { icon: FileText, color: 'bg-blue-500', label: 'Системный промпт' },
+  files: { icon: HardDrive, color: 'bg-green-500', label: 'Файлы' },
+  history: { icon: History, color: 'bg-purple-500', label: 'История' },
+  memory: { icon: Brain, color: 'bg-yellow-500', label: 'Память' },
+  issue: { icon: ClipboardList, color: 'bg-pink-500', label: 'Контекст задачи' },
 }
 
 // Format token count
@@ -78,7 +78,7 @@ function ContextBudget({ refreshInterval = 5000 }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <Gauge className="w-5 h-5 text-blue-500" />
-          <h3 className="text-lg font-semibold text-white">Context Budget</h3>
+          <h3 className="text-lg font-semibold text-white">Бюджет контекста</h3>
         </div>
         <div className="flex items-center space-x-2">
           {isWarning && (
@@ -86,13 +86,13 @@ function ContextBudget({ refreshInterval = 5000 }) {
               isCritical ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
             }`}>
               <AlertTriangle className="w-3 h-3" />
-              <span>{isCritical ? 'Critical' : 'Warning'}</span>
+              <span>{isCritical ? 'Критично' : 'Внимание'}</span>
             </div>
           )}
           <button
             onClick={fetchData}
             className="p-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-            title="Refresh"
+            title="Обновить"
           >
             <RefreshCw className="w-4 h-4 text-gray-400" />
           </button>
@@ -139,13 +139,13 @@ function ContextBudget({ refreshInterval = 5000 }) {
       {/* Token Counts */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-          <div className="text-sm text-gray-400">Used</div>
+          <div className="text-sm text-gray-400">Использовано</div>
           <div className="text-xl font-semibold text-white">
             {formatTokens(data?.total_used || 0)}
           </div>
         </div>
         <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-          <div className="text-sm text-gray-400">Remaining</div>
+          <div className="text-sm text-gray-400">Осталось</div>
           <div className="text-xl font-semibold text-green-400">
             {formatTokens(data?.remaining || 0)}
           </div>
@@ -170,7 +170,7 @@ function ContextBudget({ refreshInterval = 5000 }) {
 
       {/* Breakdown */}
       <div className="space-y-2">
-        <div className="text-sm font-medium text-gray-400 mb-2">Breakdown</div>
+        <div className="text-sm font-medium text-gray-400 mb-2">Разбивка</div>
         {data?.breakdown && Object.entries(data.breakdown).map(([category, tokens]) => {
           if (tokens === 0) return null
           const config = CATEGORY_CONFIG[category] || {
@@ -209,7 +209,7 @@ function ContextBudget({ refreshInterval = 5000 }) {
       {lastUpdate && (
         <div className="mt-4 pt-3 border-t border-gray-700">
           <div className="text-xs text-gray-500 text-center">
-            Last updated: {lastUpdate.toLocaleTimeString()}
+            Обновлено: {lastUpdate.toLocaleTimeString()}
           </div>
         </div>
       )}
@@ -217,7 +217,7 @@ function ContextBudget({ refreshInterval = 5000 }) {
       {/* Error indicator */}
       {error && (
         <div className="mt-2 text-xs text-center text-yellow-500">
-          Using demo data (API unavailable)
+          Используются демо-данные (API недоступен)
         </div>
       )}
     </div>

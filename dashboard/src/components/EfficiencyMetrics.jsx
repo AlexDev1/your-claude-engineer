@@ -85,13 +85,13 @@ function EfficiencyMetrics({ data }) {
           className="text-lg font-semibold"
           style={{ color: 'var(--color-text)' }}
         >
-          Efficiency Metrics
+          Метрики эффективности
         </h3>
         <p
           className="text-sm"
           style={{ color: 'var(--color-textSecondary)' }}
         >
-          Overall performance indicators
+          Общие показатели производительности
         </p>
       </div>
 
@@ -102,7 +102,7 @@ function EfficiencyMetrics({ data }) {
             className="text-sm"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Success Rate
+            Успешность
           </span>
           <span
             className="text-lg font-bold"
@@ -128,13 +128,13 @@ function EfficiencyMetrics({ data }) {
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Done: {tasks_done}
+            Готово: {tasks_done}
           </span>
           <span
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Cancelled: {tasks_cancelled}
+            Отменено: {tasks_cancelled}
           </span>
         </div>
       </div>
@@ -143,30 +143,30 @@ function EfficiencyMetrics({ data }) {
       <div className="grid grid-cols-2 gap-4">
         <MetricCard
           icon={CheckCircle}
-          label="Completed"
+          label="Выполнено"
           value={tasks_done}
-          subValue="tasks done"
+          subValue="задач готово"
           color="green"
         />
         <MetricCard
           icon={Clock}
-          label="Avg. Time"
+          label="Ср. время"
           value={formatTime(avg_completion_time_hours)}
-          subValue="to complete"
+          subValue="до завершения"
           color="blue"
         />
         <MetricCard
           icon={PlayCircle}
-          label="In Progress"
+          label="В работе"
           value={tasks_in_progress}
-          subValue="active tasks"
+          subValue="активных задач"
           color="yellow"
         />
         <MetricCard
           icon={ListTodo}
-          label="Backlog"
+          label="Бэклог"
           value={tasks_todo}
-          subValue="in queue"
+          subValue="в очереди"
           color="purple"
         />
       </div>

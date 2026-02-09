@@ -14,13 +14,13 @@ function App() {
   const [showInstallBanner, setShowInstallBanner] = useState(false)
 
   const navItems = [
-    { path: '/live', label: 'Live', icon: Radio },
-    { path: '/tasks', label: 'Tasks', icon: ClipboardList },
-    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-    { path: '/replay', label: 'Replay', icon: Play },
-    { path: '/import', label: 'Import', icon: Upload },
-    { path: '/export', label: 'Export', icon: Download },
-    { path: '/settings', label: 'Settings', icon: SettingsIcon },
+    { path: '/live', label: 'Монитор', icon: Radio },
+    { path: '/tasks', label: 'Задачи', icon: ClipboardList },
+    { path: '/analytics', label: 'Аналитика', icon: BarChart3 },
+    { path: '/replay', label: 'Воспроизведение', icon: Play },
+    { path: '/import', label: 'Импорт', icon: Upload },
+    { path: '/export', label: 'Экспорт', icon: Download },
+    { path: '/settings', label: 'Настройки', icon: SettingsIcon },
   ]
 
   // Show install banner after a delay on mobile
@@ -54,7 +54,7 @@ function App() {
       <div
         className={`offline-indicator ${!isOnline ? 'visible offline' : ''}`}
       >
-        You are offline. Changes will sync when back online.
+        Вы офлайн. Изменения синхронизируются при восстановлении соединения.
       </div>
 
       {/* Header */}
@@ -75,8 +75,8 @@ function App() {
               className="text-lg md:text-xl font-bold"
               style={{ color: 'var(--color-text)' }}
             >
-              <span className="hidden sm:inline">Agent Analytics</span>
-              <span className="sm:hidden">Dashboard</span>
+              <span className="hidden sm:inline">Аналитика агента</span>
+              <span className="sm:hidden">Панель</span>
             </h1>
           </div>
 
@@ -152,13 +152,13 @@ function App() {
                 className="font-semibold text-sm"
                 style={{ color: 'var(--color-text)' }}
               >
-                Install Agent Dashboard
+                Установить панель агента
               </h3>
               <p
                 className="text-xs"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                Get quick access from your home screen
+                Быстрый доступ с домашнего экрана
               </p>
             </div>
             <button
@@ -166,7 +166,7 @@ function App() {
               className="px-4 py-2 rounded-lg text-sm font-medium"
               style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
             >
-              Install
+              Установить
             </button>
           </div>
         </div>

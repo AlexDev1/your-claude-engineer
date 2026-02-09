@@ -4,10 +4,10 @@ import QuickActions from './QuickActions'
 import SwipeableCard from './SwipeableCard'
 
 const COLUMNS = [
-  { id: 'Todo', label: 'Todo', color: '#6b7280' },
-  { id: 'In Progress', label: 'In Progress', color: '#3b82f6' },
-  { id: 'Done', label: 'Done', color: '#22c55e' },
-  { id: 'Cancelled', label: 'Cancelled', color: '#ef4444' },
+  { id: 'Todo', label: 'К выполнению', color: '#6b7280' },
+  { id: 'In Progress', label: 'В работе', color: '#3b82f6' },
+  { id: 'Done', label: 'Готово', color: '#22c55e' },
+  { id: 'Cancelled', label: 'Отменено', color: '#ef4444' },
 ]
 
 const PRIORITY_COLORS = {
@@ -267,8 +267,8 @@ function KanbanBoard({
             className="flex items-center justify-center mt-2 pt-2 border-t text-xs"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-textMuted)' }}
           >
-            {transitions.right && <span className="mr-2">Swipe right: {transitions.right}</span>}
-            {transitions.left && <span>Swipe left: {transitions.left}</span>}
+            {transitions.right && <span className="mr-2">Свайп вправо: {transitions.right}</span>}
+            {transitions.left && <span>Свайп влево: {transitions.left}</span>}
           </div>
         )}
       </div>
@@ -364,9 +364,9 @@ function KanbanBoard({
                     style={{ color: 'var(--color-textMuted)' }}
                   >
                     {draggedIssue && isDropTarget ? (
-                      <span>Drop here to move</span>
+                      <span>Перетащите сюда</span>
                     ) : (
-                      <span>No issues</span>
+                      <span>Нет задач</span>
                     )}
                   </div>
                 )}

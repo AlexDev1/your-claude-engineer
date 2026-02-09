@@ -6,7 +6,7 @@ const ISSUE_TEMPLATES = [
     type: 'Bug',
     icon: Bug,
     color: '#ef4444',
-    description: 'Something is broken',
+    description: 'Что-то сломано',
     defaults: {
       priority: 'high',
       description: '## Bug Description\n\n## Steps to Reproduce\n1. \n\n## Expected Behavior\n\n## Actual Behavior\n\n## Environment\n',
@@ -16,7 +16,7 @@ const ISSUE_TEMPLATES = [
     type: 'Feature',
     icon: Lightbulb,
     color: '#3b82f6',
-    description: 'New functionality',
+    description: 'Новая функциональность',
     defaults: {
       priority: 'medium',
       description: '## Feature Description\n\n## User Story\nAs a [user], I want [feature] so that [benefit].\n\n## Acceptance Criteria\n- [ ] \n\n## Technical Notes\n',
@@ -26,7 +26,7 @@ const ISSUE_TEMPLATES = [
     type: 'Task',
     icon: CheckSquare,
     color: '#6b7280',
-    description: 'General work item',
+    description: 'Общая рабочая задача',
     defaults: {
       priority: 'medium',
       description: '## Task Description\n\n## Requirements\n- \n\n## Notes\n',
@@ -36,7 +36,7 @@ const ISSUE_TEMPLATES = [
     type: 'Epic',
     icon: Layers,
     color: '#a855f7',
-    description: 'Large feature container',
+    description: 'Контейнер для крупной функции',
     defaults: {
       priority: 'medium',
       description: '## Epic Overview\n\n## Goals\n- \n\n## Sub-tasks\n- [ ] \n\n## Success Metrics\n',
@@ -45,10 +45,10 @@ const ISSUE_TEMPLATES = [
 ]
 
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
+  { value: 'urgent', label: 'Срочный' },
+  { value: 'high', label: 'Высокий' },
+  { value: 'medium', label: 'Средний' },
+  { value: 'low', label: 'Низкий' },
 ]
 
 const TEAM_OPTIONS = ['ENG', 'DESIGN', 'PRODUCT', 'OPS']
@@ -137,7 +137,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
             className="text-lg font-semibold"
             style={{ color: 'var(--color-text)' }}
           >
-            {step === 'template' ? 'Create New Issue' : `New ${formData.issue_type}`}
+            {step === 'template' ? 'Создать задачу' : `Новый ${formData.issue_type}`}
           </h2>
           <button
             onClick={onClose}
@@ -158,7 +158,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                 className="text-sm mb-4"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                Choose a template to get started:
+                Выберите шаблон для начала:
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {ISSUE_TEMPLATES.map(template => {
@@ -212,7 +212,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                 className="w-full mt-4 text-sm transition-colors"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                Skip template, create blank issue
+                Пропустить шаблон, создать пустую задачу
               </button>
             </div>
           ) : (
@@ -223,14 +223,14 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   className="block text-xs mb-1"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  Title *
+                  Название *
                 </label>
                 <input
                   ref={titleRef}
                   type="text"
                   value={formData.title}
                   onChange={(e) => handleChange('title', e.target.value)}
-                  placeholder="Issue title"
+                  placeholder="Название задачи"
                   required
                   className="w-full rounded-lg px-3 py-2 text-sm border"
                   style={{
@@ -248,7 +248,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                     className="block text-xs mb-1"
                     style={{ color: 'var(--color-textSecondary)' }}
                   >
-                    Team
+                    Команда
                   </label>
                   <select
                     value={formData.team}
@@ -270,7 +270,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                     className="block text-xs mb-1"
                     style={{ color: 'var(--color-textSecondary)' }}
                   >
-                    Project
+                    Проект
                   </label>
                   <select
                     value={formData.project || ''}
@@ -282,7 +282,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                       color: 'var(--color-text)'
                     }}
                   >
-                    <option value="">None</option>
+                    <option value="">Нет</option>
                     {PROJECT_OPTIONS.map(project => (
                       <option key={project} value={project}>{project}</option>
                     ))}
@@ -296,7 +296,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   className="block text-xs mb-1"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  Priority
+                  Приоритет
                 </label>
                 <div className="flex space-x-2">
                   {PRIORITY_OPTIONS.map(option => (
@@ -323,12 +323,12 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   className="block text-xs mb-1"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  Description (Markdown)
+                  Описание (Markdown)
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => handleChange('description', e.target.value)}
-                  placeholder="Add a description..."
+                  placeholder="Добавьте описание..."
                   className="w-full rounded-lg px-3 py-2 text-sm border min-h-[120px] resize-y font-mono"
                   style={{
                     backgroundColor: 'var(--color-inputBg)',
@@ -344,7 +344,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   className="block text-xs mb-1"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  Parent Issue (Optional)
+                  Родительская задача (необязательно)
                 </label>
                 <select
                   value={formData.parent_id || ''}
@@ -356,7 +356,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                     color: 'var(--color-text)'
                   }}
                 >
-                  <option value="">None</option>
+                  <option value="">Нет</option>
                   {potentialParents.map(i => (
                     <option key={i.identifier} value={i.identifier}>
                       {i.identifier}: {i.title}
@@ -371,7 +371,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                   className="block text-xs mb-1"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  Dependencies (Optional)
+                  Зависимости (необязательно)
                 </label>
                 <select
                   value=""
@@ -387,7 +387,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                     color: 'var(--color-text)'
                   }}
                 >
-                  <option value="">Add dependency...</option>
+                  <option value="">Добавить зависимость...</option>
                   {allIssues
                     .filter(i => !formData.dependencies.includes(i.identifier))
                     .map(i => (
@@ -441,7 +441,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
               className="text-sm transition-colors"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              Back to templates
+              Назад к шаблонам
             </button>
             <div className="flex items-center space-x-2">
               <button
@@ -449,7 +449,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                 className="px-4 py-2 transition-colors"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                Cancel
+                Отмена
               </button>
               <button
                 onClick={handleSubmit}
@@ -461,7 +461,7 @@ function CreateIssueForm({ isOpen, onClose, onCreate, allIssues = [] }) {
                 }}
               >
                 <Plus className="w-4 h-4" />
-                <span>Create Issue</span>
+                <span>Создать задачу</span>
               </button>
             </div>
           </div>

@@ -21,8 +21,8 @@ function StateTimeChart({ data }) {
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white">Time in State</h3>
-        <p className="text-sm text-gray-400">Average hours per state transition</p>
+        <h3 className="text-lg font-semibold text-white">Время в статусе</h3>
+        <p className="text-sm text-gray-400">Среднее количество часов на переход</p>
       </div>
 
       <div className="h-48">
@@ -53,7 +53,7 @@ function StateTimeChart({ data }) {
                 borderRadius: '8px',
                 color: '#F9FAFB',
               }}
-              formatter={(value) => [`${value} hours`, 'Average Time']}
+              formatter={(value) => [`${value} часов`, 'Среднее время']}
               cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
             />
             <Bar dataKey="hours" radius={[0, 4, 4, 0]}>

@@ -27,10 +27,10 @@ const STATUS_COLORS = {
 
 /** Map event type to display-friendly label and icon */
 const EVENT_TYPE_CONFIG = {
-  tool_call: { label: 'Tool Call', icon: Terminal, color: '#8b5cf6' },
-  file_write: { label: 'File Write', icon: FileCode, color: '#22c55e' },
+  tool_call: { label: 'Вызов инструмента', icon: Terminal, color: '#8b5cf6' },
+  file_write: { label: 'Запись файла', icon: FileCode, color: '#22c55e' },
   bash: { label: 'Bash', icon: Terminal, color: '#f59e0b' },
-  agent_call: { label: 'Agent Call', icon: MessageSquare, color: '#3b82f6' },
+  agent_call: { label: 'Вызов агента', icon: MessageSquare, color: '#3b82f6' },
 }
 
 /** Playback timer interval in milliseconds */
@@ -87,7 +87,7 @@ function FileListPanel({ files, selectedFile, onSelect }) {
         className="flex items-center justify-center h-full"
         style={{ color: 'var(--color-textMuted)' }}
       >
-        <span className="text-sm">No files modified</span>
+        <span className="text-sm">Файлы не изменены</span>
       </div>
     )
   }
@@ -397,7 +397,7 @@ function ReplayDetail() {
           style={{ color: 'var(--color-textSecondary)' }}
         >
           <RefreshCw className="w-6 h-6 animate-spin" />
-          <span>Loading session...</span>
+          <span>Загрузка сессии...</span>
         </div>
       </div>
     )
@@ -413,7 +413,7 @@ function ReplayDetail() {
           style={{ color: 'var(--color-textSecondary)' }}
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to sessions
+          К списку сессий
         </button>
         <div
           className="rounded-lg p-6 border text-center"
@@ -424,7 +424,7 @@ function ReplayDetail() {
           }}
         >
           <XCircle className="w-10 h-10 mx-auto mb-3" />
-          <p className="font-medium">Failed to load session</p>
+          <p className="font-medium">Не удалось загрузить сессию</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
       </div>
@@ -464,7 +464,7 @@ function ReplayDetail() {
             }}
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            Назад
           </button>
 
           <div className="flex items-center gap-3">
@@ -515,7 +515,7 @@ function ReplayDetail() {
             color: '#f87171',
           }}
         >
-          API error: {error}. Showing demo data.
+          Ошибка API: {error}. Показаны демо-данные.
         </div>
       )}
 
@@ -548,7 +548,7 @@ function ReplayDetail() {
               className="text-sm font-semibold"
               style={{ color: 'var(--color-text)' }}
             >
-              Files
+              Файлы
             </h3>
             <span
               className="text-xs px-1.5 py-0.5 rounded-full"
@@ -584,7 +584,7 @@ function ReplayDetail() {
                 className="text-sm font-semibold"
                 style={{ color: 'var(--color-text)' }}
               >
-                Agent Output
+                Вывод агента
               </h3>
               <span
                 className="text-xs px-1.5 py-0.5 rounded-full"
@@ -593,7 +593,7 @@ function ReplayDetail() {
                   color: 'var(--color-textMuted)',
                 }}
               >
-                {session.events?.length || 0} events
+                {session.events?.length || 0} событий
               </span>
             </div>
 
@@ -602,7 +602,7 @@ function ReplayDetail() {
                 className="text-xs"
                 style={{ color: 'var(--color-textMuted)' }}
               >
-                Event {displayedEventIndex + 1} of {session.events?.length || 0}
+                Событие {displayedEventIndex + 1} из {session.events?.length || 0}
               </span>
             )}
           </div>
@@ -622,7 +622,7 @@ function ReplayDetail() {
                 className="flex items-center justify-center py-12"
                 style={{ color: 'var(--color-textMuted)' }}
               >
-                <span className="text-sm">No events recorded</span>
+                <span className="text-sm">Нет записанных событий</span>
               </div>
             )}
           </div>
@@ -638,7 +638,7 @@ function ReplayDetail() {
               className="text-sm font-semibold"
               style={{ color: 'var(--color-text)' }}
             >
-              File Changes
+              Изменения файла
             </h3>
           </div>
           <DiffViewer

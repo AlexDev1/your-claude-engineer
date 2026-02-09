@@ -2,17 +2,17 @@ import React, { useState, useEffect, useRef } from 'react'
 import { X, Save, Trash2, MessageSquare, Link2, Flag, ChevronDown } from 'lucide-react'
 
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent', color: '#ef4444' },
-  { value: 'high', label: 'High', color: '#f97316' },
-  { value: 'medium', label: 'Medium', color: '#eab308' },
-  { value: 'low', label: 'Low', color: '#22c55e' },
+  { value: 'urgent', label: 'Срочный', color: '#ef4444' },
+  { value: 'high', label: 'Высокий', color: '#f97316' },
+  { value: 'medium', label: 'Средний', color: '#eab308' },
+  { value: 'low', label: 'Низкий', color: '#22c55e' },
 ]
 
 const STATE_OPTIONS = [
-  { value: 'Todo', label: 'Todo', color: '#6b7280' },
-  { value: 'In Progress', label: 'In Progress', color: '#3b82f6' },
-  { value: 'Done', label: 'Done', color: '#22c55e' },
-  { value: 'Cancelled', label: 'Cancelled', color: '#ef4444' },
+  { value: 'Todo', label: 'К выполнению', color: '#6b7280' },
+  { value: 'In Progress', label: 'В работе', color: '#3b82f6' },
+  { value: 'Done', label: 'Готово', color: '#22c55e' },
+  { value: 'Cancelled', label: 'Отменено', color: '#ef4444' },
 ]
 
 const VALID_TRANSITIONS = {
@@ -129,7 +129,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
               className="text-sm"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              {issue?.identifier || 'New Issue'}
+              {issue?.identifier || 'Новая задача'}
             </span>
             {issue?.issue_type && (
               <span
@@ -162,7 +162,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
             type="text"
             value={formData.title}
             onChange={(e) => handleChange('title', e.target.value)}
-            placeholder="Issue title"
+            placeholder="Название задачи"
             className="w-full bg-transparent text-xl font-semibold border-none outline-none focus:ring-0"
             style={{
               color: 'var(--color-text)'
@@ -177,7 +177,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                 className="block text-xs mb-1"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                State
+                Статус
               </label>
               <select
                 value={formData.state}
@@ -195,7 +195,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                     value={option.value}
                     disabled={!validStates.includes(option.value)}
                   >
-                    {option.label} {!validStates.includes(option.value) ? '(invalid transition)' : ''}
+                    {option.label} {!validStates.includes(option.value) ? '(недопустимый переход)' : ''}
                   </option>
                 ))}
               </select>
@@ -207,7 +207,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                 className="block text-xs mb-1"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                Priority
+                Приоритет
               </label>
               <select
                 value={formData.priority}
@@ -235,14 +235,14 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                 className="text-xs"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                Description (Markdown)
+                Описание (Markdown)
               </label>
               <button
                 onClick={() => setIsPreviewMode(!isPreviewMode)}
                 className="text-xs"
                 style={{ color: 'var(--color-accent)' }}
               >
-                {isPreviewMode ? 'Edit' : 'Preview'}
+                {isPreviewMode ? 'Редактировать' : 'Предпросмотр'}
               </button>
             </div>
             {isPreviewMode ? (
@@ -252,13 +252,13 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                   backgroundColor: 'var(--color-bgSecondary)',
                   color: 'var(--color-textSecondary)'
                 }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(formData.description) || '<span style="color: var(--color-textMuted)">No description</span>' }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(formData.description) || '<span style="color: var(--color-textMuted)">Нет описания</span>' }}
               />
             ) : (
               <textarea
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                placeholder="Add a description... (Markdown supported)"
+                placeholder="Добавьте описание... (поддерживается Markdown)"
                 className="w-full rounded-lg px-3 py-2 text-sm border min-h-[120px] resize-y"
                 style={{
                   backgroundColor: 'var(--color-inputBg)',
@@ -275,7 +275,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
               className="block text-xs mb-1"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              Parent Issue
+              Родительская задача
             </label>
             <select
               value={formData.parent_id || ''}
@@ -287,7 +287,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                 color: 'var(--color-text)'
               }}
             >
-              <option value="">None</option>
+              <option value="">Нет</option>
               {potentialParents.map(i => (
                 <option key={i.identifier} value={i.identifier}>
                   {i.identifier}: {i.title}
@@ -302,7 +302,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
               className="block text-xs mb-1"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              Dependencies
+              Зависимости
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {formData.dependencies.map(dep => (
@@ -342,7 +342,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                 color: 'var(--color-text)'
               }}
             >
-              <option value="">Add dependency...</option>
+              <option value="">Добавить зависимость...</option>
               {potentialParents
                 .filter(i => !formData.dependencies.includes(i.identifier))
                 .map(i => (
@@ -361,7 +361,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                 style={{ color: 'var(--color-textSecondary)' }}
               >
                 <MessageSquare className="w-3 h-3 inline mr-1" />
-                Comments ({issue.comments?.length || 0})
+                Комментарии ({issue.comments?.length || 0})
               </label>
               <div className="space-y-2 mb-2 max-h-32 overflow-y-auto">
                 {(issue.comments || []).map(comment => (
@@ -393,7 +393,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                   type="text"
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a comment..."
+                  placeholder="Добавить комментарий..."
                   className="flex-1 rounded-lg px-3 py-2 text-sm border"
                   style={{
                     backgroundColor: 'var(--color-inputBg)',
@@ -411,7 +411,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                     color: 'var(--color-textSecondary)'
                   }}
                 >
-                  Add
+                  Добавить
                 </button>
               </div>
             </div>
@@ -437,7 +437,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
                 }}
               >
                 <Trash2 className="w-4 h-4" />
-                <span>{showDeleteConfirm ? 'Confirm Delete' : 'Delete'}</span>
+                <span>{showDeleteConfirm ? 'Подтвердить удаление' : 'Удалить'}</span>
               </button>
             )}
           </div>
@@ -447,7 +447,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
               className="px-4 py-2 transition-colors"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              Cancel
+              Отмена
             </button>
             <button
               onClick={handleSave}
@@ -459,7 +459,7 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
               }}
             >
               <Save className="w-4 h-4" />
-              <span>Save</span>
+              <span>Сохранить</span>
             </button>
           </div>
         </div>

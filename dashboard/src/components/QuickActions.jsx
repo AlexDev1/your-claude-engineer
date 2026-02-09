@@ -2,26 +2,26 @@ import React, { useState } from 'react'
 import { Flag, MessageSquare, ArrowRight, Edit2, MoreHorizontal } from 'lucide-react'
 
 const PRIORITY_CONFIG = {
-  urgent: { color: 'text-red-500', bg: 'bg-red-500/20', label: 'Urgent' },
-  high: { color: 'text-orange-500', bg: 'bg-orange-500/20', label: 'High' },
-  medium: { color: 'text-yellow-500', bg: 'bg-yellow-500/20', label: 'Medium' },
-  low: { color: 'text-green-500', bg: 'bg-green-500/20', label: 'Low' },
+  urgent: { color: 'text-red-500', bg: 'bg-red-500/20', label: 'Срочный' },
+  high: { color: 'text-orange-500', bg: 'bg-orange-500/20', label: 'Высокий' },
+  medium: { color: 'text-yellow-500', bg: 'bg-yellow-500/20', label: 'Средний' },
+  low: { color: 'text-green-500', bg: 'bg-green-500/20', label: 'Низкий' },
 }
 
 const STATE_TRANSITIONS = {
   'Todo': [
-    { value: 'In Progress', label: 'Start', color: 'bg-blue-600' },
-    { value: 'Cancelled', label: 'Cancel', color: 'bg-gray-600' },
+    { value: 'In Progress', label: 'Начать', color: 'bg-blue-600' },
+    { value: 'Cancelled', label: 'Отменить', color: 'bg-gray-600' },
   ],
   'In Progress': [
-    { value: 'Done', label: 'Complete', color: 'bg-green-600' },
-    { value: 'Todo', label: 'Back to Todo', color: 'bg-gray-600' },
+    { value: 'Done', label: 'Завершить', color: 'bg-green-600' },
+    { value: 'Todo', label: 'Вернуть в очередь', color: 'bg-gray-600' },
   ],
   'Done': [
-    { value: 'In Progress', label: 'Reopen', color: 'bg-blue-600' },
+    { value: 'In Progress', label: 'Возобновить', color: 'bg-blue-600' },
   ],
   'Cancelled': [
-    { value: 'Todo', label: 'Restore', color: 'bg-gray-600' },
+    { value: 'Todo', label: 'Восстановить', color: 'bg-gray-600' },
   ],
 }
 
@@ -63,7 +63,7 @@ function QuickActions({ issue, onPriorityChange, onStateChange, onCommentAdd, on
             setShowComment(false)
           }}
           className={`p-1.5 rounded hover:bg-gray-600 transition-colors ${currentPriority.color}`}
-          title={`Priority: ${currentPriority.label}`}
+          title={`Приоритет: ${currentPriority.label}`}
         >
           <Flag className="w-4 h-4" />
         </button>
@@ -96,7 +96,7 @@ function QuickActions({ issue, onPriorityChange, onStateChange, onCommentAdd, on
               setShowComment(false)
             }}
             className="p-1.5 rounded hover:bg-gray-600 transition-colors text-gray-400"
-            title="Change state"
+            title="Изменить статус"
           >
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -127,7 +127,7 @@ function QuickActions({ issue, onPriorityChange, onStateChange, onCommentAdd, on
             setShowTransitions(false)
           }}
           className="p-1.5 rounded hover:bg-gray-600 transition-colors text-gray-400"
-          title="Add comment (C)"
+          title="Добавить комментарий (C)"
         >
           <MessageSquare className="w-4 h-4" />
         </button>
@@ -137,7 +137,7 @@ function QuickActions({ issue, onPriorityChange, onStateChange, onCommentAdd, on
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Add a quick comment..."
+              placeholder="Быстрый комментарий..."
               className="w-full bg-gray-800 text-white text-sm rounded px-2 py-1.5 border border-gray-600 focus:border-blue-500 resize-none"
               rows={2}
               autoFocus
@@ -157,7 +157,7 @@ function QuickActions({ issue, onPriorityChange, onStateChange, onCommentAdd, on
                 disabled={!commentText.trim()}
                 className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded disabled:opacity-50"
               >
-                Add
+                Добавить
               </button>
             </div>
           </div>
@@ -168,7 +168,7 @@ function QuickActions({ issue, onPriorityChange, onStateChange, onCommentAdd, on
       <button
         onClick={() => onEdit(issue)}
         className="p-1.5 rounded hover:bg-gray-600 transition-colors text-gray-400"
-        title="Edit (E)"
+        title="Редактировать (E)"
       >
         <Edit2 className="w-4 h-4" />
       </button>

@@ -147,10 +147,10 @@ function Import() {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
-          Import Data
+          Импорт данных
         </h2>
         <p className="mt-1" style={{ color: 'var(--color-textSecondary)' }}>
-          Import issues from JSON, CSV, Linear, or GitHub
+          Импорт задач из JSON, CSV, Linear или GitHub
         </p>
       </div>
 
@@ -196,7 +196,7 @@ function Import() {
             className="text-lg font-semibold mb-4"
             style={{ color: 'var(--color-text)' }}
           >
-            {activeTab === 'linear' ? 'Import from Linear Export' : 'Upload File'}
+            {activeTab === 'linear' ? 'Импорт из экспорта Linear' : 'Загрузить файл'}
           </h3>
 
           {activeTab === 'linear' && (
@@ -207,7 +207,7 @@ function Import() {
                 color: 'var(--color-textSecondary)',
               }}
             >
-              Export your data from Linear (Settings &gt; Workspace &gt; Export) and upload the JSON file here.
+              Экспортируйте данные из Linear (Settings &gt; Workspace &gt; Export) и загрузите JSON-файл сюда.
             </div>
           )}
 
@@ -242,10 +242,10 @@ function Import() {
               <div className="space-y-2">
                 <Upload className="w-12 h-12 mx-auto" style={{ color: 'var(--color-textMuted)' }} />
                 <p className="font-medium" style={{ color: 'var(--color-text)' }}>
-                  Drop your file here or click to browse
+                  Перетащите файл сюда или нажмите для выбора
                 </p>
                 <p className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                  Supports JSON and CSV formats
+                  Поддерживаются форматы JSON и CSV
                 </p>
               </div>
             )}
@@ -258,7 +258,7 @@ function Import() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: 'var(--color-text)' }}
               >
-                File Format
+                Формат файла
               </label>
               <div className="flex space-x-3">
                 {['json', 'csv'].map((fmt) => (
@@ -296,7 +296,7 @@ function Import() {
               ) : (
                 <FileJson className="w-4 h-4" />
               )}
-              <span>Preview Import</span>
+              <span>Предпросмотр импорта</span>
             </button>
           )}
         </div>
@@ -315,7 +315,7 @@ function Import() {
             className="text-lg font-semibold mb-4"
             style={{ color: 'var(--color-text)' }}
           >
-            Import from GitHub
+            Импорт из GitHub
           </h3>
 
           <div
@@ -325,7 +325,7 @@ function Import() {
               color: 'var(--color-textSecondary)',
             }}
           >
-            Requires GITHUB_TOKEN environment variable to be set on the server.
+            Требуется переменная окружения GITHUB_TOKEN на сервере.
           </div>
 
           <div className="space-y-4">
@@ -335,7 +335,7 @@ function Import() {
                   className="block text-sm font-medium mb-2"
                   style={{ color: 'var(--color-text)' }}
                 >
-                  Owner/Organization
+                  Владелец/Организация
                 </label>
                 <input
                   type="text"
@@ -355,7 +355,7 @@ function Import() {
                   className="block text-sm font-medium mb-2"
                   style={{ color: 'var(--color-text)' }}
                 >
-                  Repository
+                  Репозиторий
                 </label>
                 <input
                   type="text"
@@ -377,7 +377,7 @@ function Import() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: 'var(--color-text)' }}
               >
-                Filter by Labels (comma-separated, optional)
+                Фильтр по меткам (через запятую, необязательно)
               </label>
               <input
                 type="text"
@@ -399,7 +399,7 @@ function Import() {
                   className="block text-sm font-medium mb-2"
                   style={{ color: 'var(--color-text)' }}
                 >
-                  Issue State
+                  Статус задач
                 </label>
                 <select
                   value={githubState}
@@ -411,9 +411,9 @@ function Import() {
                     color: 'var(--color-text)',
                   }}
                 >
-                  <option value="open">Open</option>
-                  <option value="closed">Closed</option>
-                  <option value="all">All</option>
+                  <option value="open">Открытые</option>
+                  <option value="closed">Закрытые</option>
+                  <option value="all">Все</option>
                 </select>
               </div>
 
@@ -430,7 +430,7 @@ function Import() {
                     }}
                   />
                   <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-                    Import comments
+                    Импортировать комментарии
                   </span>
                 </label>
               </div>
@@ -457,7 +457,7 @@ function Import() {
             ) : (
               <XCircle className="w-5 h-5 text-red-500" />
             )}
-            <span>Preview Results</span>
+            <span>Результаты предпросмотра</span>
           </h3>
 
           {preview.success ? (
@@ -471,7 +471,7 @@ function Import() {
                     {preview.total_items}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                    Total Items
+                    Всего записей
                   </div>
                 </div>
                 <div
@@ -482,7 +482,7 @@ function Import() {
                     {preview.new_items}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                    New Items
+                    Новых
                   </div>
                 </div>
                 <div
@@ -493,7 +493,7 @@ function Import() {
                     {preview.conflicts}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                    Conflicts
+                    Конфликтов
                   </div>
                 </div>
               </div>
@@ -501,7 +501,7 @@ function Import() {
               {preview.conflict_details?.length > 0 && (
                 <div>
                   <h4 className="font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                    Conflict Details
+                    Детали конфликтов
                   </h4>
                   <div
                     className="rounded-lg p-3 text-sm space-y-2"
@@ -526,7 +526,7 @@ function Import() {
               {preview.preview?.length > 0 && (
                 <div>
                   <h4 className="font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                    Sample Items
+                    Примеры записей
                   </h4>
                   <div
                     className="rounded-lg overflow-hidden border"
@@ -536,8 +536,8 @@ function Import() {
                       <thead>
                         <tr style={{ backgroundColor: 'var(--color-bgSecondary)' }}>
                           <th className="text-left px-3 py-2" style={{ color: 'var(--color-textMuted)' }}>ID</th>
-                          <th className="text-left px-3 py-2" style={{ color: 'var(--color-textMuted)' }}>Title</th>
-                          <th className="text-left px-3 py-2" style={{ color: 'var(--color-textMuted)' }}>State</th>
+                          <th className="text-left px-3 py-2" style={{ color: 'var(--color-textMuted)' }}>Название</th>
+                          <th className="text-left px-3 py-2" style={{ color: 'var(--color-textMuted)' }}>Статус</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -585,7 +585,7 @@ function Import() {
             className="text-lg font-semibold mb-4"
             style={{ color: 'var(--color-text)' }}
           >
-            Import Options
+            Параметры импорта
           </h3>
 
           <div className="space-y-4">
@@ -594,13 +594,13 @@ function Import() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: 'var(--color-text)' }}
               >
-                Conflict Resolution
+                Разрешение конфликтов
               </label>
               <div className="flex space-x-3">
                 {[
-                  { id: 'skip', label: 'Skip Existing' },
-                  { id: 'update', label: 'Update Existing' },
-                  { id: 'duplicate', label: 'Create Duplicates' },
+                  { id: 'skip', label: 'Пропустить существующие' },
+                  { id: 'update', label: 'Обновить существующие' },
+                  { id: 'duplicate', label: 'Создать дубликаты' },
                 ].map((option) => (
                   <button
                     key={option.id}
@@ -636,7 +636,7 @@ function Import() {
                   className="text-sm cursor-pointer"
                   style={{ color: 'var(--color-text)' }}
                 >
-                  Dry Run (preview only, don't actually import)
+                  Пробный запуск (только предпросмотр, без импорта)
                 </label>
               </div>
             )}
@@ -656,7 +656,7 @@ function Import() {
                 <Upload className="w-5 h-5" />
               )}
               <span>
-                {dryRun && activeTab !== 'github' ? 'Preview Import' : 'Import Now'}
+                {dryRun && activeTab !== 'github' ? 'Предпросмотр импорта' : 'Импортировать'}
               </span>
             </button>
           </div>
@@ -683,8 +683,8 @@ function Import() {
             )}
             <span>
               {result.success
-                ? (result.dry_run ? 'Dry Run Complete' : 'Import Complete')
-                : 'Import Failed'}
+                ? (result.dry_run ? 'Пробный запуск завершён' : 'Импорт завершён')
+                : 'Ошибка импорта'}
             </span>
           </h3>
 
@@ -698,7 +698,7 @@ function Import() {
                     color: 'rgb(234, 179, 8)',
                   }}
                 >
-                  This was a dry run. No data was actually imported.
+                  Это был пробный запуск. Данные не были импортированы.
                 </div>
               )}
 
@@ -711,7 +711,7 @@ function Import() {
                     {result.results?.created || 0}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                    Created
+                    Создано
                   </div>
                 </div>
                 <div
@@ -722,7 +722,7 @@ function Import() {
                     {result.results?.updated || 0}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                    Updated
+                    Обновлено
                   </div>
                 </div>
                 <div
@@ -733,7 +733,7 @@ function Import() {
                     {result.results?.skipped || 0}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                    Skipped
+                    Пропущено
                   </div>
                 </div>
                 <div
@@ -744,14 +744,14 @@ function Import() {
                     {result.total_issues_after || 0}
                   </div>
                   <div className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                    Total Issues
+                    Всего задач
                   </div>
                 </div>
               </div>
 
               {result.results?.errors?.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2 text-red-500">Errors</h4>
+                  <h4 className="font-medium mb-2 text-red-500">Ошибки</h4>
                   <div
                     className="rounded-lg p-3 text-sm space-y-1"
                     style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}

@@ -15,9 +15,9 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
 
   // Simulated recent actions
   const recentActions = [
-    { icon: CheckCircle, text: 'Completed ENG-42', time: '2m ago', color: '#22c55e' },
-    { icon: Activity, text: 'Started ENG-43', time: '5m ago', color: '#3b82f6' },
-    { icon: Clock, text: 'Updated priority', time: '10m ago', color: '#eab308' },
+    { icon: CheckCircle, text: 'Завершено ENG-42', time: '2 мин. назад', color: '#22c55e' },
+    { icon: Activity, text: 'Начато ENG-43', time: '5 мин. назад', color: '#3b82f6' },
+    { icon: Clock, text: 'Обновлён приоритет', time: '10 мин. назад', color: '#eab308' },
   ]
 
   return (
@@ -28,7 +28,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
           className="text-xs font-medium uppercase tracking-wider mb-2"
           style={{ color: 'var(--color-textMuted)' }}
         >
-          Current Task
+          Текущая задача
         </div>
         {currentTask ? (
           <div className="current-task">
@@ -39,7 +39,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             <span>{currentTask.title}</span>
           </div>
         ) : (
-          <div style={{ color: 'var(--color-textMuted)' }}>No active tasks</div>
+          <div style={{ color: 'var(--color-textMuted)' }}>Нет активных задач</div>
         )}
       </div>
 
@@ -50,7 +50,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             className="text-xs font-medium"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Overall Progress
+            Общий прогресс
           </span>
           <span
             className="text-sm font-semibold"
@@ -83,7 +83,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Todo
+            К выполнению
           </div>
         </div>
         <div
@@ -100,7 +100,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Active
+            Активно
           </div>
         </div>
         <div
@@ -117,7 +117,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Done
+            Готово
           </div>
         </div>
         <div
@@ -134,7 +134,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Urgent
+            Срочно
           </div>
         </div>
       </div>
@@ -145,7 +145,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
           className="text-xs font-medium uppercase tracking-wider mb-2"
           style={{ color: 'var(--color-textMuted)' }}
         >
-          Recent Activity
+          Последняя активность
         </div>
         <div className="recent-actions">
           {recentActions.map((action, index) => (
@@ -168,7 +168,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             color: 'var(--color-text)'
           }}
         >
-          <span className="text-sm font-medium">Pause</span>
+          <span className="text-sm font-medium">Пауза</span>
         </button>
         <button
           onClick={() => onQuickAction?.('skip')}
@@ -178,7 +178,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             color: 'var(--color-text)'
           }}
         >
-          <span className="text-sm font-medium">Skip</span>
+          <span className="text-sm font-medium">Пропустить</span>
         </button>
         <button
           onClick={() => onQuickAction?.('telegram')}
@@ -188,7 +188,7 @@ function MobileStatusSummary({ issues = [], onQuickAction }) {
             color: 'white'
           }}
         >
-          <span className="text-sm font-medium">Message</span>
+          <span className="text-sm font-medium">Сообщение</span>
         </button>
       </div>
     </div>

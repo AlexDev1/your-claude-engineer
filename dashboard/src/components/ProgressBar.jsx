@@ -5,10 +5,10 @@ import { Play, Pause, Clock, Zap, CheckCircle, Code, TestTube, GitCommit, Loader
  * Stage configuration for the progress pipeline
  */
 const STAGES = [
-  { id: 'analysis', label: 'Analysis', icon: Zap, color: '#eab308' },
-  { id: 'coding', label: 'Coding', icon: Code, color: '#3b82f6' },
-  { id: 'testing', label: 'Testing', icon: TestTube, color: '#8b5cf6' },
-  { id: 'commit', label: 'Commit', icon: GitCommit, color: '#22c55e' },
+  { id: 'analysis', label: 'Анализ', icon: Zap, color: '#eab308' },
+  { id: 'coding', label: 'Код', icon: Code, color: '#3b82f6' },
+  { id: 'testing', label: 'Тесты', icon: TestTube, color: '#8b5cf6' },
+  { id: 'commit', label: 'Коммит', icon: GitCommit, color: '#22c55e' },
 ]
 
 /**
@@ -95,13 +95,13 @@ function ProgressBar({ progress = {}, connected = false, onReconnect }) {
               className="text-sm font-semibold"
               style={{ color: 'var(--color-text)' }}
             >
-              {isActive ? 'Session Active' : 'Session Idle'}
+              {isActive ? 'Сессия активна' : 'Сессия бездействует'}
             </h3>
             <p
               className="text-xs"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              {currentTask ? `Working on ${currentTask}` : 'No active task'}
+              {currentTask ? `Работа над ${currentTask}` : 'Нет активной задачи'}
             </p>
           </div>
         </div>
@@ -110,7 +110,7 @@ function ProgressBar({ progress = {}, connected = false, onReconnect }) {
         <div className="flex items-center space-x-2">
           <div
             className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
-            title={connected ? 'Connected' : 'Disconnected'}
+            title={connected ? 'Подключено' : 'Отключено'}
           />
           {!connected && (
             <button
@@ -121,7 +121,7 @@ function ProgressBar({ progress = {}, connected = false, onReconnect }) {
                 color: 'var(--color-textSecondary)',
               }}
             >
-              Reconnect
+              Переподключить
             </button>
           )}
         </div>
@@ -213,7 +213,7 @@ function ProgressBar({ progress = {}, connected = false, onReconnect }) {
             className="text-xs font-medium"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Overall Progress
+            Общий прогресс
           </span>
           <span
             className="text-sm font-semibold"
@@ -248,7 +248,7 @@ function ProgressBar({ progress = {}, connected = false, onReconnect }) {
               className="text-xs"
               style={{ color: 'var(--color-textMuted)' }}
             >
-              Elapsed
+              Прошло
             </p>
             <p
               className="text-sm font-semibold"
@@ -269,7 +269,7 @@ function ProgressBar({ progress = {}, connected = false, onReconnect }) {
               className="text-xs"
               style={{ color: 'var(--color-textMuted)' }}
             >
-              Est. Completion
+              Ожидаемое завершение
             </p>
             <p
               className="text-sm font-semibold"

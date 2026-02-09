@@ -19,7 +19,7 @@ function VelocityChart({ data }) {
 
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus
   const trendColor = trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : 'var(--color-textMuted)'
-  const trendLabel = trend === 'up' ? 'Increasing' : trend === 'down' ? 'Decreasing' : 'Stable'
+  const trendLabel = trend === 'up' ? 'Растёт' : trend === 'down' ? 'Падает' : 'Стабильно'
 
   // Format dates for display
   const chartData = daily.map(d => ({
@@ -41,13 +41,13 @@ function VelocityChart({ data }) {
             className="text-lg font-semibold"
             style={{ color: 'var(--color-text)' }}
           >
-            Velocity Trend
+            Тренд скорости
           </h3>
           <p
             className="text-sm"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Tasks completed per day
+            Задач выполнено в день
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -62,7 +62,7 @@ function VelocityChart({ data }) {
               className="text-xs"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              Total (14 days)
+              Всего (14 дн.)
             </p>
           </div>
           <div className="text-right">
@@ -76,7 +76,7 @@ function VelocityChart({ data }) {
               className="text-xs"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              Weekly avg
+              Ср. за неделю
             </p>
           </div>
           <div className="flex items-center space-x-1" style={{ color: trendColor }}>
@@ -123,7 +123,7 @@ function VelocityChart({ data }) {
               stroke="var(--color-accent)"
               strokeWidth={2}
               fill="url(#colorVelocity)"
-              name="Tasks Completed"
+              name="Задач выполнено"
             />
           </AreaChart>
         </ResponsiveContainer>

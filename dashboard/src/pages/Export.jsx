@@ -154,7 +154,7 @@ function Export() {
   }, [fetchBackups])
 
   const handleRestoreBackup = useCallback(async (filename) => {
-    if (!confirm(`Are you sure you want to restore from ${filename}? This will replace all current issues.`)) {
+    if (!confirm(`Вы уверены, что хотите восстановить из ${filename}? Это заменит все текущие задачи.`)) {
       return
     }
 
@@ -181,7 +181,7 @@ function Export() {
   }, [])
 
   const handleDeleteBackup = useCallback(async (filename) => {
-    if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+    if (!confirm(`Вы уверены, что хотите удалить ${filename}?`)) {
       return
     }
 
@@ -214,24 +214,24 @@ function Export() {
   const exportOptions = [
     {
       id: 'json',
-      label: 'JSON Export',
-      description: 'Full fidelity export with all data including comments and metadata',
+      label: 'Экспорт JSON',
+      description: 'Полный экспорт со всеми данными, комментариями и метаданными',
       icon: FileJson,
       action: handleExportJSON,
       color: '#3b82f6',
     },
     {
       id: 'csv',
-      label: 'CSV Export',
-      description: 'Simplified format for Excel/Google Sheets (id, title, state, priority, created_at)',
+      label: 'Экспорт CSV',
+      description: 'Упрощённый формат для Excel/Google Sheets (id, title, state, priority, created_at)',
       icon: FileSpreadsheet,
       action: handleExportCSV,
       color: '#22c55e',
     },
     {
       id: 'markdown',
-      label: 'Markdown Export',
-      description: 'Each issue as an individual .md file (exported as JSON bundle)',
+      label: 'Экспорт Markdown',
+      description: 'Каждая задача как отдельный .md файл (экспортируется как JSON-пакет)',
       icon: FileText,
       action: handleExportMarkdown,
       color: '#a855f7',
@@ -243,10 +243,10 @@ function Export() {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
-          Export & Backups
+          Экспорт и резервные копии
         </h2>
         <p className="mt-1" style={{ color: 'var(--color-textSecondary)' }}>
-          Export your data or manage backups
+          Экспорт данных и управление резервными копиями
         </p>
       </div>
 
@@ -256,8 +256,8 @@ function Export() {
         style={{ backgroundColor: 'var(--color-bgSecondary)' }}
       >
         {[
-          { id: 'export', label: 'Export Data', icon: Download },
-          { id: 'backups', label: 'Backups', icon: Archive },
+          { id: 'export', label: 'Экспорт данных', icon: Download },
+          { id: 'backups', label: 'Резервные копии', icon: Archive },
         ].map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -293,7 +293,7 @@ function Export() {
               className="text-lg font-semibold mb-4"
               style={{ color: 'var(--color-text)' }}
             >
-              Export Settings
+              Параметры экспорта
             </h3>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -302,7 +302,7 @@ function Export() {
                   className="block text-sm font-medium mb-2"
                   style={{ color: 'var(--color-text)' }}
                 >
-                  Team
+                  Команда
                 </label>
                 <select
                   value={team}
@@ -333,7 +333,7 @@ function Export() {
                     }}
                   />
                   <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-                    Include comments (JSON only)
+                    Включить комментарии (только JSON)
                   </span>
                 </label>
               </div>
@@ -401,11 +401,11 @@ function Export() {
                   <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
                   <div>
                     <p className="font-medium" style={{ color: 'var(--color-text)' }}>
-                      {exportResult.format} export complete
+                      {exportResult.format} экспорт завершён
                     </p>
                     <p className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                      {exportResult.issueCount && `${exportResult.issueCount} issues exported`}
-                      {exportResult.fileCount && `${exportResult.fileCount} files exported`}
+                      {exportResult.issueCount && `${exportResult.issueCount} задач экспортировано`}
+                      {exportResult.fileCount && `${exportResult.fileCount} файлов экспортировано`}
                     </p>
                   </div>
                 </>
@@ -413,7 +413,7 @@ function Export() {
                 <>
                   <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-red-500">Export failed</p>
+                    <p className="font-medium text-red-500">Ошибка экспорта</p>
                     <p className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
                       {exportResult.error}
                     </p>
@@ -442,10 +442,10 @@ function Export() {
                   className="text-lg font-semibold"
                   style={{ color: 'var(--color-text)' }}
                 >
-                  Backup Management
+                  Управление копиями
                 </h3>
                 <p className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-                  Create and restore backups of your issue data
+                  Создание и восстановление резервных копий данных задач
                 </p>
               </div>
 
@@ -463,7 +463,7 @@ function Export() {
                 ) : (
                   <Archive className="w-4 h-4" />
                 )}
-                <span>Create Backup</span>
+                <span>Создать копию</span>
               </button>
             </div>
 
@@ -503,8 +503,8 @@ function Export() {
                 style={{ color: 'var(--color-textSecondary)' }}
               >
                 <Archive className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No backups yet</p>
-                <p className="text-sm">Create your first backup to protect your data</p>
+                <p>Копий пока нет</p>
+                <p className="text-sm">Создайте первую копию для защиты данных</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -540,7 +540,7 @@ function Export() {
                             <HardDrive className="w-3 h-3" />
                             <span>{formatBytes(backup.size_bytes)}</span>
                           </span>
-                          <span>{backup.issue_count} issues</span>
+                          <span>{backup.issue_count} задач</span>
                         </div>
                       </div>
                     </div>
@@ -554,20 +554,20 @@ function Export() {
                           backgroundColor: 'var(--color-bgTertiary)',
                           color: 'var(--color-text)',
                         }}
-                        title="Restore from this backup"
+                        title="Восстановить из этой копии"
                       >
                         {restoringBackup === backup.filename ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           <RotateCcw className="w-4 h-4" />
                         )}
-                        <span>Restore</span>
+                        <span>Восстановить</span>
                       </button>
                       <button
                         onClick={() => handleDeleteBackup(backup.filename)}
                         className="p-1.5 rounded-lg transition-colors hover:bg-red-100"
                         style={{ color: 'var(--color-textMuted)' }}
-                        title="Delete backup"
+                        title="Удалить копию"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -587,12 +587,12 @@ function Export() {
             }}
           >
             <h4 className="font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-              Scheduled Backups
+              Автоматические копии
             </h4>
             <p className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-              Automatic daily backups can be enabled by running the backup script as a cron job.
-              Backups are stored in the <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-bgTertiary)' }}>backups/</code> directory
-              with 30-day retention.
+              Автоматические ежедневные копии можно включить через cron-задачу.
+              Копии хранятся в каталоге <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-bgTertiary)' }}>backups/</code>
+              с хранением 30 дней.
             </p>
             <div
               className="mt-3 p-2 rounded text-xs font-mono"

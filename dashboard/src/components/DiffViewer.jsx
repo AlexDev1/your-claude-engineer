@@ -286,7 +286,7 @@ function DiffViewer({
             className="text-sm font-medium truncate"
             style={{ color: 'var(--color-text)' }}
           >
-            {filename || 'Untitled'}
+            {filename || 'Без названия'}
           </span>
           <span
             className="text-xs px-2 py-0.5 rounded"
@@ -318,10 +318,10 @@ function DiffViewer({
                 backgroundColor: currentMode === 'inline' ? 'var(--color-accent)' : 'transparent',
                 color: currentMode === 'inline' ? 'white' : 'var(--color-textSecondary)',
               }}
-              title="Inline diff"
+              title="Построчный diff"
             >
               <Rows className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Inline</span>
+              <span className="hidden sm:inline">Построчно</span>
             </button>
             <button
               onClick={() => handleModeChange('side-by-side')}
@@ -330,10 +330,10 @@ function DiffViewer({
                 backgroundColor: currentMode === 'side-by-side' ? 'var(--color-accent)' : 'transparent',
                 color: currentMode === 'side-by-side' ? 'white' : 'var(--color-textSecondary)',
               }}
-              title="Side-by-side diff"
+              title="Двухколоночный diff"
             >
               <Columns className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Side-by-side</span>
+              <span className="hidden sm:inline">Рядом</span>
             </button>
           </div>
         </div>
@@ -349,7 +349,7 @@ function DiffViewer({
             className="flex items-center justify-center py-12"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            <span className="text-sm">No changes to display</span>
+            <span className="text-sm">Нет изменений для отображения</span>
           </div>
         ) : currentMode === 'inline' ? (
           <InlineDiff diffLines={diffLines} />

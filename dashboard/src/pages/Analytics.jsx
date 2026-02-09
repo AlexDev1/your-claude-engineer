@@ -16,10 +16,10 @@ function Analytics() {
   const { exportData, exporting } = useExport()
 
   const periodOptions = [
-    { value: 7, label: '7 days' },
-    { value: 14, label: '14 days' },
-    { value: 30, label: '30 days' },
-    { value: 90, label: '90 days' },
+    { value: 7, label: '7 дней' },
+    { value: 14, label: '14 дней' },
+    { value: 30, label: '30 дней' },
+    { value: 90, label: '90 дней' },
   ]
 
   return (
@@ -31,13 +31,13 @@ function Analytics() {
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text)' }}
           >
-            Performance Analytics
+            Аналитика производительности
           </h2>
           <p
             className="mt-1"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Agent KPIs and productivity metrics
+            KPI агента и метрики продуктивности
           </p>
         </div>
 
@@ -72,7 +72,7 @@ function Analytics() {
             disabled={loading}
             className="p-2 rounded-lg transition-colors disabled:opacity-50"
             style={{ backgroundColor: 'var(--color-cardBg)', color: 'var(--color-textSecondary)' }}
-            title="Refresh data"
+            title="Обновить данные"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -85,7 +85,7 @@ function Analytics() {
               style={{ backgroundColor: 'var(--color-cardBg)', color: 'var(--color-textSecondary)' }}
             >
               <Download className="w-4 h-4" />
-              <span className="text-sm">Export</span>
+              <span className="text-sm">Экспорт</span>
             </button>
             <div
               className="absolute right-0 mt-2 w-48 border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10"
@@ -102,7 +102,7 @@ function Analytics() {
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <FileText className="w-4 h-4" />
-                <span>Export CSV (week)</span>
+                <span>Экспорт CSV (неделя)</span>
               </button>
               <button
                 onClick={() => exportData('csv', 'month', team)}
@@ -112,7 +112,7 @@ function Analytics() {
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <FileText className="w-4 h-4" />
-                <span>Export CSV (month)</span>
+                <span>Экспорт CSV (месяц)</span>
               </button>
               <button
                 onClick={() => exportData('json', 'week', team)}
@@ -122,7 +122,7 @@ function Analytics() {
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <FileJson className="w-4 h-4" />
-                <span>Export JSON (week)</span>
+                <span>Экспорт JSON (неделя)</span>
               </button>
             </div>
           </div>
@@ -139,10 +139,10 @@ function Analytics() {
             color: '#f87171'
           }}
         >
-          <p className="font-medium">Error loading analytics</p>
+          <p className="font-medium">Ошибка загрузки аналитики</p>
           <p className="text-sm mt-1">{error}</p>
           <p className="text-sm mt-2" style={{ color: 'var(--color-textSecondary)' }}>
-            Showing demo data instead.
+            Показаны демо-данные.
           </p>
         </div>
       )}
@@ -152,7 +152,7 @@ function Analytics() {
         <div className="flex items-center justify-center h-64">
           <div className="flex items-center space-x-3" style={{ color: 'var(--color-textSecondary)' }}>
             <RefreshCw className="w-6 h-6 animate-spin" />
-            <span>Loading analytics...</span>
+            <span>Загрузка аналитики...</span>
           </div>
         </div>
       )}
@@ -196,10 +196,10 @@ function Analytics() {
               style={{ color: 'var(--color-textSecondary)' }}
             >
               <span>
-                Data period: Last {days} days | Team: {team}
+                Период: последние {days} дн. | Команда: {team}
               </span>
               <span>
-                Last updated: {new Date().toLocaleTimeString()}
+                Обновлено: {new Date().toLocaleTimeString()}
               </span>
             </div>
           </div>
