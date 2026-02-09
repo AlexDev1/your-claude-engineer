@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 09:52:23*
+*Auto-generated: 2026-02-09 10:05:48*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -12,10 +12,11 @@
 ```
 your-claude-engineer/
 ├── .agent/ (4 files)
+│   ├── sessions/
 ├── .github/ (1 files)
 │   └── workflows/ (1 files)
 ├── agents/ (2 files)
-├── analytics_server/ (2 files)
+├── analytics_server/ (3 files)
 ├── backups/ (3 files)
 ├── dashboard/ (54 files)
 │   ├── public/ (9 files)
@@ -30,8 +31,8 @@ your-claude-engineer/
 ├── prompts/ (7 files)
 ├── screenshots/ (114 files)
 ├── scripts/ (5 files)
-├── tests/ (17 files)
-│   ├── api/ (3 files)
+├── tests/ (18 files)
+│   ├── api/ (4 files)
 │   ├── e2e/ (3 files)
 │   ├── integration/ (3 files)
 │   ├── unit/ (6 files)
@@ -88,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `df723ae` feat(ENG-74): add session recording to structured JSON files (89 секунд назад)
-- `97a9b27` chore: update project map after ENG-65 (11 минут назад)
-- `f51faa8` feat(ENG-65): add GitHub commit status checks via gh CLI (11 минут назад)
-- `4eb5743` fix(ENG-64): address code review feedback (17 минут назад)
-- `a5895f8` feat(ENG-64): add bidirectional GitHub Issues sync (22 минуты назад)
+- `922367a` feat(ENG-75): add session replay API endpoints (47 секунд назад)
+- `13f8497` fix(ENG-74): fix TOCTOU race condition in record_event (10 минут назад)
+- `1978404` chore: update project map after ENG-74 (13 минут назад)
+- `df723ae` feat(ENG-74): add session recording to structured JSON files (15 минут назад)
+- `97a9b27` chore: update project map after ENG-65 (24 минуты назад)
 
 ## Import Graph (Hub Files)
 
