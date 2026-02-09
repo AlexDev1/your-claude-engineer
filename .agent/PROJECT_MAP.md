@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 11:40:35*
+*Auto-generated: 2026-02-09 11:49:03*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -83,17 +83,17 @@ your-claude-engineer/
 | Port | Description |
 |------|-------------|
 | 3000 | vite.config.js |
-| 5173 | Dashboard (Vite dev server) |
+| 5173 | Dashboard (Vite dev сервер) |
 | 8003 | vite.config.js |
 | 8080 | Analytics API (FastAPI) |
 
 ## Recent Commits
 
-- `e4a65b0` feat(ENG-83): русификация CLI сообщений и логов (26 секунд назад)
-- `7784a31` chore: update project map after ENG-82 JSX/JS translation (14 минут назад)
-- `438ba55` chore: update project map after ENG-82 (18 минут назад)
-- `c26b485` feat(ENG-82): русификация docstrings в основных Python файлах (18 минут назад)
-- `eec6323` chore: update project map after ENG-80 (28 минут назад)
+- `eb48eea` feat(ENG-84): русификация документации проекта (11 секунд назад)
+- `0e3941a` chore: update project map after ENG-83 (8 минут назад)
+- `e4a65b0` feat(ENG-83): русификация CLI сообщений и логов (9 минут назад)
+- `7784a31` chore: update project map after ENG-82 JSX/JS translation (22 минуты назад)
+- `438ba55` chore: update project map after ENG-82 (26 минут назад)
 
 ## Import Graph (Hub Files)
 
