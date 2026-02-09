@@ -167,7 +167,7 @@ def format_daily_digest(data: DailyDigestData) -> str:
     lines.append("<b>Задачи:</b>")
     lines.append(f"  ✅ Завершено: {data.completed_today}")
     lines.append(f"  🔄 В работе: {data.in_progress}")
-    lines.append(f"  📋 Todo: {data.todo}")
+    lines.append(f"  📋 К выполнению: {data.todo}")
     if data.blocked > 0:
         lines.append(f"  ⚠️ Заблокировано: {data.blocked}")
     lines.append("")
@@ -875,7 +875,7 @@ def format_status(data: StatusData) -> str:
 
     # Task counts
     lines.append("<b>Задачи:</b>")
-    lines.append(f"  Todo: {data.todo_count}")
+    lines.append(f"  К выполнению: {data.todo_count}")
     lines.append(f"  В работе: {data.in_progress_count}")
     lines.append(f"  Завершено: {data.done_count}")
     lines.append("")
