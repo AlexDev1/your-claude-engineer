@@ -1646,3 +1646,188 @@ class TelegramReports:
             "escalate": "\U0001f6a8 Эскалация",
         }
         return mapping.get(action.lower(), "") if action else ""
+
+    # -----------------------------------------------------------------
+    # Weekly Summary (ENG-88)
+    # -----------------------------------------------------------------
+
+    VELOCITY_TREND_ICONS: dict[str, str] = {
+        "up": "\U0001f4c8",       # chart increasing
+        "down": "\U0001f4c9",     # chart decreasing
+        "stable": "\u27a1\ufe0f", # right arrow
+    }
+
+    def _format_date_ddmmyyyy(self, iso_date: str) -> str:
+        """Parse an ISO date string and return DD.MM.YYYY format.
+
+        Falls back to HTML-escaped raw string if parsing fails.
+
+        Args:
+            iso_date: Date string like ``"2026-02-09"`` or ISO datetime.
+
+        Returns:
+            Formatted date like ``"09.02.2026"`` or escaped fallback.
+        """
+        try:
+            dt = datetime.fromisoformat(iso_date)
+            return dt.strftime("%d.%m.%Y")
+        except (ValueError, TypeError):
+            return escape_html(str(iso_date))
+
+    def _format_short_date(self, iso_date: str) -> str:
+        """Parse an ISO date string and return DD.MM format (no year).
+
+        Falls back to HTML-escaped raw string if parsing fails.
+
+        Args:
+            iso_date: Date string like ``"2026-02-03"``.
+
+        Returns:
+            Formatted date like ``"03.02"`` or escaped fallback.
+        """
+        try:
+            dt = datetime.fromisoformat(iso_date)
+            return dt.strftime("%d.%m")
+        except (ValueError, TypeError):
+            return escape_html(str(iso_date))
+
+    def _format_cost(self, cost_usd: float) -> str:
+        """Format a USD cost value for display.
+
+        Args:
+            cost_usd: Cost in US dollars.
+
+        Returns:
+            String like ``"$7.50"`` or ``"$0.00"``.
+        """
+        return f"${cost_usd:.2f}"
+
+    def generate_weekly_summary(self, weekly_data: dict[str, object]) -> str:
+        """Generate an HTML weekly summary report for Telegram.
+
+        Builds a structured weekly report containing task progress,
+        cost breakdown, velocity trends, top errors, and estimated
+        completion date.  Sections with empty data are omitted
+        automatically.  All user-supplied strings are HTML-escaped
+        for XSS protection.
+
+        Args:
+            weekly_data: Dictionary with weekly statistics containing:
+                - ``week_start`` (str): ISO-format start date, e.g.
+                  ``"2026-02-03"``.
+                - ``week_end`` (str): ISO-format end date, e.g.
+                  ``"2026-02-09"``.
+                - ``tasks_completed`` (int): Tasks completed this week.
+                - ``tasks_total`` (int): Total tasks in the project.
+                - ``tokens_used`` (int): Total tokens consumed.
+                - ``cost_usd`` (float): Total cost in USD.
+                - ``top_errors`` (list[dict]): Most frequent errors, each
+                  with ``"error"`` (str) and ``"count"`` (int) keys.
+                - ``velocity`` (float): Tasks completed per day.
+                - ``velocity_trend`` (str): One of ``"up"``, ``"down"``,
+                  or ``"stable"``.
+                - ``estimated_completion`` (str): ISO-format estimated
+                  completion date, e.g. ``"2026-03-15"``.
+
+        Returns:
+            HTML-formatted string ready for ``parse_mode="HTML"``
+            in Telegram.
+
+        Example output::
+
+            <b>Итоги недели</b>
+            <i>03.02 -- 09.02.2026</i>
+
+            <b>Прогресс:</b> [......] 30%
+            Завершено: 15 из 50 задач
+
+            <b>Стоимость:</b> $7.50 (2,500,000 токенов)
+
+            <b>Скорость:</b> 2.1 задач/день (chart icon)
+            <i>Прогноз завершения: 15.03.2026</i>
+
+            <b>Частые ошибки:</b>
+            - MCPTimeoutError: 5
+            - ValueError: 2
+        """
+        week_start = str(weekly_data.get("week_start", "") or "")
+        week_end = str(weekly_data.get("week_end", "") or "")
+        tasks_completed = int(weekly_data.get("tasks_completed", 0) or 0)
+        tasks_total = int(weekly_data.get("tasks_total", 0) or 0)
+        tokens_used = int(weekly_data.get("tokens_used", 0) or 0)
+        cost_usd = float(weekly_data.get("cost_usd", 0) or 0)
+        top_errors: list[dict[str, object]] = list(
+            weekly_data.get("top_errors", []) or []  # type: ignore[arg-type]
+        )
+        velocity = float(weekly_data.get("velocity", 0) or 0)
+        velocity_trend = str(weekly_data.get("velocity_trend", "") or "")
+        estimated_completion = str(
+            weekly_data.get("estimated_completion", "") or ""
+        )
+
+        lines: list[str] = ["\U0001f4c8 <b>Итоги недели</b>"]
+
+        # -- Date range header --
+        self._append_week_range(lines, week_start, week_end)
+
+        # -- Progress section --
+        if tasks_total > 0:
+            progress_bar = self.format_progress_bar(tasks_completed, tasks_total)
+            lines.append("")
+            lines.append(f"<b>Прогресс:</b> {progress_bar}")
+            lines.append(f"Завершено: {tasks_completed} из {tasks_total} задач")
+
+        # -- Cost section --
+        if cost_usd > 0 or tokens_used > 0:
+            lines.append("")
+            cost_str = self._format_cost(cost_usd)
+            token_str = self._format_tokens(tokens_used)
+            lines.append(f"<b>Стоимость:</b> {cost_str} ({token_str} токенов)")
+
+        # -- Velocity section --
+        if velocity > 0:
+            trend_icon = self.VELOCITY_TREND_ICONS.get(
+                velocity_trend.lower(), ""
+            )
+            lines.append("")
+            lines.append(
+                f"<b>Скорость:</b> {velocity:.1f} задач/день {trend_icon}"
+            )
+            if estimated_completion:
+                est_date = self._format_date_ddmmyyyy(estimated_completion)
+                lines.append(f"<i>Прогноз завершения: {est_date}</i>")
+
+        # -- Top errors section --
+        if top_errors:
+            lines.append("")
+            lines.append("<b>Частые ошибки:</b>")
+            for entry in top_errors:
+                error_name = escape_html(str(entry.get("error", "")))
+                error_count = int(entry.get("count", 0) or 0)
+                lines.append(f"\u2022 {error_name}: {error_count}")
+
+        return "\n".join(lines)
+
+    def _append_week_range(
+        self,
+        lines: list[str],
+        week_start: str,
+        week_end: str,
+    ) -> None:
+        """Append the week date range as an italic subtitle.
+
+        Formats dates as ``DD.MM -- DD.MM.YYYY`` using the year from
+        ``week_end``.  Skipped entirely when both dates are empty.
+
+        Args:
+            lines: Accumulator list of report lines (mutated in place).
+            week_start: ISO-format start date string.
+            week_end: ISO-format end date string.
+        """
+        if not week_start and not week_end:
+            return
+
+        start_short = self._format_short_date(week_start) if week_start else "?"
+        end_full = self._format_date_ddmmyyyy(week_end) if week_end else "?"
+
+        lines.append(f"<i>{start_short} \u2014 {end_full}</i>")
