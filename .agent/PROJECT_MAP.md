@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 10:05:48*
+*Auto-generated: 2026-02-09 10:13:51*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -18,11 +18,11 @@ your-claude-engineer/
 ├── agents/ (2 files)
 ├── analytics_server/ (3 files)
 ├── backups/ (3 files)
-├── dashboard/ (54 files)
+├── dashboard/ (55 files)
 │   ├── public/ (9 files)
 │   │   ├── icons/ (1 files)
-│   ├── src/ (39 files)
-│   │   ├── components/ (21 files)
+│   ├── src/ (40 files)
+│   │   ├── components/ (22 files)
 │   │   ├── context/ (1 files)
 │   │   ├── hooks/ (6 files)
 │   │   ├── pages/ (6 files)
@@ -89,11 +89,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `922367a` feat(ENG-75): add session replay API endpoints (47 секунд назад)
-- `13f8497` fix(ENG-74): fix TOCTOU race condition in record_event (10 минут назад)
-- `1978404` chore: update project map after ENG-74 (13 минут назад)
-- `df723ae` feat(ENG-74): add session recording to structured JSON files (15 минут назад)
-- `97a9b27` chore: update project map after ENG-65 (24 минуты назад)
+- `ed769d6` feat(ENG-76): add TimelineSlider component for session replay (2 минуты назад)
+- `7fb42f6` chore: update project map after ENG-75 (8 минут назад)
+- `922367a` feat(ENG-75): add session replay API endpoints (9 минут назад)
+- `13f8497` fix(ENG-74): fix TOCTOU race condition in record_event (18 минут назад)
+- `1978404` chore: update project map after ENG-74 (21 минута назад)
 
 ## Import Graph (Hub Files)
 
