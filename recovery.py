@@ -1,14 +1,14 @@
 """
-Graceful Degradation Matrix
-============================
+Матрица плавной деградации
+===========================
 
-Provides async wrappers and decorators that handle various failure scenarios:
-- MCP timeout: 3 retries with exponential backoff, degrade to skip notifications
-- Playwright crash: catch errors, return fallback message instead of blocking
-- Git errors: stash changes, retry, return context on persistent failure
-- Rate limits: exponential backoff (30s -> 60s -> 120s), clear error on exhaust
+Предоставляет асинхронные обёртки и декораторы для обработки различных сценариев сбоев:
+- MCP таймаут: 3 повтора с экспоненциальной задержкой, деградация до пропуска уведомлений
+- Сбой Playwright: перехват ошибок, возврат fallback сообщения вместо блокировки
+- Git ошибки: stash изменений, повтор, возврат контекста при постоянном сбое
+- Rate limits: экспоненциальная задержка (30s -> 60s -> 120s), чёткая ошибка при исчерпании
 
-ENG-68: Graceful Degradation Matrix
+ENG-68: Матрица плавной деградации
 
 Three APIs are available:
 
@@ -53,7 +53,7 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 # ---------------------------------------------------------------------------
-# Retry configuration constants
+# Константы конфигурации повторов
 # ---------------------------------------------------------------------------
 MCP_MAX_RETRIES: Final[int] = 3
 MCP_BASE_DELAY_SECONDS: Final[float] = 2.0
@@ -65,10 +65,10 @@ GIT_MAX_RETRIES: Final[int] = 2
 RATE_LIMIT_BACKOFF_SECONDS: Final[list[float]] = [30.0, 60.0, 120.0]
 RATE_LIMIT_MAX_RETRIES: Final[int] = len(RATE_LIMIT_BACKOFF_SECONDS)
 
-# HTTP status code for rate limiting
+# HTTP код состояния для rate limiting
 HTTP_429_TOO_MANY_REQUESTS: Final[int] = 429
 
-# Default generic retry settings
+# Настройки повторов по умолчанию
 DEFAULT_MAX_RETRIES: Final[int] = 3
 DEFAULT_BASE_DELAY_SECONDS: Final[float] = 1.0
 

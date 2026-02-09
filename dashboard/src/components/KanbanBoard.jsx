@@ -17,7 +17,7 @@ const PRIORITY_COLORS = {
   low: '#22c55e',
 }
 
-// State transition map for swipe actions
+// Карта переходов состояний для swipe-действий
 const STATE_TRANSITIONS = {
   'Todo': { left: 'In Progress', right: 'Cancelled' },
   'In Progress': { left: 'Done', right: 'Todo' },
@@ -41,7 +41,7 @@ function KanbanBoard({
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
   const dragCounter = useRef(0)
 
-  // Check for mobile on resize
+  // Проверка мобильного устройства при изменении размера
   React.useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 640)
     window.addEventListener('resize', handleResize)

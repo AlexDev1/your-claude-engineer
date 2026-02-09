@@ -1,11 +1,11 @@
 """
-Claude SDK Client Configuration
-===============================
+Конфигурация Claude SDK клиента
+================================
 
-Functions for creating and configuring the Claude Agent SDK client.
-Uses self-hosted Task MCP and Telegram MCP servers for integration.
-Implements tool output truncation middleware (ENG-29).
-Implements MCP timeout handling with exponential backoff (ENG-70).
+Функции для создания и настройки клиента Claude Agent SDK.
+Использует self-hosted Task MCP и Telegram MCP серверы для интеграции.
+Реализует middleware обрезки вывода инструментов (ENG-29).
+Реализует обработку таймаутов MCP с экспоненциальной задержкой (ENG-70).
 """
 
 import asyncio
@@ -47,7 +47,7 @@ logger = logging.getLogger("client")
 T = TypeVar("T")
 
 # ---------------------------------------------------------------------------
-# Timeout and backoff configuration (ENG-70)
+# Конфигурация таймаутов и задержек (ENG-70)
 # ---------------------------------------------------------------------------
 MCP_TIMEOUT_SECONDS: Final[float] = 30.0
 MAX_RETRIES: Final[int] = 3
@@ -58,11 +58,11 @@ RATE_LIMIT_INITIAL_BACKOFF_SECONDS: Final[float] = 5.0
 
 
 class MCPTimeoutError(Exception):
-    """Raised when an MCP tool call times out after all retries.
+    """Возникает, когда вызов MCP инструмента превышает таймаут после всех повторов.
 
     Attributes:
-        tool_name: Name of the MCP tool that timed out
-        timeout: Timeout duration in seconds that was exceeded
+        tool_name: Имя MCP инструмента, у которого произошёл таймаут
+        timeout: Длительность таймаута в секундах, которая была превышена
     """
 
     def __init__(self, tool_name: str, timeout: float) -> None:
@@ -77,20 +77,20 @@ def calculate_backoff(
     max_backoff: float = MAX_BACKOFF_SECONDS,
     multiplier: float = BACKOFF_MULTIPLIER,
 ) -> float:
-    """Calculate exponential backoff duration with jitter.
+    """Вычисляет длительность экспоненциальной задержки с jitter.
 
-    Uses the "full jitter" strategy: the base delay doubles with each attempt
-    (capped at ``max_backoff``), then a random jitter of +/-20% is applied to
-    prevent thundering-herd effects.
+    Использует стратегию "full jitter": базовая задержка удваивается с каждой попыткой
+    (ограничена ``max_backoff``), затем применяется случайный jitter +/-20% для
+    предотвращения эффекта "thundering-herd".
 
     Args:
-        attempt: Zero-based attempt index (0 = first retry)
-        initial: Base delay in seconds for the first retry
-        max_backoff: Maximum delay cap in seconds
-        multiplier: Factor applied per attempt (exponential base)
+        attempt: Индекс попытки с нуля (0 = первый повтор)
+        initial: Базовая задержка в секундах для первого повтора
+        max_backoff: Максимальный предел задержки в секундах
+        multiplier: Множитель, применяемый к каждой попытке (экспоненциальная база)
 
     Returns:
-        Backoff duration in seconds, always >= 0
+        Длительность задержки в секундах, всегда >= 0
     """
     backoff = min(initial * (multiplier ** attempt), max_backoff)
     jitter = backoff * 0.2 * (random.random() * 2 - 1)
@@ -105,29 +105,29 @@ async def call_mcp_tool_with_retry(
     max_retries: int = MAX_RETRIES,
     **kwargs: Any,
 ) -> T:
-    """Call an MCP tool with timeout and exponential backoff retry.
+    """Вызывает MCP инструмент с таймаутом и повторами с экспоненциальной задержкой.
 
-    Wraps ``call_fn`` with ``asyncio.wait_for`` to enforce a per-call timeout.
-    On ``asyncio.TimeoutError``, retries with exponential backoff. On rate-limit
-    errors (HTTP 429 / "rate limit" in message), uses a longer initial backoff.
+    Оборачивает ``call_fn`` в ``asyncio.wait_for`` для применения таймаута на каждый вызов.
+    При ``asyncio.TimeoutError`` повторяет с экспоненциальной задержкой. При ошибках
+    rate limit (HTTP 429 / "rate limit" в сообщении) использует большую начальную задержку.
 
-    When all retries are exhausted, triggers graceful degradation by marking the
-    MCP service as degraded via ``GracefulDegradation.protected()``.
+    Когда все повторы исчерпаны, запускает плавную деградацию, помечая MCP сервис
+    как деградированный через ``GracefulDegradation.protected()``.
 
     Args:
-        tool_name: MCP tool identifier (for error messages and degradation tracking)
-        call_fn: Async callable that performs the actual MCP tool invocation
-        *args: Positional arguments forwarded to ``call_fn``
-        timeout: Per-call timeout in seconds
-        max_retries: Maximum number of attempts (including the initial call)
-        **kwargs: Keyword arguments forwarded to ``call_fn``
+        tool_name: Идентификатор MCP инструмента (для сообщений об ошибках и отслеживания деградации)
+        call_fn: Асинхронная функция, выполняющая фактический вызов MCP инструмента
+        *args: Позиционные аргументы, переданные в ``call_fn``
+        timeout: Таймаут на один вызов в секундах
+        max_retries: Максимальное количество попыток (включая первый вызов)
+        **kwargs: Ключевые аргументы, переданные в ``call_fn``
 
     Returns:
-        The result from ``call_fn`` on success
+        Результат от ``call_fn`` при успехе
 
     Raises:
-        MCPTimeoutError: If all retries are exhausted due to timeouts
-        Exception: Re-raised rate-limit or other errors after retry exhaustion
+        MCPTimeoutError: Если все повторы исчерпаны из-за таймаутов
+        Exception: Повторно вызывается rate-limit или другие ошибки после исчерпания повторов
     """
     last_exception: Exception | None = None
 
@@ -189,35 +189,35 @@ async def call_mcp_tool_with_retry(
     raise MCPTimeoutError(tool_name, timeout)
 
 
-# Valid permission modes for the Claude SDK
+# Допустимые режимы разрешений для Claude SDK
 PermissionMode = Literal["acceptEdits", "acceptAll", "reject", "ask"]
 
 
 class SandboxConfig(TypedDict):
-    """Sandbox configuration for bash command isolation."""
+    """Конфигурация sandbox для изоляции bash команд."""
 
     enabled: bool
     autoAllowBashIfSandboxed: bool
 
 
 class PermissionsConfig(TypedDict):
-    """Permissions configuration for file and tool operations."""
+    """Конфигурация разрешений для файловых операций и инструментов."""
 
     defaultMode: PermissionMode
     allow: list[str]
 
 
 class SecuritySettings(TypedDict):
-    """Complete security settings structure."""
+    """Полная структура настроек безопасности."""
 
     sandbox: SandboxConfig
     permissions: PermissionsConfig
 
 
-# Playwright MCP tools for browser automation
+# Playwright MCP инструменты для автоматизации браузера
 PLAYWRIGHT_TOOLS: list[str] = [
     "mcp__playwright__browser_navigate",
-    # browser_take_screenshot REMOVED — exceeds SDK 1MB buffer (base64 in response)
+    # browser_take_screenshot УДАЛЁН — превышает буфер SDK 1MB (base64 в ответе)
     "mcp__playwright__browser_click",
     "mcp__playwright__browser_type",
     "mcp__playwright__browser_select_option",
@@ -226,7 +226,7 @@ PLAYWRIGHT_TOOLS: list[str] = [
     "mcp__playwright__browser_wait_for",
 ]
 
-# Built-in tools
+# Встроенные инструменты
 BUILTIN_TOOLS: list[str] = [
     "Read",
     "Write",
@@ -236,29 +236,29 @@ BUILTIN_TOOLS: list[str] = [
     "Bash",
 ]
 
-# Prompts directory
+# Директория промптов
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
 def load_orchestrator_prompt() -> str:
-    """Load the orchestrator system prompt."""
+    """Загружает системный промпт оркестратора."""
     return (PROMPTS_DIR / "orchestrator_prompt.md").read_text()
 
 
 def tool_output_truncation_hook(tool_name: str, tool_input: dict, tool_output: str) -> str:
     """
-    Post-tool hook to truncate long tool outputs (ENG-29).
+    Post-tool хук для обрезки длинных выводов инструментов (ENG-29).
 
-    This middleware runs after each tool execution and truncates
-    outputs that exceed the configured limit to save context budget.
+    Этот middleware запускается после каждого выполнения инструмента и обрезает
+    выводы, превышающие настроенный лимит, чтобы сохранить контекстный бюджет.
 
     Args:
-        tool_name: Name of the tool that was executed
-        tool_input: Input parameters passed to the tool
-        tool_output: Raw output from the tool
+        tool_name: Имя выполненного инструмента
+        tool_input: Входные параметры, переданные инструменту
+        tool_output: Необработанный вывод от инструмента
 
     Returns:
-        Possibly truncated tool output
+        Возможно обрезанный вывод инструмента
     """
     if not tool_output or len(tool_output) <= TOOL_OUTPUT_MAX_CHARS:
         return tool_output
@@ -283,10 +283,10 @@ def tool_output_truncation_hook(tool_name: str, tool_input: dict, tool_output: s
 
 def create_security_settings() -> SecuritySettings:
     """
-    Create the security settings structure.
+    Создаёт структуру настроек безопасности.
 
     Returns:
-        SecuritySettings with sandbox and permissions configured
+        SecuritySettings с настроенными sandbox и разрешениями
     """
     return SecuritySettings(
         sandbox=SandboxConfig(enabled=True, autoAllowBashIfSandboxed=True),
@@ -345,27 +345,27 @@ def write_security_settings(project_dir: Path, settings: SecuritySettings) -> Pa
 
 def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     """
-    Create a Claude Agent SDK client with multi-layered security.
+    Создаёт Claude Agent SDK клиент с многоуровневой безопасностью.
 
     Args:
-        project_dir: Directory for the project
-        model: Claude model to use
+        project_dir: Директория проекта
+        model: Модель Claude для использования
 
     Returns:
-        Configured ClaudeSDKClient
+        Настроенный ClaudeSDKClient
 
     Raises:
-        ValueError: If required environment variables are not set
+        ValueError: Если не установлены необходимые переменные окружения
 
-    Security layers (defense in depth):
-    1. Sandbox - OS-level bash command isolation prevents filesystem escape
-       (bwrap/docker-style isolation)
-    2. Permissions - File operations restricted to project_dir only
-       (enforced by SDK before tool execution)
-    3. Security hooks - Bash commands validated against an allowlist
-       (runs pre-execution via PreToolUse hook, see security.py for ALLOWED_COMMANDS)
+    Уровни безопасности (глубокая защита):
+    1. Sandbox - изоляция bash команд на уровне ОС предотвращает побег из файловой системы
+       (изоляция в стиле bwrap/docker)
+    2. Разрешения - файловые операции ограничены только project_dir
+       (применяется SDK перед выполнением инструмента)
+    3. Security hooks - bash команды проверяются по allowlist
+       (выполняется перед запуском через PreToolUse hook, см. security.py для ALLOWED_COMMANDS)
 
-    Execution: Permissions checked first, then hooks run, finally sandbox executes.
+    Порядок выполнения: сначала проверяются разрешения, затем выполняются хуки, наконец sandbox выполняет.
     """
     # Validate MCP configuration
     validate_mcp_config()

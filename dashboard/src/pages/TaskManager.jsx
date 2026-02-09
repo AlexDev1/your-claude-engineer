@@ -29,7 +29,7 @@ function TaskManager() {
   const [priorityFilter, setPriorityFilter] = useState(null)
   const [canUndo, setCanUndo] = useState(false)
 
-  // Filter issues based on search and priority
+  // Фильтровать задачи на основе поиска и приоритета
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
       const matchesSearch = !searchQuery ||
@@ -42,7 +42,7 @@ function TaskManager() {
     })
   }, [issues, searchQuery, priorityFilter])
 
-  // Handlers
+  // Обработчики событий
   const handleStateChange = useCallback(async (issueId, newState) => {
     await updateIssue(issueId, { state: newState })
     setCanUndo(true)
@@ -114,10 +114,12 @@ function TaskManager() {
     })
   }, [selectedIssues, filteredIssues, handleSelectIssue])
 
+  // Очистить выделение
   const handleClearSelection = useCallback(() => {
     setSelectedIssues([])
   }, [])
 
+  // Массовая операция
   const handleBulkOperation = useCallback(async (operation, value) => {
     if (selectedIssues.length === 0) return
 
@@ -126,6 +128,7 @@ function TaskManager() {
     setCanUndo(true)
   }, [selectedIssues, bulkOperation])
 
+  // Отменить последнее действие
   const handleUndo = useCallback(async () => {
     const result = await undo()
     if (!result) {
@@ -133,7 +136,7 @@ function TaskManager() {
     }
   }, [undo])
 
-  // Keyboard shortcuts
+  // Горячие клавиши
   useKeyboardShortcuts({
     [SHORTCUTS.NEW_ISSUE]: () => setShowCreateForm(true),
     [SHORTCUTS.CANCEL]: () => {
@@ -451,7 +454,7 @@ function TaskManager() {
   )
 }
 
-// Simple List View component
+// Простой компонент списка
 function ListView({ issues, onStateChange, onPriorityChange, onEdit, selectedIssues, onSelectIssue }) {
   const PRIORITY_COLORS = {
     urgent: 'bg-red-500',

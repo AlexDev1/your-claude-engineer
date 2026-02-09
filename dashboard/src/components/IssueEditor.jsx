@@ -92,12 +92,12 @@ function IssueEditor({ issue, isOpen, onClose, onSave, onDelete, allIssues = [] 
 
   const validStates = getValidStates()
 
-  // Get potential parent issues (exclude self and children)
+  // Получить потенциальные родительские задачи (исключить себя и дочерние)
   const potentialParents = allIssues.filter(i =>
     i.identifier !== issue?.identifier && i.parent_id !== issue?.identifier
   )
 
-  // Simple markdown preview
+  // Простой предпросмотр Markdown
   const renderMarkdown = (text) => {
     if (!text) return ''
     return text

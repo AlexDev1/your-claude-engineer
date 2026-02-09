@@ -21,7 +21,7 @@ export function useIssues(team = 'ENG') {
     } catch (err) {
       console.error('Issues fetch error:', err)
       setError(err.message)
-      // Use mock data on error
+      // Использовать mock-данные при ошибке
       setIssues(generateMockIssues())
     } finally {
       setLoading(false)
@@ -45,7 +45,7 @@ export function useIssues(team = 'ENG') {
       return newIssue
     } catch (err) {
       console.error('Create issue error:', err)
-      // Optimistic update for demo
+      // Оптимистичное обновление для демо
       const mockIssue = {
         identifier: `ENG-${Date.now() % 1000}`,
         ...issueData,
@@ -72,7 +72,7 @@ export function useIssues(team = 'ENG') {
       return updatedIssue
     } catch (err) {
       console.error('Update issue error:', err)
-      // Optimistic update for demo
+      // Оптимистичное обновление для демо
       setIssues(prev => prev.map(i =>
         i.identifier === issueId
           ? { ...i, ...updates, updated_at: new Date().toISOString() }
@@ -92,7 +92,7 @@ export function useIssues(team = 'ENG') {
       return true
     } catch (err) {
       console.error('Delete issue error:', err)
-      // Optimistic update for demo
+      // Оптимистичное обновление для демо
       setIssues(prev => prev.filter(i => i.identifier !== issueId))
       return true
     }
@@ -113,7 +113,7 @@ export function useIssues(team = 'ENG') {
       return comment
     } catch (err) {
       console.error('Add comment error:', err)
-      // Optimistic update for demo
+      // Оптимистичное обновление для демо
       const mockComment = {
         id: Date.now().toString(),
         author: 'Agent',
@@ -137,11 +137,11 @@ export function useIssues(team = 'ENG') {
         body: JSON.stringify({ issue_ids: issueIds, operation, value }),
       })
       if (!response.ok) throw new Error('Failed to perform bulk operation')
-      await fetchIssues() // Refresh after bulk operation
+      await fetchIssues() // Обновить после массовой операции
       return true
     } catch (err) {
       console.error('Bulk operation error:', err)
-      // Optimistic update for demo
+      // Оптимистичное обновление для демо
       if (operation === 'change_state') {
         setIssues(prev => prev.map(i =>
           issueIds.includes(i.identifier) ? { ...i, state: value } : i

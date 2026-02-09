@@ -1,12 +1,12 @@
 """
-Centralized Configuration (ENG-25)
-===================================
+Централизованная конфигурация (ENG-25)
+========================================
 
-Pydantic Settings-based configuration with validation, environment profiles,
-and config dump for debugging. Replaces scattered os.environ.get() calls.
+Конфигурация на основе Pydantic Settings с валидацией, профилями окружения
+и дампом конфига для отладки. Заменяет разбросанные вызовы os.environ.get().
 
-All environment variables are defined, validated, and documented here.
-Other modules should import from this module instead of reading os.environ directly.
+Все переменные окружения определены, провалидированы и задокументированы здесь.
+Другие модули должны импортировать из этого модуля вместо прямого чтения os.environ.
 
 Usage:
     from config import get_config

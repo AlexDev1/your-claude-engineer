@@ -1,12 +1,12 @@
 """
-Agent Session Logic
-===================
+Логика сессии агента
+=====================
 
-Core agent interaction functions for running autonomous coding sessions.
-Integrates with context_manager for token budget tracking.
-Integrates with session_state for granular error recovery (ENG-35).
-Implements context window management with compact mode and graceful shutdown (ENG-29).
-Implements session phase tracking with persistence and crash recovery (ENG-66).
+Основные функции взаимодействия с агентом для запуска автономных сессий разработки.
+Интегрируется с context_manager для отслеживания токенового бюджета.
+Интегрируется с session_state для детального восстановления после ошибок (ENG-35).
+Реализует управление контекстным окном с компактным режимом и плавным завершением (ENG-29).
+Реализует отслеживание фаз сессии с сохранением состояния и восстановлением после сбоев (ENG-66).
 """
 
 import asyncio
@@ -55,19 +55,19 @@ from session_state import (
     transition_phase,
 )
 
-# Pause check configuration (ENG-52)
+# Конфигурация проверки паузы (ENG-52)
 PAUSE_CHECK_INTERVAL_SECONDS: int = 60
 
 
 def is_agent_paused(project_dir: Path) -> bool:
     """
-    Check if the agent is paused by checking for .agent/PAUSED file (ENG-52).
+    Проверяет, находится ли агент на паузе, проверяя наличие файла .agent/PAUSED (ENG-52).
 
     Args:
-        project_dir: Project directory path
+        project_dir: Путь к директории проекта
 
     Returns:
-        True if .agent/PAUSED file exists, False otherwise
+        True, если файл .agent/PAUSED существует, иначе False
     """
     paused_file = project_dir / ".agent" / "PAUSED"
     return paused_file.exists()
@@ -75,15 +75,15 @@ def is_agent_paused(project_dir: Path) -> bool:
 
 async def wait_while_paused(project_dir: Path) -> bool:
     """
-    Wait while the agent is paused, checking every PAUSE_CHECK_INTERVAL_SECONDS (ENG-52).
+    Ожидает, пока агент на паузе, проверяя каждые PAUSE_CHECK_INTERVAL_SECONDS (ENG-52).
 
-    When resumed, sends notification to Telegram if configured.
+    При возобновлении отправляет уведомление в Telegram, если настроено.
 
     Args:
-        project_dir: Project directory path
+        project_dir: Путь к директории проекта
 
     Returns:
-        True if agent was paused and is now resumed, False if never paused
+        True, если агент был на паузе и теперь возобновлён, False, если не был на паузе
     """
     if not is_agent_paused(project_dir):
         return False
@@ -100,13 +100,13 @@ async def wait_while_paused(project_dir: Path) -> bool:
         await asyncio.sleep(PAUSE_CHECK_INTERVAL_SECONDS)
         print(f"[{asyncio.get_event_loop().time():.0f}] Still paused, waiting...")
 
-    # Agent has been resumed
+    # Агент возобновлён
     print("\n" + "=" * 70)
     print("  AGENT RESUMED")
     print("=" * 70)
     print("\nAgent has been resumed. Continuing with next task...\n")
 
-    # Try to send Telegram notification
+    # Попытка отправить Telegram-уведомление
     try:
         import httpx
         import os
@@ -132,36 +132,36 @@ async def wait_while_paused(project_dir: Path) -> bool:
     return was_paused
 
 
-# Configuration
+# Конфигурация
 AUTO_CONTINUE_DELAY_SECONDS: int = 3
 
 
-# Type-safe literal union - no runtime overhead
+# Типобезопасное объединение литералов - без накладных расходов во время выполнения
 SessionStatus = Literal["continue", "error", "complete", "context_limit"]
 
-# Constants for code clarity
+# Константы для ясности кода
 SESSION_CONTINUE: SessionStatus = "continue"
 SESSION_ERROR: SessionStatus = "error"
 SESSION_COMPLETE: SessionStatus = "complete"
 SESSION_CONTEXT_LIMIT: SessionStatus = "context_limit"
 
-# Completion signal that orchestrator outputs when all tasks are done
+# Сигнал завершения, который оркестратор выводит, когда все задачи выполнены
 COMPLETION_SIGNAL = "ALL_TASKS_DONE:"
 
-# Context limit signal that triggers graceful shutdown (ENG-29)
+# Сигнал ограничения контекста, который запускает плавное завершение (ENG-29)
 CONTEXT_LIMIT_SIGNAL = "CONTEXT_LIMIT_REACHED:"
 
 
 class SessionResult(NamedTuple):
-    """Result of running an agent session.
+    """Результат выполнения сессии агента.
 
     Attributes:
-        status: Session outcome:
-            - "continue": Normal completion, agent can continue with more work
-            - "error": Exception occurred, will retry with fresh session
-            - "complete": All tasks done, orchestrator signaled ALL_TASKS_DONE
-            - "context_limit": Context budget exceeded, graceful shutdown (ENG-29)
-        response: Response text from the agent, or error message if status is "error"
+        status: Результат сессии:
+            - "continue": Нормальное завершение, агент может продолжить работу
+            - "error": Возникла ошибка, будет повтор с новой сессией
+            - "complete": Все задачи выполнены, оркестратор отправил сигнал ALL_TASKS_DONE
+            - "context_limit": Превышен бюджет контекста, плавное завершение (ENG-29)
+        response: Текст ответа от агента или сообщение об ошибке, если status == "error"
     """
 
     status: SessionStatus
@@ -175,42 +175,42 @@ async def run_agent_session(
     ctx_manager: ContextManager | None = None,
 ) -> SessionResult:
     """
-    Run a single agent session using Claude Agent SDK.
+    Запускает одну сессию агента с использованием Claude Agent SDK.
 
     Args:
-        client: Claude SDK client
-        message: The prompt to send
-        project_dir: Project directory path
-        ctx_manager: Optional context manager for token tracking (ENG-29)
+        client: Claude SDK клиент
+        message: Промпт для отправки
+        project_dir: Путь к директории проекта
+        ctx_manager: Опциональный менеджер контекста для отслеживания токенов (ENG-29)
 
     Returns:
-        SessionResult with status and response text:
-        - status=CONTINUE: Normal completion, agent can continue
-        - status=ERROR: Exception occurred, will retry with fresh session
-        - status=COMPLETE: All tasks done, ALL_TASKS_DONE signal detected
-        - status=CONTEXT_LIMIT: Context budget exceeded, graceful shutdown
+        SessionResult со статусом и текстом ответа:
+        - status=CONTINUE: Нормальное завершение, агент может продолжить
+        - status=ERROR: Возникла ошибка, будет повтор с новой сессией
+        - status=COMPLETE: Все задачи выполнены, обнаружен сигнал ALL_TASKS_DONE
+        - status=CONTEXT_LIMIT: Превышен бюджет контекста, плавное завершение
     """
     print("Sending prompt to Claude Agent SDK...\n")
 
-    # Use provided context manager or get global one
+    # Использовать предоставленный менеджер контекста или получить глобальный
     if ctx_manager is None:
         ctx_manager = get_context_manager()
 
     try:
-        # Send the query
+        # Отправить запрос
         await client.query(message)
 
-        # Collect response text and show tool use
+        # Собрать текст ответа и показать использование инструментов
         response_text: str = ""
         tool_call_count: int = 0
 
         async for msg in client.receive_response():
-            # Handle AssistantMessage (text and tool use)
+            # Обработать AssistantMessage (текст и использование инструментов)
             if isinstance(msg, AssistantMessage):
                 for block in msg.content:
                     if isinstance(block, TextBlock):
                         response_text += block.text
-                        # Track response tokens
+                        # Отследить токены ответа
                         ctx_manager.budget.add("history", estimate_tokens(block.text))
                         print(block.text, end="", flush=True)
                     elif isinstance(block, ToolUseBlock):
@@ -222,31 +222,31 @@ async def run_agent_session(
                         else:
                             print(f"   Input: {input_str}", flush=True)
 
-            # Handle UserMessage (tool results)
+            # Обработать UserMessage (результаты инструментов)
             elif isinstance(msg, UserMessage):
                 for block in msg.content:
                     if isinstance(block, ToolResultBlock):
                         result_content = str(block.content)
                         is_error: bool = bool(block.is_error) if block.is_error else False
 
-                        # Track and truncate tool output (ENG-29)
+                        # Отследить и обрезать вывод инструментов (ENG-29)
                         processed_output = ctx_manager.track_tool_output(
                             tool_name="tool_result",
                             output=result_content,
                         )
 
-                        # Check if command was blocked by security hook
+                        # Проверить, была ли команда заблокирована хуком безопасности
                         if "blocked" in result_content.lower():
                             print(f"   [BLOCKED] {result_content}", flush=True)
                         elif is_error:
-                            # Show errors (truncated)
+                            # Показать ошибки (обрезанные)
                             error_str: str = result_content[:500]
                             print(f"   [Error] {error_str}", flush=True)
                         else:
-                            # Tool succeeded - just show brief confirmation
+                            # Инструмент успешно выполнен - показать краткое подтверждение
                             print("   [Done]", flush=True)
 
-            # Check context budget after each message (ENG-29)
+            # Проверить бюджет контекста после каждого сообщения (ENG-29)
             if ctx_manager.should_trigger_shutdown():
                 print("\n" + "!" * 70)
                 print("  CONTEXT LIMIT WARNING: 85%+ context used")
@@ -338,25 +338,25 @@ async def run_autonomous_agent(
     max_iterations: int | None = None,
 ) -> None:
     """
-    Run the autonomous agent loop with session state tracking and crash recovery.
+    Запускает цикл автономного агента с отслеживанием состояния сессии и восстановлением после сбоев.
 
-    Features:
-    - Crash recovery from .agent/session_state.json (ENG-35, ENG-66)
-    - Session phase tracking with persistence
-    - Phase-level retry with smart restart logic
-    - Graceful degradation for MCP/Playwright failures
-    - Exponential backoff on rate limits
-    - Context window management with compact mode (ENG-29)
-    - Pause/resume via Telegram (ENG-52)
+    Возможности:
+    - Восстановление после сбоев из .agent/session_state.json (ENG-35, ENG-66)
+    - Отслеживание фаз сессии с сохранением состояния
+    - Повтор на уровне фаз с умной логикой перезапуска
+    - Плавная деградация при сбоях MCP/Playwright
+    - Экспоненциальная задержка при rate limits
+    - Управление контекстным окном с компактным режимом (ENG-29)
+    - Пауза/возобновление через Telegram (ENG-52)
 
     Args:
-        project_dir: Working directory for the project
-        model: Claude model to use
-        team: Team key for task management (e.g., "ENG")
-        max_iterations: Maximum number of iterations (None for unlimited)
+        project_dir: Рабочая директория проекта
+        model: Модель Claude для использования
+        team: Ключ команды для управления задачами (например, "ENG")
+        max_iterations: Максимальное количество итераций (None для неограниченного)
 
     Raises:
-        ValueError: If max_iterations is not positive
+        ValueError: Если max_iterations не положительное число
     """
     if max_iterations is not None and max_iterations < 1:
         raise ValueError(f"max_iterations must be positive, got {max_iterations}")
@@ -373,7 +373,7 @@ async def run_autonomous_agent(
         print("Max iterations: Unlimited (will run until all tasks done)")
     print()
 
-    # Generate/update project map on startup (ENG-33)
+    # Сгенерировать/обновить карту проекта при запуске (ENG-33)
     print("Generating project map...")
     project_map = ensure_project_map(project_dir)
     if project_map:
@@ -381,14 +381,14 @@ async def run_autonomous_agent(
     else:
         print("No project map available")
 
-    # Set default project dir for standalone session state functions (ENG-66)
+    # Установить директорию проекта по умолчанию для автономных функций состояния сессии (ENG-66)
     set_default_project_dir(project_dir)
 
-    # Initialize session state manager and check for crash recovery
+    # Инициализировать менеджер состояния сессии и проверить восстановление после сбоя
     state_manager = get_session_state_manager(project_dir)
     recovery = get_session_recovery(project_dir)
 
-    # Check for interrupted session on startup (ENG-69)
+    # Проверить прерванную сессию при запуске (ENG-69)
     recovery_needed, saved_state = await recovery.check_recovery()
     resume_phase: SessionPhase | None = None
     recovery_context_text: str = ""

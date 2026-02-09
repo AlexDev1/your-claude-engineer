@@ -1,16 +1,16 @@
 """
-Context Manager
-================
+Менеджер контекста
+==================
 
-Smart context selection, lazy loading, and budget tracking for agent sessions.
-Reduces token usage while maintaining quality through:
-- AST-based function extraction
-- Incremental context loading
-- Token budget monitoring
-- Auto-summarization when approaching limits
-- Compact mode for context pressure (ENG-29)
-- Graceful shutdown at critical threshold (ENG-29)
-- Tool output truncation (ENG-29)
+Умный выбор контекста, ленивая загрузка и отслеживание бюджета для сессий агента.
+Снижает использование токенов при сохранении качества через:
+- Извлечение функций на основе AST
+- Инкрементальную загрузку контекста
+- Мониторинг токенового бюджета
+- Автоматическое резюмирование при приближении к лимитам
+- Компактный режим при нехватке контекста (ENG-29)
+- Плавное завершение при критическом пороге (ENG-29)
+- Обрезка вывода инструментов (ENG-29)
 """
 
 import ast

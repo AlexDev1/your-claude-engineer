@@ -1,9 +1,9 @@
 """
-MCP Server Configuration
-========================
+Конфигурация MCP серверов
+==========================
 
-Configuration for Task MCP and Telegram MCP server integration.
-Replaces Arcade Gateway with self-hosted MCP servers.
+Конфигурация для интеграции Task MCP и Telegram MCP серверов.
+Заменяет Arcade Gateway на self-hosted MCP серверы.
 
 Setup:
 1. Deploy Task MCP Server (PostgreSQL backend) on VDS

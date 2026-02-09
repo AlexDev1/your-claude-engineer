@@ -1,14 +1,14 @@
 """
-Session State Machine for Granular Error Recovery
-==================================================
+Машина состояний сессии для детального восстановления после ошибок
+===================================================================
 
-Implements checkpoint-based recovery with:
-- SessionPhase enum for clear session states
-- Phase-level retry with smart restart logic
-- Graceful degradation matrix for different error types
-- Crash recovery from .agent/session_state.json
+Реализует восстановление на основе контрольных точек с:
+- SessionPhase enum для чётких состояний сессии
+- Повтор на уровне фаз с умной логикой перезапуска
+- Матрица плавной деградации для разных типов ошибок
+- Восстановление после сбоев из .agent/session_state.json
 
-ENG-35: Granular Error Recovery
+ENG-35: Детальное восстановление после ошибок
 """
 
 import asyncio
@@ -29,20 +29,20 @@ logger = logging.getLogger("session_state")
 
 
 class SessionPhase(Enum):
-    """Session phases for checkpoint-based recovery.
+    """Фазы сессии для восстановления на основе контрольных точек.
 
-    Phases are ordered by their typical execution sequence.
-    The numeric value indicates the phase order for comparison.
+    Фазы упорядочены по типичной последовательности выполнения.
+    Числовое значение указывает порядок фазы для сравнения.
     """
 
-    ORIENT = ("orient", 1)  # Step 1: read project state
-    STATUS_CHECK = ("status", 2)  # Step 2: get task status
-    VERIFICATION = ("verify", 3)  # Step 3: run verification
-    IMPLEMENTATION = ("implement", 4)  # Step 4: coding
-    COMMIT = ("commit", 5)  # Step 5: git commit
-    MARK_DONE = ("mark_done", 6)  # Step 6: update task status
-    NOTIFY = ("notify", 7)  # Step 7: telegram
-    MEMORY_FLUSH = ("flush", 8)  # Step 8: save context
+    ORIENT = ("orient", 1)  # Шаг 1: чтение состояния проекта
+    STATUS_CHECK = ("status", 2)  # Шаг 2: получение статуса задачи
+    VERIFICATION = ("verify", 3)  # Шаг 3: запуск верификации
+    IMPLEMENTATION = ("implement", 4)  # Шаг 4: кодирование
+    COMMIT = ("commit", 5)  # Шаг 5: git commit
+    MARK_DONE = ("mark_done", 6)  # Шаг 6: обновление статуса задачи
+    NOTIFY = ("notify", 7)  # Шаг 7: telegram
+    MEMORY_FLUSH = ("flush", 8)  # Шаг 8: сохранение контекста
 
     def __init__(self, phase_name: str, order: int):
         self.phase_name = phase_name
@@ -50,12 +50,12 @@ class SessionPhase(Enum):
 
     @classmethod
     def from_string(cls, name: str) -> "SessionPhase":
-        """Create phase from string name.
+        """Создаёт фазу из строкового имени.
 
-        Accepts:
-        - Exact phase_name match (e.g., "orient", "implement")
-        - Enum name match (e.g., "ORIENT", "IMPLEMENTATION")
-        - Case-insensitive enum name (e.g., "implementation")
+        Принимает:
+        - Точное совпадение phase_name (например, "orient", "implement")
+        - Совпадение имени Enum (например, "ORIENT", "IMPLEMENTATION")
+        - Имя enum без учёта регистра (например, "implementation")
         """
         name_lower = name.lower()
         for phase in cls:
@@ -77,13 +77,13 @@ class SessionPhase(Enum):
 
 
 class RetryStrategy(Enum):
-    """Strategy for retrying a failed phase (ENG-67).
+    """Стратегия повтора неудавшейся фазы (ENG-67).
 
-    Determines how far back the session should rewind after a phase failure:
-    - RETRY_CURRENT: Retry just the failed phase (late phases where code is written)
-    - RETRY_FROM_ORIENT: Restart from ORIENT (cheap early phases)
-    - RETRY_IMPLEMENTATION: Retry from IMPLEMENTATION (code needs rework)
-    - ESCALATE: Give up and mark the issue as blocked
+    Определяет, насколько далеко назад должна откатиться сессия после сбоя фазы:
+    - RETRY_CURRENT: Повторить только неудавшуюся фазу (поздние фазы, где код уже написан)
+    - RETRY_FROM_ORIENT: Перезапустить с ORIENT (дешёвые ранние фазы)
+    - RETRY_IMPLEMENTATION: Повторить с IMPLEMENTATION (код требует переработки)
+    - ESCALATE: Сдаться и пометить задачу как заблокированную
     """
 
     RETRY_CURRENT = "retry_current"
@@ -92,15 +92,15 @@ class RetryStrategy(Enum):
     ESCALATE = "escalate"
 
 
-# Maximum retry attempts per phase before escalation (ENG-67)
+# Максимальное количество попыток на фазу перед эскалацией (ENG-67)
 MAX_PHASE_RETRIES: int = 2
 
-# Maximum age (hours) for a recovery state before it is considered stale (ENG-69)
+# Максимальный возраст (часы) для состояния восстановления, после которого оно считается устаревшим (ENG-69)
 STALE_RECOVERY_HOURS: float = 24.0
 
 
 class ErrorType(Enum):
-    """Categories of errors for graceful degradation."""
+    """Категории ошибок для плавной деградации."""
 
     MCP_TIMEOUT = "mcp_timeout"
     PLAYWRIGHT_CRASH = "playwright_crash"
@@ -112,7 +112,7 @@ class ErrorType(Enum):
 
 @dataclass
 class PhaseAttempt:
-    """Track attempts for a specific phase."""
+    """Отслеживает попытки для конкретной фазы."""
 
     phase: SessionPhase
     attempt: int = 0
@@ -122,11 +122,11 @@ class PhaseAttempt:
 
     @property
     def can_retry(self) -> bool:
-        """Check if more retries are available."""
+        """Проверяет, доступны ли ещё повторы."""
         return self.attempt < self.max_attempts
 
     def record_attempt(self, error: str | None = None) -> None:
-        """Record an attempt."""
+        """Записывает попытку."""
         self.attempt += 1
         self.last_error = error
         self.last_attempt_time = time.time()

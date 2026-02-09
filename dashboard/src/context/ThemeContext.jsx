@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 
-// Theme definitions
+// Определения тем
 export const THEMES = {
   light: {
     name: 'Light',
@@ -73,7 +73,7 @@ export const THEMES = {
   }
 }
 
-// Preset accent colors
+// Предустановленные цвета акцента
 export const ACCENT_PRESETS = [
   { name: 'Blue', value: '#3b82f6', hover: '#2563eb' },
   { name: 'Purple', value: '#8b5cf6', hover: '#7c3aed' },
@@ -90,10 +90,10 @@ const ACCENT_STORAGE_KEY = 'agent-dashboard-accent'
 export function ThemeProvider({ children }) {
   const [themeMode, setThemeMode] = useState('system') // 'light', 'dark', 'midnight', 'system'
   const [resolvedTheme, setResolvedTheme] = useState('dark')
-  const [accentColor, setAccentColor] = useState(null) // null means use theme default
+  const [accentColor, setAccentColor] = useState(null) // null означает использовать тему по умолчанию
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // Load saved preferences on mount
+  // Загрузить сохранённые настройки при монтировании
   useEffect(() => {
     const savedTheme = localStorage.getItem(THEME_STORAGE_KEY)
     const savedAccent = localStorage.getItem(ACCENT_STORAGE_KEY)
@@ -105,13 +105,13 @@ export function ThemeProvider({ children }) {
       try {
         setAccentColor(JSON.parse(savedAccent))
       } catch (e) {
-        // Invalid JSON, ignore
+        // Неверный JSON, игнорировать
       }
     }
     setIsLoaded(true)
   }, [])
 
-  // Handle system theme preference
+  // Обработать системные настройки темы
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
@@ -129,7 +129,7 @@ export function ThemeProvider({ children }) {
     return () => mediaQuery.removeEventListener('change', updateResolvedTheme)
   }, [themeMode])
 
-  // Apply CSS variables when theme changes
+  // Применить CSS-переменные при смене темы
   useEffect(() => {
     if (!isLoaded) return
 
@@ -138,22 +138,22 @@ export function ThemeProvider({ children }) {
 
     const root = document.documentElement
 
-    // Apply theme colors as CSS variables
+    // Применить цвета темы как CSS-переменные
     Object.entries(theme.colors).forEach(([key, value]) => {
       root.style.setProperty(`--color-${key}`, value)
     })
 
-    // Apply custom accent color if set
+    // Применить пользовательский цвет акцента, если установлен
     if (accentColor) {
       root.style.setProperty('--color-accent', accentColor.value)
       root.style.setProperty('--color-accentHover', accentColor.hover || accentColor.value)
     }
 
-    // Set data attribute for conditional CSS
+    // Установить data-атрибут для условного CSS
     root.setAttribute('data-theme', resolvedTheme)
   }, [resolvedTheme, accentColor, isLoaded])
 
-  // Save preferences to localStorage
+  // Сохранить настройки в localStorage
   useEffect(() => {
     if (!isLoaded) return
     localStorage.setItem(THEME_STORAGE_KEY, themeMode)
@@ -194,7 +194,7 @@ export function ThemeProvider({ children }) {
     isSystemTheme: themeMode === 'system',
   }
 
-  // Prevent flash of unstyled content
+  // Предотвратить мигание нестилизованного контента
   if (!isLoaded) {
     return null
   }
