@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 00:02:01*
+*Auto-generated: 2026-02-09 09:21:18*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -30,11 +30,11 @@ your-claude-engineer/
 ├── prompts/ (7 files)
 ├── screenshots/ (114 files)
 ├── scripts/ (5 files)
-├── tests/ (15 files)
+├── tests/ (16 files)
 │   ├── api/ (3 files)
 │   ├── e2e/ (3 files)
 │   ├── integration/ (3 files)
-│   ├── unit/ (4 files)
+│   ├── unit/ (5 files)
 ├── [27 files in root]
 ```
 
@@ -88,11 +88,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (3 минуты назад)
-- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (15 минут назад)
-- `fddc098` feat: add crash recovery on startup with stale detection and prompt injection (21 минута назад)
-- `a2376ec` chore: update project map, memory, and settings after ENG-67/ENG-68 (28 минут назад)
-- `8b0d1d9` feat: add phase-level retry logic with RetryStrategy enum (29 минут назад)
+- `dfccecb` feat(ENG-63): add auto-PR creation via gh CLI on issue Done transition (77 секунд назад)
+- `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (6 минут назад)
+- `1a09b70` chore: update memory and project map after ENG-62 (9 часов назад)
+- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (9 часов назад)
+- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (10 часов назад)
 
 ## Import Graph (Hub Files)
 
