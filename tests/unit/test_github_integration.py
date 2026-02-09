@@ -1,8 +1,8 @@
 """
-Tests for GitHub Integration — Auto-PR on Done (ENG-63)
-========================================================
+Tests for GitHub Integration — Auto-PR (ENG-63) + Issues Sync (ENG-64)
+=======================================================================
 
-Verifies:
+ENG-63 (Auto-PR) verifies:
 1. create_auto_pr() creates PR via gh CLI on issue Done transition
 2. PR title follows "[Agent] {issue title}" format
 3. PR body includes issue description and session summary
@@ -15,6 +15,16 @@ Verifies:
 10. Helper: _extract_pr_number_from_url parses PR URLs
 11. Helper: _is_gh_cli_available checks gh auth status
 12. AutoPRResult dataclass fields
+
+ENG-64 (Issues Sync) verifies:
+13. sync_issue_to_github() creates/updates GitHub Issues from Task MCP
+14. sync_issue_from_github() reads GitHub Issue state for Task MCP
+15. create_github_issue() creates via gh CLI
+16. update_github_issue() updates title/body/state/labels via gh CLI
+17. State mapping: Task MCP <-> GitHub (Todo, In Progress, Done, Canceled)
+18. Sync marker: "[Task MCP: ENG-XX]" embedded in issue body
+19. Conflict resolution: Task MCP is source of truth
+20. SyncResult and GitHubIssueResult dataclass fields
 """
 
 import json
@@ -25,12 +35,23 @@ import pytest
 
 from github_integration import (
     AutoPRResult,
+    GitHubIssueResult,
+    SyncResult,
+    _build_sync_marker,
     _check_existing_pr_via_gh,
+    _extract_issue_id_from_body,
+    _extract_issue_number_from_url,
     _extract_pr_number_from_url,
     _has_commits_ahead_of_base,
     _is_gh_cli_available,
+    _map_github_state_to_task,
+    _map_task_state_to_github,
     _sanitize_branch_name,
     create_auto_pr,
+    create_github_issue,
+    sync_issue_from_github,
+    sync_issue_to_github,
+    update_github_issue,
 )
 
 
@@ -561,3 +582,870 @@ class TestSanitizeBranchName:
     def test_leading_trailing_dashes_stripped(self) -> None:
         """Leading and trailing dashes are removed."""
         assert _sanitize_branch_name("-abc-") == "abc"
+
+
+# ===========================================================================
+# ENG-64: GitHub Issues Sync — Bidirectional
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# SyncResult and GitHubIssueResult dataclasses
+# ---------------------------------------------------------------------------
+
+
+class TestSyncResult:
+    """Test SyncResult dataclass fields."""
+
+    def test_outbound_sync_result(self) -> None:
+        """Outbound sync result stores GitHub issue number and direction."""
+        result = SyncResult(
+            success=True,
+            github_issue_number=42,
+            task_issue_id="ENG-64",
+            action="created",
+            message="Created GitHub issue #42 for ENG-64",
+            direction="to_github",
+        )
+        assert result.success is True
+        assert result.github_issue_number == 42
+        assert result.task_issue_id == "ENG-64"
+        assert result.action == "created"
+        assert result.direction == "to_github"
+
+    def test_inbound_sync_result(self) -> None:
+        """Inbound sync result stores Task MCP issue ID and direction."""
+        result = SyncResult(
+            success=True,
+            github_issue_number=10,
+            task_issue_id="ENG-99",
+            action="synced",
+            message="GitHub issue #10 -> Task MCP state: Done",
+            direction="from_github",
+        )
+        assert result.success is True
+        assert result.direction == "from_github"
+        assert result.task_issue_id == "ENG-99"
+
+    def test_failure_result(self) -> None:
+        """Failure result has skipped action."""
+        result = SyncResult(
+            success=False,
+            github_issue_number=None,
+            task_issue_id="ENG-64",
+            action="skipped",
+            message="gh CLI not available",
+            direction="to_github",
+        )
+        assert result.success is False
+        assert result.action == "skipped"
+
+
+class TestGitHubIssueResult:
+    """Test GitHubIssueResult dataclass fields."""
+
+    def test_success_result(self) -> None:
+        """Successful result stores issue number and URL."""
+        result = GitHubIssueResult(
+            success=True,
+            issue_number=15,
+            issue_url="https://github.com/org/repo/issues/15",
+            message="Created GitHub issue #15",
+        )
+        assert result.success is True
+        assert result.issue_number == 15
+        assert result.issue_url == "https://github.com/org/repo/issues/15"
+
+    def test_failure_result(self) -> None:
+        """Failure result has no issue number or URL."""
+        result = GitHubIssueResult(
+            success=False,
+            issue_number=None,
+            issue_url=None,
+            message="gh issue create failed",
+        )
+        assert result.success is False
+        assert result.issue_number is None
+
+
+# ---------------------------------------------------------------------------
+# Sync marker helpers
+# ---------------------------------------------------------------------------
+
+
+class TestBuildSyncMarker:
+    """Test sync marker construction."""
+
+    def test_builds_marker(self) -> None:
+        """Builds expected sync marker string."""
+        assert _build_sync_marker("ENG-64") == "[Task MCP: ENG-64]"
+
+    def test_preserves_case(self) -> None:
+        """Preserves issue ID case."""
+        assert _build_sync_marker("eng-99") == "[Task MCP: eng-99]"
+
+
+class TestExtractIssueIdFromBody:
+    """Test Task MCP issue ID extraction from GitHub Issue body."""
+
+    def test_extracts_id_from_standard_body(self) -> None:
+        """Extracts issue ID from body with sync marker."""
+        body = "Some description\n\n---\n[Task MCP: ENG-64]"
+        assert _extract_issue_id_from_body(body) == "ENG-64"
+
+    def test_extracts_id_from_middle_of_body(self) -> None:
+        """Extracts issue ID even when marker is in the middle."""
+        body = "Before\n[Task MCP: ENG-99]\nAfter"
+        assert _extract_issue_id_from_body(body) == "ENG-99"
+
+    def test_returns_none_for_no_marker(self) -> None:
+        """Returns None when body has no sync marker."""
+        body = "Just a regular issue body"
+        assert _extract_issue_id_from_body(body) is None
+
+    def test_returns_none_for_empty_body(self) -> None:
+        """Returns None for empty body."""
+        assert _extract_issue_id_from_body("") is None
+
+    def test_handles_different_team_prefix(self) -> None:
+        """Handles different team prefixes like INFRA-."""
+        body = "Description\n[Task MCP: INFRA-12]"
+        assert _extract_issue_id_from_body(body) == "INFRA-12"
+
+
+class TestExtractIssueNumberFromUrl:
+    """Test GitHub Issue number extraction from URL."""
+
+    def test_standard_url(self) -> None:
+        """Extracts number from standard issue URL."""
+        url = "https://github.com/org/repo/issues/42"
+        assert _extract_issue_number_from_url(url) == 42
+
+    def test_non_issue_url_returns_none(self) -> None:
+        """Returns None for non-issue URLs."""
+        url = "https://github.com/org/repo/pull/5"
+        assert _extract_issue_number_from_url(url) is None
+
+    def test_empty_string_returns_none(self) -> None:
+        """Returns None for empty string."""
+        assert _extract_issue_number_from_url("") is None
+
+
+# ---------------------------------------------------------------------------
+# State mapping
+# ---------------------------------------------------------------------------
+
+
+class TestMapTaskStateToGitHub:
+    """Test Task MCP state to GitHub Issue state mapping."""
+
+    def test_todo_maps_to_open(self) -> None:
+        """Todo maps to open state with no extra labels."""
+        state, labels = _map_task_state_to_github("Todo")
+        assert state == "open"
+        assert labels == []
+
+    def test_in_progress_maps_to_open_with_label(self) -> None:
+        """In Progress maps to open with 'in-progress' label."""
+        state, labels = _map_task_state_to_github("In Progress")
+        assert state == "open"
+        assert "in-progress" in labels
+
+    def test_done_maps_to_closed(self) -> None:
+        """Done maps to closed state."""
+        state, labels = _map_task_state_to_github("Done")
+        assert state == "closed"
+        assert labels == []
+
+    def test_canceled_maps_to_closed_with_wontfix(self) -> None:
+        """Canceled maps to closed with 'wontfix' label."""
+        state, labels = _map_task_state_to_github("Canceled")
+        assert state == "closed"
+        assert "wontfix" in labels
+
+    def test_unknown_state_defaults_to_open(self) -> None:
+        """Unknown states default to open."""
+        state, labels = _map_task_state_to_github("SomeUnknownState")
+        assert state == "open"
+        assert labels == []
+
+
+class TestMapGitHubStateToTask:
+    """Test GitHub Issue state to Task MCP state mapping."""
+
+    def test_open_maps_to_todo(self) -> None:
+        """Open without labels maps to Todo."""
+        assert _map_github_state_to_task("open") == "Todo"
+
+    def test_open_with_in_progress_label(self) -> None:
+        """Open with 'in-progress' label maps to In Progress."""
+        assert _map_github_state_to_task("open", ["in-progress"]) == "In Progress"
+
+    def test_closed_maps_to_done(self) -> None:
+        """Closed without labels maps to Done."""
+        assert _map_github_state_to_task("closed") == "Done"
+
+    def test_closed_with_wontfix_maps_to_canceled(self) -> None:
+        """Closed with 'wontfix' label maps to Canceled."""
+        assert _map_github_state_to_task("closed", ["wontfix"]) == "Canceled"
+
+    def test_closed_with_other_labels_maps_to_done(self) -> None:
+        """Closed with other labels (not wontfix) maps to Done."""
+        assert _map_github_state_to_task("closed", ["bug", "urgent"]) == "Done"
+
+    def test_none_labels_treated_as_empty(self) -> None:
+        """None labels treated as empty list."""
+        assert _map_github_state_to_task("open", None) == "Todo"
+
+
+# ---------------------------------------------------------------------------
+# create_github_issue
+# ---------------------------------------------------------------------------
+
+
+class TestCreateGitHubIssue:
+    """Test GitHub Issue creation via gh CLI."""
+
+    def test_gh_cli_not_available(self) -> None:
+        """Returns failure when gh CLI is not available."""
+        with patch("github_integration._is_gh_cli_available", return_value=False):
+            result = create_github_issue("Test", "Description")
+
+        assert result.success is False
+        assert "gh CLI not available" in result.message
+
+    def test_successful_creation(self) -> None:
+        """Creates issue and returns number and URL."""
+        issue_url = "https://github.com/org/repo/issues/42"
+        mock_result = MagicMock(returncode=0, stdout=f"{issue_url}\n")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = create_github_issue("Test Issue", "A description")
+
+        assert result.success is True
+        assert result.issue_number == 42
+        assert result.issue_url == issue_url
+
+    def test_creation_with_labels(self) -> None:
+        """Passes labels to gh issue create."""
+        issue_url = "https://github.com/org/repo/issues/5"
+        mock_result = MagicMock(returncode=0, stdout=f"{issue_url}\n")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            create_github_issue("Test", "Desc", labels=["bug", "agent-synced"])
+
+        call_args = mock_cmd.call_args[0][0]
+        label_idx = call_args.index("--label") + 1
+        assert call_args[label_idx] == "bug,agent-synced"
+
+    def test_creation_failure(self) -> None:
+        """Returns failure when gh issue create fails."""
+        mock_result = MagicMock(
+            returncode=1, stdout="", stderr="resource not accessible"
+        )
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = create_github_issue("Test", "Desc")
+
+        assert result.success is False
+        assert "gh issue create failed" in result.message
+
+    def test_creation_timeout(self) -> None:
+        """Returns failure when gh issue create times out."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command",
+                side_effect=subprocess.TimeoutExpired("gh", 60),
+            ),
+        ):
+            result = create_github_issue("Test", "Desc")
+
+        assert result.success is False
+        assert "timed out" in result.message
+
+    def test_gh_not_found(self) -> None:
+        """Returns failure when gh CLI binary is missing."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command",
+                side_effect=FileNotFoundError("gh not found"),
+            ),
+        ):
+            result = create_github_issue("Test", "Desc")
+
+        assert result.success is False
+        assert "gh CLI not found" in result.message
+
+
+# ---------------------------------------------------------------------------
+# update_github_issue
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateGitHubIssue:
+    """Test GitHub Issue update via gh CLI."""
+
+    def test_gh_cli_not_available(self) -> None:
+        """Returns failure when gh CLI is not available."""
+        with patch("github_integration._is_gh_cli_available", return_value=False):
+            result = update_github_issue(42, title="New Title")
+
+        assert result.success is False
+        assert "gh CLI not available" in result.message
+
+    def test_update_title(self) -> None:
+        """Updates issue title via gh issue edit."""
+        mock_result = MagicMock(returncode=0, stdout="", stderr="")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = update_github_issue(42, title="New Title")
+
+        assert result.success is True
+        call_args = mock_cmd.call_args[0][0]
+        assert "--title" in call_args
+        title_idx = call_args.index("--title") + 1
+        assert call_args[title_idx] == "New Title"
+
+    def test_update_body(self) -> None:
+        """Updates issue body via gh issue edit."""
+        mock_result = MagicMock(returncode=0, stdout="", stderr="")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = update_github_issue(42, description="New body")
+
+        assert result.success is True
+        call_args = mock_cmd.call_args[0][0]
+        assert "--body" in call_args
+
+    def test_close_issue(self) -> None:
+        """Closes issue via gh issue close."""
+        mock_result = MagicMock(returncode=0, stdout="", stderr="")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = update_github_issue(42, state="closed")
+
+        assert result.success is True
+        # Verify gh issue close was called
+        call_args = mock_cmd.call_args[0][0]
+        assert "close" in call_args
+
+    def test_reopen_issue(self) -> None:
+        """Reopens issue via gh issue reopen."""
+        mock_result = MagicMock(returncode=0, stdout="", stderr="")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = update_github_issue(42, state="open")
+
+        assert result.success is True
+        call_args = mock_cmd.call_args[0][0]
+        assert "reopen" in call_args
+
+    def test_edit_failure(self) -> None:
+        """Returns failure when gh issue edit fails."""
+        mock_result = MagicMock(
+            returncode=1, stdout="", stderr="could not edit issue"
+        )
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = update_github_issue(42, title="New Title")
+
+        assert result.success is False
+        assert "gh issue edit failed" in result.message
+
+    def test_close_failure(self) -> None:
+        """Returns failure when gh issue close fails."""
+        # First call (edit with no fields) doesn't happen, second call (close) fails
+        mock_close_fail = MagicMock(
+            returncode=1, stdout="", stderr="could not close issue"
+        )
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_close_fail
+            ),
+        ):
+            result = update_github_issue(42, state="closed")
+
+        assert result.success is False
+        assert "gh issue close failed" in result.message
+
+    def test_update_with_labels(self) -> None:
+        """Adds labels via gh issue edit --add-label."""
+        mock_result = MagicMock(returncode=0, stdout="", stderr="")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command", return_value=mock_result
+            ) as mock_cmd,
+        ):
+            result = update_github_issue(42, labels=["agent-synced", "in-progress"])
+
+        assert result.success is True
+        call_args = mock_cmd.call_args[0][0]
+        assert "--add-label" in call_args
+        label_idx = call_args.index("--add-label") + 1
+        assert call_args[label_idx] == "agent-synced,in-progress"
+
+    def test_timeout(self) -> None:
+        """Returns failure when gh times out."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command",
+                side_effect=subprocess.TimeoutExpired("gh", 60),
+            ),
+        ):
+            result = update_github_issue(42, title="Test")
+
+        assert result.success is False
+        assert "timed out" in result.message
+
+    def test_no_changes_requested(self) -> None:
+        """Succeeds silently when no changes are requested."""
+        with patch("github_integration._is_gh_cli_available", return_value=True):
+            result = update_github_issue(42)
+
+        assert result.success is True
+        assert result.issue_number == 42
+
+
+# ---------------------------------------------------------------------------
+# sync_issue_to_github (outbound)
+# ---------------------------------------------------------------------------
+
+
+class TestSyncIssueToGitHub:
+    """Test outbound sync from Task MCP to GitHub Issues."""
+
+    def test_creates_new_issue_for_todo(self) -> None:
+        """Creates new GitHub Issue when no synced issue exists."""
+        create_result = GitHubIssueResult(
+            success=True,
+            issue_number=50,
+            issue_url="https://github.com/org/repo/issues/50",
+            message="Created",
+        )
+
+        with (
+            patch(
+                "github_integration._find_synced_github_issue", return_value=None
+            ),
+            patch(
+                "github_integration.create_github_issue", return_value=create_result
+            ) as mock_create,
+        ):
+            result = sync_issue_to_github(
+                issue_id="ENG-64",
+                title="GitHub Issues sync",
+                description="Implement bidirectional sync",
+                state="Todo",
+            )
+
+        assert result.success is True
+        assert result.action == "created"
+        assert result.github_issue_number == 50
+        assert result.direction == "to_github"
+
+        # Verify title format and sync marker in body
+        call_args = mock_create.call_args
+        assert call_args[1]["title"] == "[ENG-64] GitHub Issues sync"
+        assert "[Task MCP: ENG-64]" in call_args[1]["description"]
+
+    def test_updates_existing_issue(self) -> None:
+        """Updates existing GitHub Issue when sync marker found."""
+        existing = {"number": 30, "title": "Old Title", "state": "OPEN"}
+        update_result = GitHubIssueResult(
+            success=True,
+            issue_number=30,
+            issue_url=None,
+            message="Updated",
+        )
+
+        with (
+            patch(
+                "github_integration._find_synced_github_issue", return_value=existing
+            ),
+            patch(
+                "github_integration.update_github_issue", return_value=update_result
+            ),
+        ):
+            result = sync_issue_to_github(
+                issue_id="ENG-64",
+                title="Updated title",
+                description="Updated desc",
+                state="In Progress",
+            )
+
+        assert result.success is True
+        assert result.action == "updated"
+        assert result.github_issue_number == 30
+
+    def test_closes_issue_for_done_state(self) -> None:
+        """Closes newly created issue when Task MCP state is Done."""
+        create_result = GitHubIssueResult(
+            success=True,
+            issue_number=60,
+            issue_url="https://github.com/org/repo/issues/60",
+            message="Created",
+        )
+        close_result = GitHubIssueResult(
+            success=True,
+            issue_number=60,
+            issue_url=None,
+            message="Closed",
+        )
+
+        with (
+            patch(
+                "github_integration._find_synced_github_issue", return_value=None
+            ),
+            patch(
+                "github_integration.create_github_issue", return_value=create_result
+            ),
+            patch(
+                "github_integration.update_github_issue", return_value=close_result
+            ) as mock_update,
+        ):
+            result = sync_issue_to_github(
+                issue_id="ENG-64",
+                title="Done issue",
+                description="Completed",
+                state="Done",
+            )
+
+        assert result.success is True
+        assert result.action == "created"
+        # Verify update_github_issue was called with state="closed"
+        mock_update.assert_called_once_with(issue_number=60, state="closed")
+
+    def test_canceled_state_adds_wontfix_label(self) -> None:
+        """Canceled state adds wontfix label to GitHub Issue."""
+        create_result = GitHubIssueResult(
+            success=True,
+            issue_number=70,
+            issue_url="https://github.com/org/repo/issues/70",
+            message="Created",
+        )
+        close_result = GitHubIssueResult(
+            success=True, issue_number=70, issue_url=None, message="Closed"
+        )
+
+        with (
+            patch(
+                "github_integration._find_synced_github_issue", return_value=None
+            ),
+            patch(
+                "github_integration.create_github_issue", return_value=create_result
+            ) as mock_create,
+            patch(
+                "github_integration.update_github_issue", return_value=close_result
+            ),
+        ):
+            result = sync_issue_to_github(
+                issue_id="ENG-64",
+                title="Canceled issue",
+                description="Not needed",
+                state="Canceled",
+            )
+
+        assert result.success is True
+        # Verify labels include wontfix
+        call_args = mock_create.call_args
+        assert "wontfix" in call_args[1]["labels"]
+
+    def test_create_failure_returns_skipped(self) -> None:
+        """Returns skipped when create_github_issue fails."""
+        create_result = GitHubIssueResult(
+            success=False,
+            issue_number=None,
+            issue_url=None,
+            message="gh CLI error",
+        )
+
+        with (
+            patch(
+                "github_integration._find_synced_github_issue", return_value=None
+            ),
+            patch(
+                "github_integration.create_github_issue", return_value=create_result
+            ),
+        ):
+            result = sync_issue_to_github(
+                issue_id="ENG-64",
+                title="Test",
+                description="Desc",
+                state="Todo",
+            )
+
+        assert result.success is False
+        assert result.action == "skipped"
+
+    def test_update_failure_returns_skipped(self) -> None:
+        """Returns skipped when update_github_issue fails."""
+        existing = {"number": 30, "title": "Old", "state": "OPEN"}
+        update_result = GitHubIssueResult(
+            success=False,
+            issue_number=30,
+            issue_url=None,
+            message="gh CLI error",
+        )
+
+        with (
+            patch(
+                "github_integration._find_synced_github_issue", return_value=existing
+            ),
+            patch(
+                "github_integration.update_github_issue", return_value=update_result
+            ),
+        ):
+            result = sync_issue_to_github(
+                issue_id="ENG-64",
+                title="Test",
+                description="Desc",
+                state="Todo",
+            )
+
+        assert result.success is False
+        assert result.action == "skipped"
+
+    def test_in_progress_includes_label(self) -> None:
+        """In Progress state includes 'in-progress' label."""
+        create_result = GitHubIssueResult(
+            success=True,
+            issue_number=80,
+            issue_url="https://github.com/org/repo/issues/80",
+            message="Created",
+        )
+
+        with (
+            patch(
+                "github_integration._find_synced_github_issue", return_value=None
+            ),
+            patch(
+                "github_integration.create_github_issue", return_value=create_result
+            ) as mock_create,
+        ):
+            sync_issue_to_github(
+                issue_id="ENG-64",
+                title="Test",
+                description="Desc",
+                state="In Progress",
+            )
+
+        call_args = mock_create.call_args
+        assert "in-progress" in call_args[1]["labels"]
+        assert "agent-synced" in call_args[1]["labels"]
+
+
+# ---------------------------------------------------------------------------
+# sync_issue_from_github (inbound)
+# ---------------------------------------------------------------------------
+
+
+class TestSyncIssueFromGitHub:
+    """Test inbound sync from GitHub Issues to Task MCP."""
+
+    def test_gh_cli_not_available(self) -> None:
+        """Returns failure when gh CLI is not available."""
+        with patch("github_integration._is_gh_cli_available", return_value=False):
+            result = sync_issue_from_github(42)
+
+        assert result.success is False
+        assert result.direction == "from_github"
+        assert "gh CLI not available" in result.message
+
+    def test_successful_sync_closed_issue(self) -> None:
+        """Maps closed GitHub Issue to Done state."""
+        issue_data = json.dumps({
+            "number": 42,
+            "title": "[ENG-64] Test",
+            "state": "CLOSED",
+            "body": "Description\n\n---\n[Task MCP: ENG-64]",
+            "labels": [{"name": "agent-synced"}],
+        })
+        mock_result = MagicMock(returncode=0, stdout=issue_data)
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is True
+        assert result.task_issue_id == "ENG-64"
+        assert result.action == "synced"
+        assert "Done" in result.message
+
+    def test_closed_with_wontfix_maps_to_canceled(self) -> None:
+        """Maps closed issue with wontfix label to Canceled."""
+        issue_data = json.dumps({
+            "number": 42,
+            "title": "[ENG-64] Test",
+            "state": "CLOSED",
+            "body": "Desc\n[Task MCP: ENG-64]",
+            "labels": [{"name": "wontfix"}, {"name": "agent-synced"}],
+        })
+        mock_result = MagicMock(returncode=0, stdout=issue_data)
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is True
+        assert "Canceled" in result.message
+
+    def test_open_with_in_progress_label(self) -> None:
+        """Maps open issue with in-progress label to In Progress."""
+        issue_data = json.dumps({
+            "number": 42,
+            "title": "[ENG-64] Test",
+            "state": "OPEN",
+            "body": "Desc\n[Task MCP: ENG-64]",
+            "labels": [{"name": "in-progress"}],
+        })
+        mock_result = MagicMock(returncode=0, stdout=issue_data)
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is True
+        assert "In Progress" in result.message
+
+    def test_open_without_labels_maps_to_todo(self) -> None:
+        """Maps open issue without labels to Todo."""
+        issue_data = json.dumps({
+            "number": 42,
+            "title": "[ENG-64] Test",
+            "state": "OPEN",
+            "body": "Desc\n[Task MCP: ENG-64]",
+            "labels": [],
+        })
+        mock_result = MagicMock(returncode=0, stdout=issue_data)
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is True
+        assert "Todo" in result.message
+
+    def test_no_sync_marker_returns_failure(self) -> None:
+        """Returns failure when issue has no Task MCP sync marker."""
+        issue_data = json.dumps({
+            "number": 42,
+            "title": "Regular issue",
+            "state": "OPEN",
+            "body": "Just a regular issue with no marker",
+            "labels": [],
+        })
+        mock_result = MagicMock(returncode=0, stdout=issue_data)
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is False
+        assert "no Task MCP sync marker" in result.message
+
+    def test_gh_view_failure(self) -> None:
+        """Returns failure when gh issue view fails."""
+        mock_result = MagicMock(
+            returncode=1, stdout="", stderr="issue not found"
+        )
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = sync_issue_from_github(999)
+
+        assert result.success is False
+        assert "Failed to fetch" in result.message
+
+    def test_invalid_json_response(self) -> None:
+        """Returns failure when gh returns invalid JSON."""
+        mock_result = MagicMock(returncode=0, stdout="not json")
+
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("github_integration._run_gh_command", return_value=mock_result),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is False
+        assert "Invalid JSON" in result.message
+
+    def test_timeout(self) -> None:
+        """Returns failure when gh issue view times out."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command",
+                side_effect=subprocess.TimeoutExpired("gh", 60),
+            ),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is False
+        assert "timed out" in result.message
+
+    def test_gh_not_found(self) -> None:
+        """Returns failure when gh CLI binary is missing."""
+        with (
+            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch(
+                "github_integration._run_gh_command",
+                side_effect=FileNotFoundError("gh not found"),
+            ),
+        ):
+            result = sync_issue_from_github(42)
+
+        assert result.success is False
+        assert "gh CLI not found" in result.message

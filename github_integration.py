@@ -1505,3 +1505,640 @@ def get_github_config_status() -> dict[str, Any]:
             status["repo_error"] = str(e)
 
     return status
+
+
+# =============================================================================
+# GitHub Issues Sync — Bidirectional (ENG-64)
+# =============================================================================
+
+# Task MCP state -> GitHub Issue state + labels mapping
+TASK_STATE_TO_GITHUB: dict[str, dict[str, Any]] = {
+    "Todo": {"state": "open", "labels": []},
+    "In Progress": {"state": "open", "labels": ["in-progress"]},
+    "Done": {"state": "closed", "labels": []},
+    "Canceled": {"state": "closed", "labels": ["wontfix"]},
+}
+
+# GitHub Issue state -> Task MCP state (reverse mapping for inbound sync)
+GITHUB_STATE_TO_TASK: dict[str, str] = {
+    "open": "In Progress",
+    "closed": "Done",
+}
+
+# Sync marker prefix embedded in GitHub Issue body for cross-referencing
+_SYNC_MARKER_PREFIX = "[Task MCP: "
+_SYNC_MARKER_SUFFIX = "]"
+
+
+@dataclass
+class SyncResult:
+    """Result of a bidirectional sync operation between Task MCP and GitHub."""
+
+    success: bool
+    github_issue_number: int | None
+    task_issue_id: str | None
+    action: Literal["created", "updated", "closed", "synced", "skipped"]
+    message: str
+    direction: Literal["to_github", "from_github"]
+
+
+@dataclass
+class GitHubIssueResult:
+    """Result of a GitHub Issue create/update operation via gh CLI."""
+
+    success: bool
+    issue_number: int | None
+    issue_url: str | None
+    message: str
+
+
+def _build_sync_marker(issue_id: str) -> str:
+    """
+    Build the sync marker string embedded in GitHub Issue bodies.
+
+    The marker links a GitHub Issue back to its Task MCP source issue.
+
+    Args:
+        issue_id: Task MCP issue ID (e.g., "ENG-64")
+
+    Returns:
+        Sync marker string (e.g., "[Task MCP: ENG-64]")
+    """
+    return f"{_SYNC_MARKER_PREFIX}{issue_id}{_SYNC_MARKER_SUFFIX}"
+
+
+def _extract_issue_id_from_body(body: str) -> str | None:
+    """
+    Extract Task MCP issue ID from a GitHub Issue body's sync marker.
+
+    Looks for the pattern "[Task MCP: ENG-XX]" in the body text.
+
+    Args:
+        body: GitHub Issue body text
+
+    Returns:
+        Issue ID string if found, None otherwise
+    """
+    match = re.search(
+        re.escape(_SYNC_MARKER_PREFIX) + r"([A-Z]+-\d+)" + re.escape(_SYNC_MARKER_SUFFIX),
+        body,
+    )
+    if match:
+        return match.group(1)
+    return None
+
+
+def _map_task_state_to_github(
+    task_state: str,
+) -> tuple[str, list[str]]:
+    """
+    Map a Task MCP state to GitHub Issue state and labels.
+
+    Task MCP is the source of truth for state mapping:
+    - Todo -> open (no extra labels)
+    - In Progress -> open + "in-progress" label
+    - Done -> closed
+    - Canceled -> closed + "wontfix" label
+
+    Args:
+        task_state: Task MCP state string
+
+    Returns:
+        Tuple of (github_state, labels_to_add)
+    """
+    mapping = TASK_STATE_TO_GITHUB.get(task_state)
+    if mapping:
+        return mapping["state"], list(mapping["labels"])
+    # Default: treat unknown states as open
+    logger.warning("Unknown Task MCP state '%s', defaulting to open", task_state)
+    return "open", []
+
+
+def _map_github_state_to_task(
+    github_state: str,
+    labels: list[str] | None = None,
+) -> str:
+    """
+    Map a GitHub Issue state (and labels) to Task MCP state.
+
+    Reverse mapping with label refinement:
+    - closed + "wontfix" label -> Canceled
+    - closed -> Done
+    - open + "in-progress" label -> In Progress
+    - open -> Todo
+
+    Args:
+        github_state: GitHub Issue state ("open" or "closed")
+        labels: List of label names on the GitHub Issue
+
+    Returns:
+        Task MCP state string
+    """
+    label_names = labels or []
+
+    if github_state == "closed":
+        if "wontfix" in label_names:
+            return "Canceled"
+        return "Done"
+
+    # github_state == "open"
+    if "in-progress" in label_names:
+        return "In Progress"
+    return "Todo"
+
+
+def _run_gh_command(args: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+    """
+    Run a gh CLI command with standard settings.
+
+    Args:
+        args: Command arguments (without the leading "gh")
+        timeout: Command timeout in seconds
+
+    Returns:
+        CompletedProcess result
+
+    Raises:
+        FileNotFoundError: If gh CLI is not installed
+        subprocess.TimeoutExpired: If command exceeds timeout
+    """
+    return subprocess.run(
+        ["gh"] + args,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def _extract_issue_number_from_url(url: str) -> int | None:
+    """
+    Extract an issue number from a GitHub Issue URL.
+
+    Args:
+        url: GitHub Issue URL (e.g., "https://github.com/owner/repo/issues/42")
+
+    Returns:
+        Issue number as int, or None if extraction fails
+    """
+    match = re.search(r"/issues/(\d+)", url)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def create_github_issue(
+    title: str,
+    description: str,
+    labels: list[str] | None = None,
+) -> GitHubIssueResult:
+    """
+    Create a new GitHub Issue via gh CLI.
+
+    Args:
+        title: Issue title
+        description: Issue body/description (markdown)
+        labels: Labels to apply (created if they don't exist)
+
+    Returns:
+        GitHubIssueResult with issue number and URL
+    """
+    if not _is_gh_cli_available():
+        return GitHubIssueResult(
+            success=False,
+            issue_number=None,
+            issue_url=None,
+            message="gh CLI not available or not authenticated",
+        )
+
+    cmd = [
+        "issue", "create",
+        "--title", title,
+        "--body", description,
+    ]
+
+    if labels:
+        cmd.extend(["--label", ",".join(labels)])
+
+    try:
+        result = _run_gh_command(cmd)
+
+        if result.returncode == 0:
+            issue_url = result.stdout.strip()
+            issue_number = _extract_issue_number_from_url(issue_url)
+            logger.info("Created GitHub issue #%s: %s", issue_number, issue_url)
+            return GitHubIssueResult(
+                success=True,
+                issue_number=issue_number,
+                issue_url=issue_url,
+                message=f"Created GitHub issue #{issue_number}",
+            )
+        else:
+            error_msg = result.stderr.strip() or result.stdout.strip()
+            logger.error("gh issue create failed: %s", error_msg)
+            return GitHubIssueResult(
+                success=False,
+                issue_number=None,
+                issue_url=None,
+                message=f"gh issue create failed: {error_msg}",
+            )
+
+    except subprocess.TimeoutExpired:
+        logger.error("gh issue create timed out")
+        return GitHubIssueResult(
+            success=False,
+            issue_number=None,
+            issue_url=None,
+            message="gh issue create timed out after 60 seconds",
+        )
+    except FileNotFoundError:
+        logger.error("gh CLI not found")
+        return GitHubIssueResult(
+            success=False,
+            issue_number=None,
+            issue_url=None,
+            message="gh CLI not found on PATH",
+        )
+
+
+def update_github_issue(
+    issue_number: int,
+    title: str | None = None,
+    description: str | None = None,
+    state: str | None = None,
+    labels: list[str] | None = None,
+) -> GitHubIssueResult:
+    """
+    Update an existing GitHub Issue via gh CLI.
+
+    Supports updating title, body, state, and labels independently.
+    Only provided fields are updated.
+
+    Args:
+        issue_number: GitHub Issue number to update
+        title: New title (None to keep current)
+        description: New body/description (None to keep current)
+        state: New state - "open" or "closed" (None to keep current)
+        labels: Labels to set (replaces existing labels; None to keep current)
+
+    Returns:
+        GitHubIssueResult with update status
+    """
+    if not _is_gh_cli_available():
+        return GitHubIssueResult(
+            success=False,
+            issue_number=issue_number,
+            issue_url=None,
+            message="gh CLI not available or not authenticated",
+        )
+
+    issue_str = str(issue_number)
+    edit_cmd: list[str] = ["issue", "edit", issue_str]
+    needs_edit = False
+
+    if title is not None:
+        edit_cmd.extend(["--title", title])
+        needs_edit = True
+
+    if description is not None:
+        edit_cmd.extend(["--body", description])
+        needs_edit = True
+
+    if labels is not None:
+        # gh issue edit --add-label replaces; use remove then add for clean slate
+        # Simpler: use --add-label for each label after clearing
+        edit_cmd.extend(["--add-label", ",".join(labels)])
+        needs_edit = True
+
+    try:
+        # Apply edits if any
+        if needs_edit:
+            result = _run_gh_command(edit_cmd)
+            if result.returncode != 0:
+                error_msg = result.stderr.strip() or result.stdout.strip()
+                logger.error("gh issue edit failed: %s", error_msg)
+                return GitHubIssueResult(
+                    success=False,
+                    issue_number=issue_number,
+                    issue_url=None,
+                    message=f"gh issue edit failed: {error_msg}",
+                )
+
+        # Handle state transitions separately
+        if state == "closed":
+            close_result = _run_gh_command(["issue", "close", issue_str])
+            if close_result.returncode != 0:
+                error_msg = close_result.stderr.strip() or close_result.stdout.strip()
+                logger.error("gh issue close failed: %s", error_msg)
+                return GitHubIssueResult(
+                    success=False,
+                    issue_number=issue_number,
+                    issue_url=None,
+                    message=f"gh issue close failed: {error_msg}",
+                )
+        elif state == "open":
+            reopen_result = _run_gh_command(["issue", "reopen", issue_str])
+            if reopen_result.returncode != 0:
+                error_msg = reopen_result.stderr.strip() or reopen_result.stdout.strip()
+                # Reopening an already open issue is not an error
+                if "already open" not in error_msg.lower():
+                    logger.error("gh issue reopen failed: %s", error_msg)
+                    return GitHubIssueResult(
+                        success=False,
+                        issue_number=issue_number,
+                        issue_url=None,
+                        message=f"gh issue reopen failed: {error_msg}",
+                    )
+
+        logger.info("Updated GitHub issue #%d", issue_number)
+        return GitHubIssueResult(
+            success=True,
+            issue_number=issue_number,
+            issue_url=None,
+            message=f"Updated GitHub issue #{issue_number}",
+        )
+
+    except subprocess.TimeoutExpired:
+        logger.error("gh issue edit timed out")
+        return GitHubIssueResult(
+            success=False,
+            issue_number=issue_number,
+            issue_url=None,
+            message="gh issue edit timed out after 60 seconds",
+        )
+    except FileNotFoundError:
+        logger.error("gh CLI not found")
+        return GitHubIssueResult(
+            success=False,
+            issue_number=issue_number,
+            issue_url=None,
+            message="gh CLI not found on PATH",
+        )
+
+
+def _find_synced_github_issue(issue_id: str) -> dict[str, Any] | None:
+    """
+    Find a GitHub Issue that was synced from a Task MCP issue.
+
+    Searches GitHub Issues for the sync marker "[Task MCP: {issue_id}]"
+    in the issue body using gh CLI search.
+
+    Args:
+        issue_id: Task MCP issue ID (e.g., "ENG-64")
+
+    Returns:
+        Dict with 'number', 'title', 'state', 'body', 'labels' if found,
+        None otherwise
+    """
+    try:
+        search_query = f"{_build_sync_marker(issue_id)} in:body"
+        result = _run_gh_command([
+            "issue", "list",
+            "--search", search_query,
+            "--state", "all",
+            "--json", "number,title,state,body,labels",
+            "--limit", "1",
+        ])
+
+        if result.returncode == 0 and result.stdout.strip():
+            issues = json.loads(result.stdout.strip())
+            if issues:
+                issue = issues[0]
+                # Normalize labels to a list of name strings
+                issue["labels"] = [
+                    lbl["name"] if isinstance(lbl, dict) else lbl
+                    for lbl in issue.get("labels", [])
+                ]
+                return issue
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError) as e:
+        logger.warning("Failed to search for synced issue %s: %s", issue_id, e)
+
+    return None
+
+
+def sync_issue_to_github(
+    issue_id: str,
+    title: str,
+    description: str,
+    state: str,
+) -> SyncResult:
+    """
+    Sync a Task MCP issue to GitHub Issues (outbound sync).
+
+    Creates or updates a GitHub Issue to match the Task MCP issue state.
+    Task MCP is the source of truth. The sync marker "[Task MCP: {issue_id}]"
+    is embedded in the GitHub Issue body for cross-referencing.
+
+    State mapping:
+    - Todo -> open (no extra labels)
+    - In Progress -> open + "in-progress" label
+    - Done -> closed
+    - Canceled -> closed + "wontfix" label
+
+    Args:
+        issue_id: Task MCP issue ID (e.g., "ENG-64")
+        title: Issue title
+        description: Issue description (markdown)
+        state: Task MCP state ("Todo", "In Progress", "Done", "Canceled")
+
+    Returns:
+        SyncResult with sync outcome details
+    """
+    github_state, state_labels = _map_task_state_to_github(state)
+    all_labels = ["agent-synced"] + state_labels
+    sync_marker = _build_sync_marker(issue_id)
+    full_body = f"{description}\n\n---\n{sync_marker}"
+    gh_title = f"[{issue_id}] {title}"
+
+    # Check if a synced GitHub Issue already exists
+    existing = _find_synced_github_issue(issue_id)
+
+    if existing:
+        # Update existing issue
+        result = update_github_issue(
+            issue_number=existing["number"],
+            title=gh_title,
+            description=full_body,
+            state=github_state,
+            labels=all_labels,
+        )
+
+        if result.success:
+            return SyncResult(
+                success=True,
+                github_issue_number=existing["number"],
+                task_issue_id=issue_id,
+                action="updated",
+                message=f"Updated GitHub issue #{existing['number']} for {issue_id}",
+                direction="to_github",
+            )
+        return SyncResult(
+            success=False,
+            github_issue_number=existing["number"],
+            task_issue_id=issue_id,
+            action="skipped",
+            message=result.message,
+            direction="to_github",
+        )
+
+    # Create new GitHub Issue
+    result = create_github_issue(
+        title=gh_title,
+        description=full_body,
+        labels=all_labels,
+    )
+
+    if not result.success:
+        return SyncResult(
+            success=False,
+            github_issue_number=None,
+            task_issue_id=issue_id,
+            action="skipped",
+            message=result.message,
+            direction="to_github",
+        )
+
+    # If the Task MCP state maps to "closed", close the newly created issue
+    if github_state == "closed" and result.issue_number is not None:
+        close_result = update_github_issue(
+            issue_number=result.issue_number,
+            state="closed",
+        )
+        if not close_result.success:
+            logger.warning(
+                "Created issue #%d but failed to close it: %s",
+                result.issue_number,
+                close_result.message,
+            )
+
+    return SyncResult(
+        success=True,
+        github_issue_number=result.issue_number,
+        task_issue_id=issue_id,
+        action="created",
+        message=f"Created GitHub issue #{result.issue_number} for {issue_id}",
+        direction="to_github",
+    )
+
+
+def sync_issue_from_github(
+    github_issue_number: int,
+) -> SyncResult:
+    """
+    Sync a GitHub Issue back to Task MCP state (inbound sync).
+
+    Reads the GitHub Issue state and maps it to a Task MCP state.
+    The function extracts the Task MCP issue ID from the sync marker
+    in the GitHub Issue body.
+
+    This is a read-only operation that returns the mapped state.
+    The caller is responsible for applying the state change to Task MCP.
+
+    State mapping (with label refinement):
+    - closed + "wontfix" label -> Canceled
+    - closed -> Done
+    - open + "in-progress" label -> In Progress
+    - open -> Todo
+
+    Conflict resolution: Task MCP is source of truth. If both sides
+    changed, the caller should prefer the Task MCP state.
+
+    Args:
+        github_issue_number: GitHub Issue number to sync from
+
+    Returns:
+        SyncResult with the mapped Task MCP state in the message field.
+        The task_issue_id field contains the extracted Task MCP ID.
+    """
+    if not _is_gh_cli_available():
+        return SyncResult(
+            success=False,
+            github_issue_number=github_issue_number,
+            task_issue_id=None,
+            action="skipped",
+            message="gh CLI not available or not authenticated",
+            direction="from_github",
+        )
+
+    try:
+        result = _run_gh_command([
+            "issue", "view", str(github_issue_number),
+            "--json", "number,title,state,body,labels",
+        ])
+
+        if result.returncode != 0:
+            error_msg = result.stderr.strip() or result.stdout.strip()
+            return SyncResult(
+                success=False,
+                github_issue_number=github_issue_number,
+                task_issue_id=None,
+                action="skipped",
+                message=f"Failed to fetch GitHub issue #{github_issue_number}: {error_msg}",
+                direction="from_github",
+            )
+
+        issue_data = json.loads(result.stdout.strip())
+
+        # Extract Task MCP issue ID from sync marker
+        body = issue_data.get("body", "")
+        task_issue_id = _extract_issue_id_from_body(body)
+
+        if not task_issue_id:
+            return SyncResult(
+                success=False,
+                github_issue_number=github_issue_number,
+                task_issue_id=None,
+                action="skipped",
+                message=(
+                    f"GitHub issue #{github_issue_number} has no Task MCP sync marker"
+                ),
+                direction="from_github",
+            )
+
+        # Map GitHub state to Task MCP state
+        github_state = issue_data.get("state", "open").lower()
+        label_names = [
+            lbl["name"] if isinstance(lbl, dict) else lbl
+            for lbl in issue_data.get("labels", [])
+        ]
+        task_state = _map_github_state_to_task(github_state, label_names)
+
+        return SyncResult(
+            success=True,
+            github_issue_number=github_issue_number,
+            task_issue_id=task_issue_id,
+            action="synced",
+            message=f"GitHub issue #{github_issue_number} -> Task MCP state: {task_state}",
+            direction="from_github",
+        )
+
+    except json.JSONDecodeError as e:
+        logger.error("Invalid JSON from gh issue view: %s", e)
+        return SyncResult(
+            success=False,
+            github_issue_number=github_issue_number,
+            task_issue_id=None,
+            action="skipped",
+            message=f"Invalid JSON from gh issue view: {e}",
+            direction="from_github",
+        )
+    except subprocess.TimeoutExpired:
+        logger.error("gh issue view timed out")
+        return SyncResult(
+            success=False,
+            github_issue_number=github_issue_number,
+            task_issue_id=None,
+            action="skipped",
+            message="gh issue view timed out after 60 seconds",
+            direction="from_github",
+        )
+    except FileNotFoundError:
+        logger.error("gh CLI not found")
+        return SyncResult(
+            success=False,
+            github_issue_number=github_issue_number,
+            task_issue_id=None,
+            action="skipped",
+            message="gh CLI not found on PATH",
+            direction="from_github",
+        )
