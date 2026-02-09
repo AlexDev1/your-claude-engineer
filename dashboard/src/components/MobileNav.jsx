@@ -3,10 +3,10 @@ import { Link, useLocation } from 'react-router-dom'
 import { Radio, ClipboardList, BarChart3, Play, Settings, Menu, X } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { path: '/live', label: 'Live', icon: Radio, isHome: true },
-  { path: '/tasks', label: 'Tasks', icon: ClipboardList },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/live', label: 'Монитор', icon: Radio, isHome: true },
+  { path: '/tasks', label: 'Задачи', icon: ClipboardList },
+  { path: '/analytics', label: 'Аналитика', icon: BarChart3 },
+  { path: '/settings', label: 'Настройки', icon: Settings },
 ]
 
 function MobileNav({ isMenuOpen, onMenuToggle }) {
@@ -61,7 +61,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
             style={{ color: isMenuOpen ? 'var(--color-accent)' : 'var(--color-textMuted)' }}
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            <span className="text-xs mt-1 font-medium">More</span>
+            <span className="text-xs mt-1 font-medium">Ещё</span>
           </button>
         </div>
       </nav>
@@ -109,7 +109,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
                   }}
                 >
                   <Play className="w-5 h-5" />
-                  <span className="text-lg">Session Replay</span>
+                  <span className="text-lg">Воспроизведение</span>
                 </Link>
 
                 <Link
@@ -121,7 +121,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
                     color: 'var(--color-text)'
                   }}
                 >
-                  <span className="text-lg">Import Data</span>
+                  <span className="text-lg">Импорт данных</span>
                 </Link>
 
                 <Link
@@ -133,7 +133,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
                     color: 'var(--color-text)'
                   }}
                 >
-                  <span className="text-lg">Export Data</span>
+                  <span className="text-lg">Экспорт данных</span>
                 </Link>
 
                 <div
@@ -152,7 +152,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
                   className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg transition-colors text-left"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  <span>Enable Notifications</span>
+                  <span>Включить уведомления</span>
                 </button>
 
                 <button
@@ -166,7 +166,7 @@ function MobileNav({ isMenuOpen, onMenuToggle }) {
                   className="flex items-center space-x-3 w-full px-4 py-3 rounded-lg transition-colors text-left"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  <span>Add to Home Screen</span>
+                  <span>Добавить на экран</span>
                 </button>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import React from 'react'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const DAY_LABELS = { Monday: 'Пн', Tuesday: 'Вт', Wednesday: 'Ср', Thursday: 'Чт', Friday: 'Пт', Saturday: 'Сб', Sunday: 'Вс' }
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 function getIntensityColor(count, maxCount) {
@@ -28,8 +29,8 @@ function ActivityHeatmap({ data }) {
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white">Activity Heatmap</h3>
-        <p className="text-sm text-gray-400">Task completions by day and hour</p>
+        <h3 className="text-lg font-semibold text-white">Тепловая карта активности</h3>
+        <p className="text-sm text-gray-400">Завершение задач по дням и часам</p>
       </div>
 
       <div className="overflow-x-auto">
@@ -51,7 +52,7 @@ function ActivityHeatmap({ data }) {
           {/* Heatmap grid */}
           {DAYS.map((day) => (
             <div key={day} className="flex items-center mb-1">
-              <div className="w-20 flex-shrink-0 text-xs text-gray-400 pr-2">{day.slice(0, 3)}</div>
+              <div className="w-20 flex-shrink-0 text-xs text-gray-400 pr-2">{DAY_LABELS[day] || day.slice(0, 3)}</div>
               <div className="flex-1 flex gap-0.5">
                 {HOURS.map((hour) => {
                   const count = activityMap.get(`${day}-${hour}`) || 0
@@ -59,7 +60,7 @@ function ActivityHeatmap({ data }) {
                     <div
                       key={hour}
                       className={`flex-1 h-4 rounded-sm ${getIntensityColor(count, maxCount)} transition-colors hover:ring-1 hover:ring-white`}
-                      title={`${day} ${hour}:00 - ${count} tasks`}
+                      title={`${DAY_LABELS[day] || day} ${hour}:00 - ${count} задач`}
                     />
                   )
                 })}
@@ -69,7 +70,7 @@ function ActivityHeatmap({ data }) {
 
           {/* Legend */}
           <div className="flex items-center justify-end mt-4 space-x-2">
-            <span className="text-xs text-gray-500">Less</span>
+            <span className="text-xs text-gray-500">Меньше</span>
             <div className="flex space-x-1">
               <div className="w-4 h-4 rounded-sm bg-gray-800" />
               <div className="w-4 h-4 rounded-sm bg-green-900" />
@@ -77,7 +78,7 @@ function ActivityHeatmap({ data }) {
               <div className="w-4 h-4 rounded-sm bg-green-500" />
               <div className="w-4 h-4 rounded-sm bg-green-400" />
             </div>
-            <span className="text-xs text-gray-500">More</span>
+            <span className="text-xs text-gray-500">Больше</span>
           </div>
         </div>
       </div>

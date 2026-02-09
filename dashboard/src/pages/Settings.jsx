@@ -8,10 +8,10 @@ function Settings() {
   const [hexError, setHexError] = useState('')
 
   const themeOptions = [
-    { id: 'light', label: 'Light', icon: Sun, description: 'Clean and bright' },
-    { id: 'dark', label: 'Dark', icon: Moon, description: 'Easy on the eyes' },
-    { id: 'midnight', label: 'Midnight', icon: Palette, description: 'Deep indigo vibes' },
-    { id: 'system', label: 'System', icon: Monitor, description: 'Match your OS' },
+    { id: 'light', label: 'Светлая', icon: Sun, description: 'Чистая и яркая' },
+    { id: 'dark', label: 'Тёмная', icon: Moon, description: 'Комфортная для глаз' },
+    { id: 'midnight', label: 'Полночь', icon: Palette, description: 'Глубокий индиго' },
+    { id: 'system', label: 'Системная', icon: Monitor, description: 'Как в ОС' },
   ]
 
   const validateHex = (hex) => {
@@ -34,7 +34,7 @@ function Settings() {
       setAccent({ name: 'Custom', value: validHex, hover: hoverHex })
       setHexError('')
     } else {
-      setHexError('Invalid hex color')
+      setHexError('Неверный HEX-цвет')
     }
   }
 
@@ -62,10 +62,10 @@ function Settings() {
           className="text-2xl font-bold"
           style={{ color: 'var(--color-text)' }}
         >
-          Settings
+          Настройки
         </h2>
         <p style={{ color: 'var(--color-textSecondary)' }} className="mt-1">
-          Customize your dashboard appearance
+          Настройка внешнего вида дашборда
         </p>
       </div>
 
@@ -81,13 +81,13 @@ function Settings() {
           className="text-lg font-semibold mb-4"
           style={{ color: 'var(--color-text)' }}
         >
-          Theme
+          Тема
         </h3>
         <p
           className="text-sm mb-4"
           style={{ color: 'var(--color-textSecondary)' }}
         >
-          Choose your preferred color scheme
+          Выберите предпочитаемую цветовую схему
         </p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -137,30 +137,30 @@ function Settings() {
                 className="text-sm font-medium"
                 style={{ color: 'var(--color-text)' }}
               >
-                Current: {currentTheme?.name || resolvedTheme}
+                Текущая: {currentTheme?.name || resolvedTheme}
               </p>
               <p
                 className="text-xs"
                 style={{ color: 'var(--color-textMuted)' }}
               >
-                {themeMode === 'system' ? `System preference (${resolvedTheme})` : 'Manual selection'}
+                {themeMode === 'system' ? `Системная (${resolvedTheme})` : 'Ручной выбор'}
               </p>
             </div>
             <div className="flex items-center space-x-2">
               <div
                 className="w-4 h-4 rounded-full border"
                 style={{ backgroundColor: currentTheme?.colors.bg, borderColor: 'var(--color-border)' }}
-                title="Background"
+                title="Фон"
               />
               <div
                 className="w-4 h-4 rounded-full border"
                 style={{ backgroundColor: currentTheme?.colors.cardBg, borderColor: 'var(--color-border)' }}
-                title="Card"
+                title="Карточка"
               />
               <div
                 className="w-4 h-4 rounded-full"
                 style={{ backgroundColor: 'var(--color-accent)' }}
-                title="Accent"
+                title="Акцент"
               />
             </div>
           </div>
@@ -181,13 +181,13 @@ function Settings() {
               className="text-lg font-semibold"
               style={{ color: 'var(--color-text)' }}
             >
-              Accent Color
+              Цвет акцента
             </h3>
             <p
               className="text-sm"
               style={{ color: 'var(--color-textSecondary)' }}
             >
-              Customize the primary accent color
+              Настройте основной цвет акцента
             </p>
           </div>
           {accentColor && (
@@ -202,7 +202,7 @@ function Settings() {
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bgSecondary)'}
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Reset</span>
+              <span>Сброс</span>
             </button>
           )}
         </div>
@@ -213,7 +213,7 @@ function Settings() {
             className="text-xs font-medium uppercase tracking-wider mb-3"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Presets
+            Пресеты
           </p>
           <div className="flex flex-wrap gap-3">
             {ACCENT_PRESETS.map((preset) => {
@@ -263,7 +263,7 @@ function Settings() {
             className="text-xs font-medium uppercase tracking-wider mb-3"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Custom Color
+            Свой цвет
           </p>
           <div className="flex items-center space-x-3">
             <div className="relative flex-1">
@@ -304,7 +304,7 @@ function Settings() {
                 color: 'white'
               }}
             >
-              Apply
+              Применить
             </button>
           </div>
           {hexError && (
@@ -320,7 +320,7 @@ function Settings() {
             className="text-xs font-medium uppercase tracking-wider mb-3"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Preview
+            Предпросмотр
           </p>
           <div
             className="p-4 rounded-lg border"
@@ -334,7 +334,7 @@ function Settings() {
                 className="px-4 py-2 rounded-lg text-sm font-medium"
                 style={{ backgroundColor: 'var(--color-accent)', color: 'white' }}
               >
-                Primary Button
+                Основная кнопка
               </button>
               <button
                 className="px-4 py-2 rounded-lg text-sm font-medium border"
@@ -344,7 +344,7 @@ function Settings() {
                   backgroundColor: 'transparent'
                 }}
               >
-                Outline Button
+                Контурная кнопка
               </button>
               <span
                 className="px-3 py-1 rounded-full text-xs font-medium"
@@ -353,7 +353,7 @@ function Settings() {
                   color: 'var(--color-accent)'
                 }}
               >
-                Badge
+                Бейдж
               </span>
               <a
                 href="#"
@@ -361,7 +361,7 @@ function Settings() {
                 className="text-sm underline"
                 style={{ color: 'var(--color-accent)' }}
               >
-                Link Text
+                Ссылка
               </a>
             </div>
             <div className="mt-4 flex items-center space-x-4">
@@ -386,7 +386,7 @@ function Settings() {
         }}
       >
         <p className="text-sm" style={{ color: 'var(--color-textSecondary)' }}>
-          Your preferences are automatically saved and will persist across sessions.
+          Ваши настройки сохраняются автоматически и действуют между сессиями.
         </p>
       </div>
     </div>

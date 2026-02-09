@@ -12,6 +12,16 @@ const STATUS_COLORS = {
 }
 
 /**
+ * Russian labels for session statuses
+ */
+const STATUS_LABELS = {
+  success: 'Успех',
+  failed: 'Ошибка',
+  in_progress: 'В работе',
+  cancelled: 'Отменена',
+}
+
+/**
  * Session Timeline Graph component
  * Shows horizontal timeline with session blocks for the current day
  *
@@ -87,9 +97,9 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
     const mins = Math.floor((diffMs % 3600000) / 60000)
 
     if (hours > 0) {
-      return `${hours}h ${mins}m`
+      return `${hours}ч ${mins}м`
     }
-    return `${mins}m`
+    return `${mins}м`
   }
 
   const isToday = useMemo(() => {
@@ -129,7 +139,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
             className="font-semibold"
             style={{ color: 'var(--color-text)' }}
           >
-            Session Timeline
+            Хронология сессий
           </h3>
         </div>
 
@@ -153,7 +163,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
               color: 'var(--color-text)',
             }}
           >
-            {isToday ? 'Today' : selectedDate.toLocaleDateString(undefined, {
+            {isToday ? 'Сегодня' : selectedDate.toLocaleDateString('ru-RU', {
               weekday: 'short',
               month: 'short',
               day: 'numeric',
@@ -184,7 +194,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Sessions
+            Сессии
           </p>
           <p
             className="text-lg font-bold"
@@ -202,7 +212,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Success Rate
+            Успешность
           </p>
           <p
             className="text-lg font-bold"
@@ -222,7 +232,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Tasks Done
+            Задач готово
           </p>
           <p
             className="text-lg font-bold"
@@ -240,7 +250,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
             className="text-xs"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Tokens Used
+            Токенов
           </p>
           <p
             className="text-lg font-bold"
@@ -337,7 +347,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
               className="absolute inset-0 flex items-center justify-center"
               style={{ color: 'var(--color-textMuted)' }}
             >
-              <span className="text-sm">No sessions for this day</span>
+              <span className="text-sm">Нет сессий за этот день</span>
             </div>
           )}
         </div>
@@ -351,10 +361,10 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
                 style={{ backgroundColor: color }}
               />
               <span
-                className="text-xs capitalize"
+                className="text-xs"
                 style={{ color: 'var(--color-textSecondary)' }}
               >
-                {status.replace('_', ' ')}
+                {STATUS_LABELS[status] || status.replace('_', ' ')}
               </span>
             </div>
           ))}
@@ -382,13 +392,13 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
               Session #{hoveredSession.sessionNumber || hoveredSession.id}
             </span>
             <span
-              className="text-xs px-2 py-0.5 rounded capitalize"
+              className="text-xs px-2 py-0.5 rounded"
               style={{
                 backgroundColor: `${STATUS_COLORS[hoveredSession.status]}20`,
                 color: STATUS_COLORS[hoveredSession.status],
               }}
             >
-              {hoveredSession.status?.replace('_', ' ')}
+              {STATUS_LABELS[hoveredSession.status] || hoveredSession.status?.replace('_', ' ')}
             </span>
           </div>
 
@@ -397,7 +407,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
             style={{ color: 'var(--color-textSecondary)' }}
           >
             <div className="flex justify-between">
-              <span>Duration:</span>
+              <span>Длительность:</span>
               <span style={{ color: 'var(--color-text)' }}>
                 {formatDuration(hoveredSession.startTime, hoveredSession.endTime)}
               </span>
@@ -405,16 +415,16 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
 
             {hoveredSession.tasksCompleted !== undefined && (
               <div className="flex justify-between">
-                <span>Tasks:</span>
+                <span>Задачи:</span>
                 <span style={{ color: 'var(--color-text)' }}>
-                  {hoveredSession.tasksCompleted} completed
+                  {hoveredSession.tasksCompleted} выполнено
                 </span>
               </div>
             )}
 
             {hoveredSession.tokensUsed !== undefined && (
               <div className="flex justify-between">
-                <span>Tokens:</span>
+                <span>Токены:</span>
                 <span style={{ color: 'var(--color-text)' }}>
                   {hoveredSession.tokensUsed.toLocaleString()}
                 </span>
@@ -423,7 +433,7 @@ function SessionTimeline({ sessions = [], selectedDate = new Date(), onDateChang
 
             {hoveredSession.currentTask && (
               <div className="flex justify-between">
-                <span>Current:</span>
+                <span>Текущая:</span>
                 <span style={{ color: 'var(--color-accent)' }}>
                   {hoveredSession.currentTask}
                 </span>

@@ -25,8 +25,8 @@ function PriorityChart({ data }) {
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-white">Priority Distribution</h3>
-        <p className="text-sm text-gray-400">Tasks by priority level</p>
+        <h3 className="text-lg font-semibold text-white">Распределение приоритетов</h3>
+        <p className="text-sm text-gray-400">Задачи по уровню приоритета</p>
       </div>
 
       <div className="h-64">
@@ -52,7 +52,7 @@ function PriorityChart({ data }) {
                 borderRadius: '8px',
                 color: '#F9FAFB',
               }}
-              formatter={(value, name) => [`${value} tasks (${((value / total) * 100).toFixed(1)}%)`, name]}
+              formatter={(value, name) => [`${value} задач (${((value / total) * 100).toFixed(1)}%)`, name]}
             />
           </PieChart>
         </ResponsiveContainer>

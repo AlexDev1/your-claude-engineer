@@ -10,13 +10,13 @@ function BottleneckPanel({ data }) {
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-white">Bottleneck Detection</h3>
-          <p className="text-sm text-gray-400">Automated performance analysis</p>
+          <h3 className="text-lg font-semibold text-white">Обнаружение узких мест</h3>
+          <p className="text-sm text-gray-400">Автоматический анализ производительности</p>
         </div>
         {stuck_tasks.length > 0 && (
           <div className="flex items-center space-x-2 bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full">
             <AlertTriangle className="w-4 h-4" />
-            <span className="text-sm font-medium">{stuck_tasks.length} stuck</span>
+            <span className="text-sm font-medium">{stuck_tasks.length} застряло</span>
           </div>
         )}
       </div>
@@ -27,11 +27,11 @@ function BottleneckPanel({ data }) {
           <div className="flex items-start space-x-3">
             <Clock className="w-5 h-5 text-red-500 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-red-400">Longest Stuck Task</p>
+              <p className="text-sm font-medium text-red-400">Самая застрявшая задача</p>
               <p className="text-white font-semibold">{longest_stuck.identifier}</p>
               <p className="text-sm text-gray-400">{longest_stuck.title}</p>
               <p className="text-sm text-red-400 mt-1">
-                Stuck for {longest_stuck.hours_stuck}h in In Progress
+                Застряла на {longest_stuck.hours_stuck}ч в статусе В работе
               </p>
             </div>
           </div>
@@ -40,7 +40,7 @@ function BottleneckPanel({ data }) {
 
       {/* Time Distribution */}
       <div className="mb-6">
-        <h4 className="text-sm font-medium text-gray-400 mb-3">Average Time in State</h4>
+        <h4 className="text-sm font-medium text-gray-400 mb-3">Среднее время в статусе</h4>
         <div className="space-y-2">
           {Object.entries(time_distribution).map(([state, hours]) => (
             <div key={state} className="flex items-center justify-between">
@@ -63,7 +63,7 @@ function BottleneckPanel({ data }) {
       <div className="flex items-center justify-between bg-gray-700/50 rounded-lg p-3 mb-6">
         <div className="flex items-center space-x-3">
           <RefreshCw className="w-5 h-5 text-blue-500" />
-          <span className="text-sm text-gray-300">Average Retry Rate</span>
+          <span className="text-sm text-gray-300">Средняя частота повторов</span>
         </div>
         <span className="text-lg font-bold text-white">{avg_retry_rate}x</span>
       </div>
@@ -72,7 +72,7 @@ function BottleneckPanel({ data }) {
       <div>
         <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center space-x-2">
           <Lightbulb className="w-4 h-4 text-yellow-500" />
-          <span>Recommendations</span>
+          <span>Рекомендации</span>
         </h4>
         <ul className="space-y-2">
           {recommendations.map((rec, index) => (
@@ -89,7 +89,7 @@ function BottleneckPanel({ data }) {
       {/* Stuck Tasks List */}
       {stuck_tasks.length > 0 && (
         <div className="mt-6">
-          <h4 className="text-sm font-medium text-gray-400 mb-3">Stuck Tasks</h4>
+          <h4 className="text-sm font-medium text-gray-400 mb-3">Застрявшие задачи</h4>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {stuck_tasks.map((task) => (
               <div

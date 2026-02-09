@@ -2,17 +2,17 @@ import React, { useState } from 'react'
 import { X, Trash2, Flag, ArrowRight, Folder, Undo2 } from 'lucide-react'
 
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent', color: 'bg-red-500' },
-  { value: 'high', label: 'High', color: 'bg-orange-500' },
-  { value: 'medium', label: 'Medium', color: 'bg-yellow-500' },
-  { value: 'low', label: 'Low', color: 'bg-green-500' },
+  { value: 'urgent', label: 'Срочный', color: 'bg-red-500' },
+  { value: 'high', label: 'Высокий', color: 'bg-orange-500' },
+  { value: 'medium', label: 'Средний', color: 'bg-yellow-500' },
+  { value: 'low', label: 'Низкий', color: 'bg-green-500' },
 ]
 
 const STATE_OPTIONS = [
-  { value: 'Todo', label: 'Todo', color: 'bg-gray-500' },
-  { value: 'In Progress', label: 'In Progress', color: 'bg-blue-500' },
-  { value: 'Done', label: 'Done', color: 'bg-green-500' },
-  { value: 'Cancelled', label: 'Cancelled', color: 'bg-red-500' },
+  { value: 'Todo', label: 'К выполнению', color: 'bg-gray-500' },
+  { value: 'In Progress', label: 'В работе', color: 'bg-blue-500' },
+  { value: 'Done', label: 'Готово', color: 'bg-green-500' },
+  { value: 'Cancelled', label: 'Отменено', color: 'bg-red-500' },
 ]
 
 const PROJECT_OPTIONS = ['Agent Dashboard', 'Core Platform', 'Infrastructure', 'Documentation']
@@ -64,11 +64,11 @@ function BulkActions({ selectedCount, onClearSelection, onBulkOperation, onUndo,
           <span className="bg-blue-600 text-white text-sm font-medium px-2 py-0.5 rounded">
             {selectedCount}
           </span>
-          <span className="text-gray-300 text-sm">selected</span>
+          <span className="text-gray-300 text-sm">выбрано</span>
           <button
             onClick={onClearSelection}
             className="p-1 hover:bg-gray-700 rounded transition-colors"
-            title="Clear selection"
+            title="Очистить выбор"
           >
             <X className="w-4 h-4 text-gray-400" />
           </button>
@@ -84,7 +84,7 @@ function BulkActions({ selectedCount, onClearSelection, onBulkOperation, onUndo,
             className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
           >
             <ArrowRight className="w-4 h-4" />
-            <span>State</span>
+            <span>Статус</span>
           </button>
           {showStates && (
             <div className="absolute bottom-full mb-2 left-0 bg-gray-700 border border-gray-600 rounded-lg shadow-lg py-1 min-w-[140px]">
@@ -112,7 +112,7 @@ function BulkActions({ selectedCount, onClearSelection, onBulkOperation, onUndo,
             className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
           >
             <Flag className="w-4 h-4" />
-            <span>Priority</span>
+            <span>Приоритет</span>
           </button>
           {showPriorities && (
             <div className="absolute bottom-full mb-2 left-0 bg-gray-700 border border-gray-600 rounded-lg shadow-lg py-1 min-w-[120px]">
@@ -140,7 +140,7 @@ function BulkActions({ selectedCount, onClearSelection, onBulkOperation, onUndo,
             className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
           >
             <Folder className="w-4 h-4" />
-            <span>Project</span>
+            <span>Проект</span>
           </button>
           {showProjects && (
             <div className="absolute bottom-full mb-2 left-0 bg-gray-700 border border-gray-600 rounded-lg shadow-lg py-1 min-w-[160px]">
@@ -165,10 +165,10 @@ function BulkActions({ selectedCount, onClearSelection, onBulkOperation, onUndo,
           <button
             onClick={onUndo}
             className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 rounded-lg transition-colors"
-            title="Undo last operation (Ctrl+Z)"
+            title="Отменить последнее действие (Ctrl+Z)"
           >
             <Undo2 className="w-4 h-4" />
-            <span>Undo</span>
+            <span>Отменить</span>
           </button>
         )}
 
@@ -182,13 +182,13 @@ function BulkActions({ selectedCount, onClearSelection, onBulkOperation, onUndo,
           }`}
         >
           <Trash2 className="w-4 h-4" />
-          <span>{showDeleteConfirm ? 'Confirm' : 'Delete'}</span>
+          <span>{showDeleteConfirm ? 'Подтвердить' : 'Удалить'}</span>
         </button>
       </div>
 
       {/* Keyboard Shortcuts Hint */}
       <div className="mt-2 text-center text-xs text-gray-500">
-        Shift+Click to select range | Ctrl+Click to toggle | Escape to clear
+        Shift+Click выбрать диапазон | Ctrl+Click переключить | Escape очистить
       </div>
     </div>
   )

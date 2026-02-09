@@ -280,17 +280,17 @@ function LiveDashboard() {
               className="text-2xl font-bold"
               style={{ color: 'var(--color-text)' }}
             >
-              Live Dashboard
+              Мониторинг
             </h2>
             <p
               className="mt-1 text-sm"
               style={{ color: 'var(--color-textSecondary)' }}
             >
               {demoMode
-                ? 'Demo mode - simulated data'
+                ? 'Демо-режим -- имитация данных'
                 : connected
-                ? 'Real-time session monitoring'
-                : 'Disconnected - click reconnect'}
+                ? 'Мониторинг сессий в реальном времени'
+                : 'Отключено -- нажмите Переподключить'}
             </p>
           </div>
         </div>
@@ -308,7 +308,7 @@ function LiveDashboard() {
                   className="text-sm"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  Demo
+                  Демо
                 </span>
               </>
             ) : connected ? (
@@ -318,7 +318,7 @@ function LiveDashboard() {
                   className="text-sm"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  Connected
+                  Подключено
                 </span>
               </>
             ) : (
@@ -328,7 +328,7 @@ function LiveDashboard() {
                   className="text-sm"
                   style={{ color: 'var(--color-textSecondary)' }}
                 >
-                  {retryCount > 0 ? `Retry ${retryCount}...` : 'Disconnected'}
+                  {retryCount > 0 ? `Попытка ${retryCount}...` : 'Отключено'}
                 </span>
               </>
             )}
@@ -343,7 +343,7 @@ function LiveDashboard() {
               color: demoMode ? 'white' : 'var(--color-textSecondary)',
             }}
           >
-            {demoMode ? 'Switch to Live' : 'Demo Mode'}
+            {demoMode ? 'Переключить на Live' : 'Демо-режим'}
           </button>
 
           {/* Refresh / Reconnect */}
@@ -355,7 +355,7 @@ function LiveDashboard() {
                 backgroundColor: 'var(--color-cardBg)',
                 color: 'var(--color-textSecondary)',
               }}
-              title="Reconnect"
+              title="Переподключить"
             >
               <RefreshCw className="w-5 h-5" />
             </button>
@@ -369,7 +369,7 @@ function LiveDashboard() {
               backgroundColor: showSettings ? 'var(--color-bgTertiary)' : 'var(--color-cardBg)',
               color: 'var(--color-textSecondary)',
             }}
-            title="Settings"
+            title="Настройки"
           >
             <Settings2 className="w-5 h-5" />
           </button>
@@ -386,13 +386,13 @@ function LiveDashboard() {
             color: '#f87171',
           }}
         >
-          <p className="font-medium">Connection Error</p>
+          <p className="font-medium">Ошибка подключения</p>
           <p className="text-sm mt-1">{sseError}</p>
           <button
             onClick={reconnect}
             className="mt-2 text-sm font-medium underline"
           >
-            Try reconnecting
+            Попробовать переподключиться
           </button>
         </div>
       )}

@@ -174,7 +174,7 @@ function TimelineSlider({
             className="font-semibold text-sm"
             style={{ color: 'var(--color-text)' }}
           >
-            Session Replay
+            Воспроизведение сессии
           </h3>
           {hasEvents && (
             <span
@@ -184,7 +184,7 @@ function TimelineSlider({
                 color: 'var(--color-textSecondary)',
               }}
             >
-              {sortedEvents.length} events
+              {sortedEvents.length} событий
             </span>
           )}
         </div>
@@ -210,7 +210,7 @@ function TimelineSlider({
           style={{ backgroundColor: 'var(--color-bgTertiary)' }}
           onClick={handleTrackClick}
           role="slider"
-          aria-label="Playback timeline"
+          aria-label="Шкала воспроизведения"
           aria-valuenow={Math.round(currentTime)}
           aria-valuemin={0}
           aria-valuemax={Math.round(totalDuration)}
@@ -242,8 +242,8 @@ function TimelineSlider({
                 ringColor: 'var(--color-accent)',
               }}
               onClick={(e) => handleMarkerClick(event, e)}
-              title={`${event.type || 'Event'} at ${formatTime(event.timestamp)}`}
-              aria-label={`Jump to ${event.type || 'event'} at ${formatTime(event.timestamp)}`}
+              title={`${event.type || 'Событие'} в ${formatTime(event.timestamp)}`}
+              aria-label={`Перейти к ${event.type || 'событию'} в ${formatTime(event.timestamp)}`}
             />
           ))}
 
@@ -274,8 +274,8 @@ function TimelineSlider({
               backgroundColor: 'var(--color-accent)',
               color: 'white',
             }}
-            aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
-            title={isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? 'Приостановить воспроизведение' : 'Начать воспроизведение'}
+            title={isPlaying ? 'Пауза' : 'Воспроизвести'}
           >
             {isPlaying ? (
               <Pause className="w-4 h-4" />
@@ -293,8 +293,8 @@ function TimelineSlider({
               backgroundColor: 'var(--color-bgTertiary)',
               color: 'var(--color-textSecondary)',
             }}
-            aria-label="Skip to next event"
-            title="Next event"
+            aria-label="К следующему событию"
+            title="Следующее событие"
           >
             <SkipForward className="w-4 h-4" />
           </button>
@@ -317,7 +317,7 @@ function TimelineSlider({
                     ? 'white'
                     : 'var(--color-textSecondary)',
               }}
-              aria-label={`Set playback speed to ${speed}x`}
+              aria-label={`Установить скорость воспроизведения ${speed}x`}
             >
               {speed}x
             </button>

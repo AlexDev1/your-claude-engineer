@@ -32,10 +32,10 @@ const STATUS_ICONS = {
 
 /** Available status filter options */
 const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'running', label: 'Running' },
+  { value: '', label: 'Все статусы' },
+  { value: 'completed', label: 'Завершённые' },
+  { value: 'failed', label: 'С ошибкой' },
+  { value: 'running', label: 'Выполняются' },
 ]
 
 /**
@@ -45,7 +45,7 @@ const STATUS_OPTIONS = [
  * @returns {string} Formatted duration (e.g. "2h 15m" or "45m")
  */
 function formatDuration(seconds) {
-  if (seconds == null) return 'In progress'
+  if (seconds == null) return 'Выполняется'
   const hours = Math.floor(seconds / 3600)
   const mins = Math.floor((seconds % 3600) / 60)
   if (hours > 0) return `${hours}h ${mins}m`
@@ -155,7 +155,7 @@ function SessionCard({ session, onClick }) {
             className="text-xs mb-0.5"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Started
+            Начало
           </p>
           <p
             className="text-sm font-medium"
@@ -169,7 +169,7 @@ function SessionCard({ session, onClick }) {
             className="text-xs mb-0.5"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Duration
+            Длительность
           </p>
           <p
             className="text-sm font-medium"
@@ -183,7 +183,7 @@ function SessionCard({ session, onClick }) {
             className="text-xs mb-0.5"
             style={{ color: 'var(--color-textMuted)' }}
           >
-            Events
+            События
           </p>
           <p
             className="text-sm font-medium"
@@ -200,7 +200,7 @@ function SessionCard({ session, onClick }) {
           style={{ color: 'var(--color-accent)' }}
         >
           <Play className="w-3 h-3" />
-          View Replay
+          Воспроизвести
         </span>
       </div>
     </button>
@@ -241,13 +241,13 @@ function Replay() {
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text)' }}
           >
-            Session Replay
+            Воспроизведение сессий
           </h2>
           <p
             className="mt-1"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Browse and replay recorded agent sessions
+            Просмотр и воспроизведение записанных сессий агента
           </p>
         </div>
 
@@ -259,10 +259,10 @@ function Replay() {
             backgroundColor: 'var(--color-cardBg)',
             color: 'var(--color-textSecondary)',
           }}
-          title="Refresh sessions"
+          title="Обновить сессии"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          <span className="text-sm">Refresh</span>
+          <span className="text-sm">Обновить</span>
         </button>
       </div>
 
@@ -284,7 +284,7 @@ function Replay() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by issue ID (e.g. ENG-74)..."
+            placeholder="Поиск по ID задачи (например ENG-74)..."
             className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm border transition-colors focus:outline-none"
             style={{
               backgroundColor: 'var(--color-bgTertiary)',
@@ -333,16 +333,16 @@ function Replay() {
       >
         <span className="flex items-center gap-1.5">
           <Calendar className="w-4 h-4" />
-          {total} session{total !== 1 ? 's' : ''} found
+          {total} сессий найдено
         </span>
         {searchQuery && (
           <span>
-            Filtering: <strong style={{ color: 'var(--color-text)' }}>{searchQuery}</strong>
+            Фильтр: <strong style={{ color: 'var(--color-text)' }}>{searchQuery}</strong>
           </span>
         )}
         {statusFilter && (
           <span>
-            Status: <strong style={{ color: 'var(--color-text)' }}>{statusFilter}</strong>
+            Статус: <strong style={{ color: 'var(--color-text)' }}>{statusFilter}</strong>
           </span>
         )}
       </div>
@@ -357,13 +357,13 @@ function Replay() {
             color: '#f87171',
           }}
         >
-          <p className="font-medium">Error loading sessions</p>
+          <p className="font-medium">Ошибка загрузки сессий</p>
           <p className="text-sm mt-1">{error}</p>
           <p
             className="text-sm mt-2"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Showing demo data instead.
+            Показаны демо-данные.
           </p>
         </div>
       )}
@@ -376,7 +376,7 @@ function Replay() {
             style={{ color: 'var(--color-textSecondary)' }}
           >
             <RefreshCw className="w-6 h-6 animate-spin" />
-            <span>Loading sessions...</span>
+            <span>Загрузка сессий...</span>
           </div>
         </div>
       )}
@@ -411,15 +411,15 @@ function Replay() {
             className="text-sm font-medium"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            No sessions found
+            Сессии не найдены
           </p>
           <p
             className="text-xs mt-1"
             style={{ color: 'var(--color-textMuted)' }}
           >
             {searchQuery || statusFilter
-              ? 'Try adjusting your filters'
-              : 'Sessions will appear here after agent runs'}
+              ? 'Попробуйте изменить фильтры'
+              : 'Сессии появятся здесь после запуска агента'}
           </p>
         </div>
       )}

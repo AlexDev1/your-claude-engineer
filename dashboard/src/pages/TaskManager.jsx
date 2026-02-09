@@ -190,13 +190,13 @@ function TaskManager() {
             className="text-2xl font-bold"
             style={{ color: 'var(--color-text)' }}
           >
-            Task Manager
+            Менеджер задач
           </h2>
           <p
             className="mt-1"
             style={{ color: 'var(--color-textSecondary)' }}
           >
-            Manage and track your issues
+            Управление и отслеживание задач
           </p>
         </div>
 
@@ -211,7 +211,7 @@ function TaskManager() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search issues..."
+              placeholder="Поиск задач..."
               className="w-48 text-sm pl-9 pr-3 py-2 rounded-lg border focus:ring-1"
               style={{
                 backgroundColor: 'var(--color-inputBg)',
@@ -232,11 +232,11 @@ function TaskManager() {
               color: 'var(--color-text)'
             }}
           >
-            <option value="">All Priorities</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+            <option value="">Все приоритеты</option>
+            <option value="urgent">Срочный</option>
+            <option value="high">Высокий</option>
+            <option value="medium">Средний</option>
+            <option value="low">Низкий</option>
           </select>
 
           {/* View Toggle */}
@@ -251,7 +251,7 @@ function TaskManager() {
                 backgroundColor: viewMode === 'kanban' ? 'var(--color-bgTertiary)' : 'transparent',
                 color: viewMode === 'kanban' ? 'var(--color-text)' : 'var(--color-textMuted)'
               }}
-              title="Kanban view"
+              title="Канбан"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -262,7 +262,7 @@ function TaskManager() {
                 backgroundColor: viewMode === 'list' ? 'var(--color-bgTertiary)' : 'transparent',
                 color: viewMode === 'list' ? 'var(--color-text)' : 'var(--color-textMuted)'
               }}
-              title="List view"
+              title="Список"
             >
               <List className="w-4 h-4" />
             </button>
@@ -277,7 +277,7 @@ function TaskManager() {
               backgroundColor: 'var(--color-cardBg)',
               color: 'var(--color-textSecondary)'
             }}
-            title="Refresh"
+            title="Обновить"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -292,7 +292,7 @@ function TaskManager() {
             }}
           >
             <Plus className="w-4 h-4" />
-            <span>New Issue</span>
+            <span>Новая задача</span>
           </button>
         </div>
       </div>
@@ -307,10 +307,10 @@ function TaskManager() {
             color: '#f87171'
           }}
         >
-          <p className="font-medium">Error loading issues</p>
+          <p className="font-medium">Ошибка загрузки задач</p>
           <p className="text-sm mt-1">{error}</p>
           <p className="text-sm mt-2" style={{ color: 'var(--color-textSecondary)' }}>
-            Showing demo data instead.
+            Показаны демо-данные.
           </p>
         </div>
       )}
@@ -323,7 +323,7 @@ function TaskManager() {
             style={{ color: 'var(--color-textSecondary)' }}
           >
             <RefreshCw className="w-6 h-6 animate-spin" />
-            <span>Loading issues...</span>
+            <span>Загрузка задач...</span>
           </div>
         </div>
       )}
@@ -365,7 +365,7 @@ function TaskManager() {
           className="text-sm font-medium mb-2"
           style={{ color: 'var(--color-text)' }}
         >
-          Keyboard Shortcuts
+          Горячие клавиши
         </h4>
         <div
           className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"
@@ -375,49 +375,49 @@ function TaskManager() {
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >N</kbd> New issue
+            >N</kbd> Новая задача
           </div>
           <div>
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >E</kbd> Edit selected
+            >E</kbd> Редактировать
           </div>
           <div>
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >1-4</kbd> Set priority
+            >1-4</kbd> Приоритет
           </div>
           <div>
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >Ctrl+Z</kbd> Undo
+            >Ctrl+Z</kbd> Отмена
           </div>
           <div>
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >Esc</kbd> Cancel/Clear
+            >Esc</kbd> Отменить/Очистить
           </div>
           <div>
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >Del</kbd> Delete selected
+            >Del</kbd> Удалить выбранное
           </div>
           <div>
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >Shift+Click</kbd> Select range
+            >Shift+Click</kbd> Выбрать диапазон
           </div>
           <div>
             <kbd
               className="px-1.5 py-0.5 rounded"
               style={{ backgroundColor: 'var(--color-bgTertiary)' }}
-            >Ctrl+Click</kbd> Multi-select
+            >Ctrl+Click</kbd> Множественный выбор
           </div>
         </div>
       </div>
@@ -491,11 +491,11 @@ function ListView({ issues, onStateChange, onPriorityChange, onEdit, selectedIss
               <input type="checkbox" className="rounded" disabled style={{ backgroundColor: 'var(--color-inputBg)' }} />
             </th>
             <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>ID</th>
-            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Title</th>
-            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>State</th>
-            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Priority</th>
-            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Type</th>
-            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Actions</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Название</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Статус</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Приоритет</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Тип</th>
+            <th className="text-left text-xs font-medium uppercase tracking-wider px-4 py-3" style={{ color: 'var(--color-textMuted)' }}>Действия</th>
           </tr>
         </thead>
         <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
@@ -561,7 +561,7 @@ function ListView({ issues, onStateChange, onPriorityChange, onEdit, selectedIss
                     className="text-sm transition-colors"
                     style={{ color: 'var(--color-accent)' }}
                   >
-                    Edit
+                    Изменить
                   </button>
                 </td>
               </tr>
@@ -574,7 +574,7 @@ function ListView({ issues, onStateChange, onPriorityChange, onEdit, selectedIss
           className="text-center py-12"
           style={{ color: 'var(--color-textSecondary)' }}
         >
-          No issues found
+          Задачи не найдены
         </div>
       )}
     </div>

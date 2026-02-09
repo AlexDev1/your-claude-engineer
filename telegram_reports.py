@@ -153,55 +153,55 @@ def format_daily_digest(data: DailyDigestData) -> str:
     total_tasks = data.completed_today + data.in_progress + data.todo + data.blocked
 
     lines = [
-        f"<b>📊 Daily Digest — {date_str}</b>",
+        f"<b>📊 Дайджест за день — {date_str}</b>",
         "",
     ]
 
     # Progress bar for completed vs total
     if total_tasks > 0:
         bar = format_progress_bar(data.completed_today, total_tasks, width=12)
-        lines.append(f"<b>Progress:</b> {bar}")
+        lines.append(f"<b>Прогресс:</b> {bar}")
         lines.append("")
 
     # Task breakdown
-    lines.append("<b>Tasks:</b>")
-    lines.append(f"  ✅ Completed: {data.completed_today}")
-    lines.append(f"  🔄 In Progress: {data.in_progress}")
-    lines.append(f"  📋 Todo: {data.todo}")
+    lines.append("<b>Задачи:</b>")
+    lines.append(f"  ✅ Завершено: {data.completed_today}")
+    lines.append(f"  🔄 В работе: {data.in_progress}")
+    lines.append(f"  📋 К выполнению: {data.todo}")
     if data.blocked > 0:
-        lines.append(f"  ⚠️ Blocked: {data.blocked}")
+        lines.append(f"  ⚠️ Заблокировано: {data.blocked}")
     lines.append("")
 
     # Session stats
     if data.sessions_count > 0:
         hours = data.total_duration_minutes // 60
         minutes = data.total_duration_minutes % 60
-        duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
+        duration_str = f"{hours}ч {minutes}м" if hours > 0 else f"{minutes}м"
 
-        lines.append("<b>Sessions:</b>")
-        lines.append(f"  ⏱️ Count: {data.sessions_count}")
-        lines.append(f"  ⏰ Duration: {duration_str}")
+        lines.append("<b>Сессии:</b>")
+        lines.append(f"  ⏱️ Количество: {data.sessions_count}")
+        lines.append(f"  ⏰ Длительность: {duration_str}")
         lines.append("")
 
     # Git stats
     if data.commits_today > 0:
         lines.append("<b>Git:</b>")
-        lines.append(f"  📝 Commits: {data.commits_today}")
-        lines.append(f"  📁 Files: {data.files_changed}")
+        lines.append(f"  📝 Коммитов: {data.commits_today}")
+        lines.append(f"  📁 Файлов: {data.files_changed}")
         lines.append(f"  <code>+{data.lines_added} / -{data.lines_removed}</code>")
         lines.append("")
 
     # Cost stats (if available)
     if data.tokens_used > 0:
-        lines.append("<b>Usage:</b>")
-        lines.append(f"  🎫 Tokens: {data.tokens_used:,}")
+        lines.append("<b>Использование:</b>")
+        lines.append(f"  🎫 Токенов: {data.tokens_used:,}")
         if data.estimated_cost_usd > 0:
-            lines.append(f"  💵 Cost: ${data.estimated_cost_usd:.2f}")
+            lines.append(f"  💵 Стоимость: ${data.estimated_cost_usd:.2f}")
         lines.append("")
 
     # Highlights
     if data.highlights:
-        lines.append("<b>Highlights:</b>")
+        lines.append("<b>Итоги:</b>")
         for highlight in data.highlights[:5]:  # Limit to 5
             lines.append(f"  • {highlight}")
         lines.append("")
@@ -296,11 +296,11 @@ def format_session_summary(data: SessionSummaryData) -> str:
     }.get(data.status, "ℹ️")
 
     lines = [
-        f"<b>📋 Session Summary</b>",
+        f"<b>📋 Итоги сессии</b>",
         "",
-        f"<b>Issue:</b> {data.issue_id}",
-        f"<b>Title:</b> {data.issue_title[:50]}{'...' if len(data.issue_title) > 50 else ''}",
-        f"<b>Status:</b> {status_emoji} {data.status.title()}",
+        f"<b>Задача:</b> {data.issue_id}",
+        f"<b>Заголовок:</b> {data.issue_title[:50]}{'...' if len(data.issue_title) > 50 else ''}",
+        f"<b>Статус:</b> {status_emoji} {data.status.title()}",
         "",
     ]
 
@@ -309,52 +309,52 @@ def format_session_summary(data: SessionSummaryData) -> str:
         hours = data.duration_minutes // 60
         minutes = data.duration_minutes % 60
         if hours > 0:
-            duration_str = f"{hours}h {minutes}m"
+            duration_str = f"{hours}ч {minutes}м"
         else:
-            duration_str = f"{minutes}m"
-        lines.append(f"<b>Duration:</b> ⏱️ {duration_str}")
+            duration_str = f"{minutes}м"
+        lines.append(f"<b>Длительность:</b> ⏱️ {duration_str}")
 
     # Tokens
     if data.total_tokens > 0:
-        lines.append(f"<b>Tokens:</b> 🎫 {data.total_tokens:,}")
+        lines.append(f"<b>Токенов:</b> 🎫 {data.total_tokens:,}")
         if data.input_tokens > 0 and data.output_tokens > 0:
             lines.append(f"  <code>↓{data.input_tokens:,} ↑{data.output_tokens:,}</code>")
 
     # Cost
     if data.estimated_cost_usd > 0:
-        lines.append(f"<b>Cost:</b> 💵 ${data.estimated_cost_usd:.4f}")
+        lines.append(f"<b>Стоимость:</b> 💵 ${data.estimated_cost_usd:.4f}")
 
     lines.append("")
 
     # Git commits
     if data.commits:
-        lines.append("<b>Commits:</b>")
+        lines.append("<b>Коммиты:</b>")
         for commit in data.commits[:5]:
             # Truncate long commit messages
             msg = commit[:60] + "..." if len(commit) > 60 else commit
             lines.append(f"  <code>•</code> {msg}")
         if len(data.commits) > 5:
-            lines.append(f"  <i>...and {len(data.commits) - 5} more</i>")
+            lines.append(f"  <i>...и ещё {len(data.commits) - 5}</i>")
         lines.append("")
 
     # Files changed
     if data.files_changed:
-        lines.append(f"<b>Files Changed:</b> {len(data.files_changed)}")
+        lines.append(f"<b>Изменено файлов:</b> {len(data.files_changed)}")
         for file in data.files_changed[:5]:
             lines.append(f"  <code>•</code> {file}")
         if len(data.files_changed) > 5:
-            lines.append(f"  <i>...and {len(data.files_changed) - 5} more</i>")
+            lines.append(f"  <i>...и ещё {len(data.files_changed) - 5}</i>")
         lines.append("")
 
     # Error message
     if data.status == "error" and data.error_message:
-        lines.append(f"<b>Error:</b>")
+        lines.append(f"<b>Ошибка:</b>")
         lines.append(f"<code>{data.error_message[:200]}</code>")
         lines.append("")
 
     # Next steps
     if data.next_steps:
-        lines.append("<b>Next Steps:</b>")
+        lines.append("<b>Следующие шаги:</b>")
         for step in data.next_steps[:3]:
             lines.append(f"  → {step}")
         lines.append("")
@@ -454,32 +454,32 @@ def format_error_alert(data: ErrorAlertData) -> str:
     }.get(data.error_type, "❌")
 
     lines = [
-        f"<b>{type_emoji} Error Alert</b>",
+        f"<b>{type_emoji} Оповещение об ошибке</b>",
         "",
-        f"<b>Type:</b> {data.error_type.upper()}",
+        f"<b>Тип:</b> {data.error_type.upper()}",
     ]
 
     # Issue context
     if data.issue_id:
-        lines.append(f"<b>Issue:</b> {data.issue_id}")
+        lines.append(f"<b>Задача:</b> {data.issue_id}")
 
     if data.phase:
-        lines.append(f"<b>Phase:</b> {data.phase}")
+        lines.append(f"<b>Фаза:</b> {data.phase}")
 
     lines.append("")
 
     # Location
     if data.file_path:
-        lines.append("<b>Location:</b>")
+        lines.append("<b>Расположение:</b>")
         lines.append(f"  📁 <code>{data.file_path}</code>")
         if data.line_number > 0:
-            lines.append(f"  📍 Line {data.line_number}")
+            lines.append(f"  📍 Строка {data.line_number}")
         if data.function_name:
             lines.append(f"  🔧 <code>{data.function_name}()</code>")
         lines.append("")
 
     # Error message
-    lines.append("<b>Error:</b>")
+    lines.append("<b>Ошибка:</b>")
     # Escape HTML entities in error message
     escaped_msg = (
         data.error_message
@@ -492,23 +492,23 @@ def format_error_alert(data: ErrorAlertData) -> str:
 
     # Retry info
     if data.attempt_count > 1 or data.will_retry:
-        lines.append("<b>Retry Status:</b>")
-        lines.append(f"  🔄 Attempt: {data.attempt_count}/{data.max_attempts}")
+        lines.append("<b>Статус повтора:</b>")
+        lines.append(f"  🔄 Попытка: {data.attempt_count}/{data.max_attempts}")
         if data.will_retry:
-            lines.append(f"  ⏳ Will retry automatically")
+            lines.append(f"  ⏳ Будет повтор автоматически")
         else:
-            lines.append(f"  ⛔ Max retries reached")
+            lines.append(f"  ⛔ Достигнут лимит попыток")
         lines.append("")
 
     # Stack trace (truncated)
     if data.stack_trace:
-        lines.append("<b>Trace:</b>")
+        lines.append("<b>Трассировка:</b>")
         trace_lines = data.stack_trace.split("\n")[:5]
         for line in trace_lines:
             escaped = line.replace("<", "&lt;").replace(">", "&gt;")[:80]
             lines.append(f"<code>{escaped}</code>")
         if len(data.stack_trace.split("\n")) > 5:
-            lines.append("<i>...truncated</i>")
+            lines.append("<i>...обрезано</i>")
         lines.append("")
 
     # Timestamp
@@ -614,27 +614,27 @@ def format_weekly_summary(data: WeeklySummaryData) -> str:
     week_str = f"{data.week_start.strftime('%b %d')} - {data.week_end.strftime('%b %d, %Y')}"
 
     lines = [
-        f"<b>📅 Weekly Summary</b>",
+        f"<b>📅 Недельный отчёт</b>",
         f"<i>{week_str}</i>",
         "",
     ]
 
     # Task metrics
-    lines.append("<b>📊 Tasks:</b>")
-    lines.append(f"  ✅ Completed: {data.tasks_completed}")
-    lines.append(f"  ➕ Created: {data.tasks_created}")
+    lines.append("<b>📊 Задачи:</b>")
+    lines.append(f"  ✅ Завершено: {data.tasks_completed}")
+    lines.append(f"  ➕ Создано: {data.tasks_created}")
     if data.average_completion_hours > 0:
-        lines.append(f"  ⏱️ Avg Time: {data.average_completion_hours:.1f}h")
+        lines.append(f"  ⏱️ Среднее время: {data.average_completion_hours:.1f}ч")
     lines.append("")
 
     # Velocity trend
     if data.velocity_current_week > 0:
-        lines.append("<b>📈 Velocity:</b>")
-        lines.append(f"  Current: {data.velocity_current_week:.1f} tasks/day")
+        lines.append("<b>📈 Скорость:</b>")
+        lines.append(f"  Текущая: {data.velocity_current_week:.1f} задач/день")
         if data.velocity_previous_week > 0:
             trend_emoji = "📈" if data.velocity_change_percent >= 0 else "📉"
             sign = "+" if data.velocity_change_percent >= 0 else ""
-            lines.append(f"  {trend_emoji} {sign}{data.velocity_change_percent:.0f}% vs last week")
+            lines.append(f"  {trend_emoji} {sign}{data.velocity_change_percent:.0f}% к прошлой неделе")
         lines.append("")
 
     # Daily sparkline
@@ -646,40 +646,40 @@ def format_weekly_summary(data: WeeklySummaryData) -> str:
             level = int((val / max_val) * 8) if max_val > 0 else 0
             blocks = "▁▂▃▄▅▆▇█"
             sparkline += blocks[min(level, 7)]
-        lines.append(f"<b>Daily:</b> <code>{sparkline}</code>")
-        lines.append(f"<i>       Mon→Sun</i>")
+        lines.append(f"<b>По дням:</b> <code>{sparkline}</code>")
+        lines.append(f"<i>       Пн→Вс</i>")
         lines.append("")
 
     # Cost metrics
     if data.total_cost_usd > 0:
-        lines.append("<b>💰 Cost:</b>")
-        lines.append(f"  This week: ${data.total_cost_usd:.2f}")
-        lines.append(f"  Tokens: {data.total_tokens:,}")
+        lines.append("<b>💰 Стоимость:</b>")
+        lines.append(f"  Эта неделя: ${data.total_cost_usd:.2f}")
+        lines.append(f"  Токенов: {data.total_tokens:,}")
         if data.cost_previous_week > 0:
             trend_emoji = "📈" if data.cost_change_percent > 0 else "📉"
             sign = "+" if data.cost_change_percent >= 0 else ""
-            lines.append(f"  {trend_emoji} {sign}{data.cost_change_percent:.0f}% vs last week")
+            lines.append(f"  {trend_emoji} {sign}{data.cost_change_percent:.0f}% к прошлой неделе")
         lines.append("")
 
     # Session metrics
     if data.total_sessions > 0:
-        lines.append("<b>🔄 Sessions:</b>")
-        lines.append(f"  Count: {data.total_sessions}")
-        lines.append(f"  Total Time: {data.total_duration_hours:.1f}h")
-        lines.append(f"  Avg Session: {data.average_session_minutes:.0f}m")
+        lines.append("<b>🔄 Сессии:</b>")
+        lines.append(f"  Количество: {data.total_sessions}")
+        lines.append(f"  Общее время: {data.total_duration_hours:.1f}ч")
+        lines.append(f"  Средняя сессия: {data.average_session_minutes:.0f}м")
         lines.append("")
 
     # Git metrics
     if data.total_commits > 0:
         lines.append("<b>📝 Git:</b>")
-        lines.append(f"  Commits: {data.total_commits}")
-        lines.append(f"  Files: {data.total_files_changed}")
+        lines.append(f"  Коммитов: {data.total_commits}")
+        lines.append(f"  Файлов: {data.total_files_changed}")
         lines.append(f"  <code>+{data.total_lines_added:,} / -{data.total_lines_removed:,}</code>")
         lines.append("")
 
     # Top issues
     if data.top_issues:
-        lines.append("<b>🏆 Top Issues:</b>")
+        lines.append("<b>🏆 Топ задач:</b>")
         for issue_id, title in data.top_issues[:3]:
             title_short = title[:40] + "..." if len(title) > 40 else title
             lines.append(f"  • <b>{issue_id}</b>: {title_short}")
@@ -737,7 +737,7 @@ def format_weekly_summary_simple(
 def format_task_started(issue_id: str, title: str) -> str:
     """Format task started notification."""
     return (
-        f"🔨 <b>Starting:</b> {title}\n"
+        f"🔨 <b>Начинаю:</b> {title}\n"
         f"<code>{issue_id}</code>"
     )
 
@@ -745,34 +745,34 @@ def format_task_started(issue_id: str, title: str) -> str:
 def format_task_completed(issue_id: str, title: str, duration_minutes: int = 0) -> str:
     """Format task completed notification."""
     lines = [
-        f"✅ <b>Completed:</b> {title}",
+        f"✅ <b>Завершено:</b> {title}",
         f"<code>{issue_id}</code>",
     ]
     if duration_minutes > 0:
         hours = duration_minutes // 60
         mins = duration_minutes % 60
         if hours > 0:
-            lines.append(f"⏱️ {hours}h {mins}m")
+            lines.append(f"⏱️ {hours}ч {mins}м")
         else:
-            lines.append(f"⏱️ {mins}m")
+            lines.append(f"⏱️ {mins}м")
     return "\n".join(lines)
 
 
 def format_task_blocked(issue_id: str, title: str, reason: str) -> str:
     """Format task blocked notification."""
     return (
-        f"⚠️ <b>Blocked:</b> {title}\n"
+        f"⚠️ <b>Заблокировано:</b> {title}\n"
         f"<code>{issue_id}</code>\n\n"
-        f"<b>Reason:</b> {reason}"
+        f"<b>Причина:</b> {reason}"
     )
 
 
 def format_all_tasks_complete() -> str:
     """Format all tasks complete notification."""
     return (
-        "🎉 <b>All Tasks Complete!</b>\n\n"
-        "No remaining tasks in Todo.\n"
-        "Great work! 🚀"
+        "🎉 <b>Все задачи выполнены!</b>\n\n"
+        "Не осталось задач в Todo.\n"
+        "Отличная работа! 🚀"
     )
 
 
@@ -869,39 +869,39 @@ def format_status(data: StatusData) -> str:
           Duration: 45m
     """
     lines = [
-        "<b>Status</b>",
+        "<b>Статус</b>",
         "",
     ]
 
     # Task counts
-    lines.append("<b>Tasks:</b>")
-    lines.append(f"  Todo: {data.todo_count}")
-    lines.append(f"  In Progress: {data.in_progress_count}")
-    lines.append(f"  Done: {data.done_count}")
+    lines.append("<b>Задачи:</b>")
+    lines.append(f"  К выполнению: {data.todo_count}")
+    lines.append(f"  В работе: {data.in_progress_count}")
+    lines.append(f"  Завершено: {data.done_count}")
     lines.append("")
 
     # Progress bar
     if data.total_tasks > 0:
         bar = format_progress_bar(data.done_count, data.total_tasks, width=10)
-        lines.append(f"<b>Progress:</b> {bar}")
+        lines.append(f"<b>Прогресс:</b> {bar}")
         lines.append("")
 
     # Current task
     if data.current_task_id:
-        lines.append("<b>Current:</b>")
+        lines.append("<b>Текущая:</b>")
         title_display = data.current_task_title[:40]
         if len(data.current_task_title) > 40:
             title_display += "..."
         lines.append(f"  <code>{data.current_task_id}</code> {title_display}")
         lines.append("")
     elif data.in_progress_count > 0:
-        lines.append("<b>Current:</b>")
-        lines.append(f"  {data.in_progress_count} task(s) in progress")
+        lines.append("<b>Текущая:</b>")
+        lines.append(f"  {data.in_progress_count} задач в работе")
         lines.append("")
 
     # Session info
     if data.session_number > 0 or data.session_status != "idle":
-        lines.append("<b>Session:</b>")
+        lines.append("<b>Сессия:</b>")
 
         status_emoji = {
             "idle": "",
@@ -915,19 +915,19 @@ def format_status(data: StatusData) -> str:
             hours = data.elapsed_minutes // 60
             mins = data.elapsed_minutes % 60
             if hours > 0:
-                lines.append(f"  Duration: {hours}h {mins}m")
+                lines.append(f"  Длительность: {hours}ч {mins}м")
             else:
-                lines.append(f"  Duration: {mins}m")
+                lines.append(f"  Длительность: {mins}м")
         lines.append("")
 
     # Stale tasks warning
     if data.stale_count > 0:
-        lines.append(f"<b>Warning:</b> {data.stale_count} stale task(s)")
+        lines.append(f"<b>Предупреждение:</b> {data.stale_count} устаревших задач")
         lines.append("")
 
     # All tasks done celebration
     if data.todo_count == 0 and data.in_progress_count == 0 and data.done_count > 0:
-        lines.append("All tasks complete!")
+        lines.append("Все задачи выполнены!")
 
     return "\n".join(lines)
 
@@ -1021,10 +1021,10 @@ def format_next_task(
     }.get(priority.lower(), "")
 
     lines = [
-        "<b>Next Task</b>",
+        "<b>Следующая задача</b>",
         "",
         f"<code>{task_id}</code> {priority_emoji}{title}",
-        f"<b>Priority:</b> {priority}",
+        f"<b>Приоритет:</b> {priority}",
     ]
 
     # Add truncated description if available
@@ -1038,9 +1038,9 @@ def format_next_task(
     # Add queue count
     lines.append("")
     if total_todo > 1:
-        lines.append(f"{total_todo} tasks remaining in queue")
+        lines.append(f"{total_todo} задач осталось в очереди")
     else:
-        lines.append("This is the last task in queue")
+        lines.append("Это последняя задача в очереди")
 
     return "\n".join(lines)
 
@@ -1070,10 +1070,10 @@ def format_action_log(actions: list[dict]) -> str:
           tool_call: Updated task status
     """
     if not actions:
-        return "<b>Recent Actions</b>\n\nNo recent actions logged."
+        return "<b>Последние действия</b>\n\nДействия не зарегистрированы."
 
     lines = [
-        "<b>Recent Actions</b>",
+        "<b>Последние действия</b>",
         "",
     ]
 
@@ -1139,7 +1139,7 @@ def format_budget_status(
         $87.55 remaining (of $100 limit)
     """
     lines = [
-        "<b>Budget Status</b>",
+        "<b>Статус бюджета</b>",
         "",
     ]
 
@@ -1155,23 +1155,23 @@ def format_budget_status(
         filled = int((usage_pct / 100) * bar_width)
         bar = "|" * filled + " " * (bar_width - filled)
 
-        lines.append("<b>Context:</b>")
+        lines.append("<b>Контекст:</b>")
         lines.append(f"<code>[{bar}]</code> {usage_pct:.0f}%")
-        lines.append(f"  {total_used:,} / {max_tokens:,} tokens")
+        lines.append(f"  {total_used:,} / {max_tokens:,} токенов")
 
         # Mode indicator
         if mode == "critical":
-            lines.append("  Mode: CRITICAL")
+            lines.append("  Режим: КРИТИЧЕСКИЙ")
         elif mode == "compact":
-            lines.append("  Mode: COMPACT")
+            lines.append("  Режим: КОМПАКТНЫЙ")
         else:
-            lines.append(f"  Mode: {mode}")
+            lines.append(f"  Режим: {mode}")
 
         lines.append("")
 
     # Cost section
     if cost_stats:
-        lines.append("<b>Cost:</b>")
+        lines.append("<b>Стоимость:</b>")
 
         if "limit_usd" in cost_stats:
             # Budget with limit
@@ -1179,26 +1179,26 @@ def format_budget_status(
             limit = cost_stats.get("limit_usd", 0)
             remaining = cost_stats.get("remaining_usd", limit - spent)
 
-            lines.append(f"  ${spent:.2f} spent")
+            lines.append(f"  ${spent:.2f} потрачено")
             if limit > 0:
-                lines.append(f"  ${remaining:.2f} remaining (of ${limit:.2f} limit)")
+                lines.append(f"  ${remaining:.2f} осталось (из ${limit:.2f} лимита)")
 
                 # Add warning if over 80%
                 if spent / limit > 0.8:
-                    lines.append("  Over 80% of budget used")
+                    lines.append("  ⚠️ Использовано более 80% бюджета")
         else:
             # Just cost tracking without limit
             cost = cost_stats.get("cost_usd", 0)
             sessions = cost_stats.get("sessions", 0)
             tasks = cost_stats.get("tasks_completed", 0)
 
-            lines.append(f"  ${cost:.2f} this week")
+            lines.append(f"  ${cost:.2f} за эту неделю")
             if sessions > 0:
-                lines.append(f"  {sessions} sessions, {tasks} tasks completed")
+                lines.append(f"  {sessions} сессий, {tasks} задач завершено")
     else:
-        lines.append("<i>Cost tracking not configured</i>")
+        lines.append("<i>Отслеживание стоимости не настроено</i>")
         lines.append("")
-        lines.append("To enable, create <code>.agent/budget.json</code>:")
+        lines.append("Для включения создайте <code>.agent/budget.json</code>:")
         lines.append('<code>{"limit_usd": 100}</code>')
 
     return "\n".join(lines)

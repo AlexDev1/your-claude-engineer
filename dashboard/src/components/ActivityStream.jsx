@@ -19,14 +19,14 @@ import {
  * Activity type configuration
  */
 const ACTIVITY_TYPES = {
-  tool_call: { icon: Wrench, color: '#8b5cf6', label: 'Tool Call' },
-  file_change: { icon: FileCode, color: '#3b82f6', label: 'File Change' },
-  test_result: { icon: TestTube, color: '#eab308', label: 'Test Result' },
-  commit: { icon: GitCommit, color: '#22c55e', label: 'Commit' },
-  comment: { icon: MessageSquare, color: '#06b6d4', label: 'Comment' },
-  task_complete: { icon: CheckCircle, color: '#22c55e', label: 'Task Complete' },
-  task_failed: { icon: XCircle, color: '#ef4444', label: 'Task Failed' },
-  default: { icon: Activity, color: 'var(--color-accent)', label: 'Activity' },
+  tool_call: { icon: Wrench, color: '#8b5cf6', label: 'Вызов инструмента' },
+  file_change: { icon: FileCode, color: '#3b82f6', label: 'Изменение файла' },
+  test_result: { icon: TestTube, color: '#eab308', label: 'Результат теста' },
+  commit: { icon: GitCommit, color: '#22c55e', label: 'Коммит' },
+  comment: { icon: MessageSquare, color: '#06b6d4', label: 'Комментарий' },
+  task_complete: { icon: CheckCircle, color: '#22c55e', label: 'Задача завершена' },
+  task_failed: { icon: XCircle, color: '#ef4444', label: 'Задача не выполнена' },
+  default: { icon: Activity, color: 'var(--color-accent)', label: 'Активность' },
 }
 
 /**
@@ -61,7 +61,7 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
   }
 
   const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'Just now'
+    if (!timestamp) return 'Только что'
 
     const date = new Date(timestamp)
     const now = new Date()
@@ -69,9 +69,9 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffMins < 1) return 'Только что'
+    if (diffMins < 60) return `${diffMins} мин. назад`
+    if (diffHours < 24) return `${diffHours} ч. назад`
     return date.toLocaleDateString()
   }
 
@@ -108,7 +108,7 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
             className="font-semibold"
             style={{ color: 'var(--color-text)' }}
           >
-            Activity Stream
+            Поток активности
           </h3>
           <span
             className="text-xs px-2 py-0.5 rounded-full"
@@ -131,7 +131,7 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
               color: 'var(--color-textSecondary)',
               ringColor: 'var(--color-accent)',
             }}
-            title="Filter activities"
+            title="Фильтр активности"
           >
             <Filter className="w-4 h-4" />
           </button>
@@ -144,7 +144,7 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
               backgroundColor: autoScroll ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
               color: autoScroll ? '#22c55e' : 'var(--color-textSecondary)',
             }}
-            title={autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'}
+            title={autoScroll ? 'Автопрокрутка ВКЛ' : 'Автопрокрутка ВЫКЛ'}
           >
             {autoScroll ? (
               <ChevronUp className="w-4 h-4" />
@@ -162,7 +162,7 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
                 backgroundColor: 'transparent',
                 color: 'var(--color-textSecondary)',
               }}
-              title="Clear activities"
+              title="Очистить активность"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -184,7 +184,7 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
               color: filter === 'all' ? 'white' : 'var(--color-textSecondary)',
             }}
           >
-            All
+            Все
           </button>
           {uniqueTypes.map(type => {
             const config = getActivityConfig(type)
@@ -218,8 +218,8 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
             style={{ color: 'var(--color-textMuted)' }}
           >
             <Activity className="w-12 h-12 mb-2 opacity-50" />
-            <p className="text-sm">No activities yet</p>
-            <p className="text-xs mt-1">Activities will appear here in real-time</p>
+            <p className="text-sm">Пока нет активности</p>
+            <p className="text-xs mt-1">Активность будет отображаться здесь в реальном времени</p>
           </div>
         ) : (
           filteredActivities.map((activity, index) => {
@@ -346,10 +346,10 @@ function ActivityStream({ activities = [], onClear, maxItems = 50 }) {
         }}
       >
         <span>
-          Showing {filteredActivities.length} of {activities.length} activities
+          Показано {filteredActivities.length} из {activities.length} событий
         </span>
         <span>
-          {autoScroll ? 'Auto-scroll enabled' : 'Scroll manually'}
+          {autoScroll ? 'Автопрокрутка включена' : 'Ручная прокрутка'}
         </span>
       </div>
     </div>
