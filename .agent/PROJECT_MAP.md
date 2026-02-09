@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 09:21:18*
+*Auto-generated: 2026-02-09 09:41:46*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -88,11 +88,11 @@ your-claude-engineer/
 
 ## Recent Commits
 
-- `dfccecb` feat(ENG-63): add auto-PR creation via gh CLI on issue Done transition (77 секунд назад)
-- `7270cab` fix: escape {issue-id} in prompt templates to prevent KeyError (6 минут назад)
-- `1a09b70` chore: update memory and project map after ENG-62 (9 часов назад)
-- `55a9636` feat(ENG-62): add auto-push to GitHub after commit with lint-gate (9 часов назад)
-- `3925cb9` feat(ENG-70): add MCP timeout handling with exponential backoff (10 часов назад)
+- `f51faa8` feat(ENG-65): add GitHub commit status checks via gh CLI (45 секунд назад)
+- `4eb5743` fix(ENG-64): address code review feedback (6 минут назад)
+- `a5895f8` feat(ENG-64): add bidirectional GitHub Issues sync (12 минут назад)
+- `54f69f0` chore: update project map after ENG-63 (18 минут назад)
+- `dfccecb` feat(ENG-63): add auto-PR creation via gh CLI on issue Done transition (22 минуты назад)
 
 ## Import Graph (Hub Files)
 
