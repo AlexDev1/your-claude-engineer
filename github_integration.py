@@ -1509,6 +1509,13 @@ def get_github_config_status() -> dict[str, Any]:
 
 # =============================================================================
 # GitHub Issues Sync — Bidirectional (ENG-64)
+#
+# Labeling strategy:
+#   - "agent-synced" label is applied to every GitHub Issue managed by this sync.
+#     It identifies issues created/updated by the agent so they can be filtered
+#     and distinguished from manually-created issues.
+#   - State labels ("in-progress", "wontfix") are added alongside "agent-synced"
+#     to reflect the current Task MCP state on the GitHub side.
 # =============================================================================
 
 # Task MCP state -> GitHub Issue state + labels mapping
@@ -1517,12 +1524,6 @@ TASK_STATE_TO_GITHUB: dict[str, dict[str, Any]] = {
     "In Progress": {"state": "open", "labels": ["in-progress"]},
     "Done": {"state": "closed", "labels": []},
     "Canceled": {"state": "closed", "labels": ["wontfix"]},
-}
-
-# GitHub Issue state -> Task MCP state (reverse mapping for inbound sync)
-GITHUB_STATE_TO_TASK: dict[str, str] = {
-    "open": "In Progress",
-    "closed": "Done",
 }
 
 # Sync marker prefix embedded in GitHub Issue body for cross-referencing
@@ -1717,6 +1718,7 @@ def create_github_issue(
     ]
 
     if labels:
+        # gh CLI accepts comma-separated label names for --label
         cmd.extend(["--label", ",".join(labels)])
 
     try:
@@ -1804,8 +1806,8 @@ def update_github_issue(
         needs_edit = True
 
     if labels is not None:
-        # gh issue edit --add-label replaces; use remove then add for clean slate
-        # Simpler: use --add-label for each label after clearing
+        # --add-label appends to existing labels (does not replace them)
+        # gh CLI accepts comma-separated label names
         edit_cmd.extend(["--add-label", ",".join(labels)])
         needs_edit = True
 
