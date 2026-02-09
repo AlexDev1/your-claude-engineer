@@ -500,7 +500,7 @@ def main():
         project_dir = Path.cwd()
 
     if not project_dir.is_dir():
-        print(f"Error: {project_dir} is not a directory")
+        print(f"Ошибка: {project_dir} не является директорией")
         sys.exit(1)
 
     # Ensure .agent directory exists
@@ -508,15 +508,15 @@ def main():
     agent_dir.mkdir(exist_ok=True)
 
     # Generate the map
-    print(f"Generating project map for: {project_dir}")
+    print(f"Генерация карты проекта для: {project_dir}")
     map_content = generate_project_map(project_dir)
 
     # Write to .agent/PROJECT_MAP.md
     map_file = agent_dir / "PROJECT_MAP.md"
     map_file.write_text(map_content)
 
-    print(f"Project map written to: {map_file}")
-    print(f"Size: {len(map_content)} bytes")
+    print(f"Карта проекта записана в: {map_file}")
+    print(f"Размер: {len(map_content)} байт")
 
     return 0
 
