@@ -1536,3 +1536,113 @@ class TelegramReports:
             return dt.strftime("%H:%M")
         except (ValueError, TypeError):
             return escape_html(iso_timestamp)
+
+    # -----------------------------------------------------------------
+    # Error Alert (ENG-87)
+    # -----------------------------------------------------------------
+
+    def generate_error_alert(self, error_data: dict[str, object]) -> str:
+        """Generate an HTML error alert for Telegram.
+
+        Builds a structured error notification containing the error type,
+        message, file location, attempt counter, and chosen recovery action.
+        All user-supplied strings are HTML-escaped for XSS protection.
+        Sections with missing or empty data are omitted automatically.
+
+        Args:
+            error_data: Dictionary with error details containing:
+                - ``error_type`` (str): Exception class name,
+                  e.g. ``"MCPTimeoutError"``, ``"ValueError"``.
+                - ``message`` (str): Human-readable error description.
+                - ``file`` (str): Source file where the error occurred.
+                - ``line`` (int): Line number in the source file.
+                - ``attempt`` (int): Current attempt number.
+                - ``max_attempts`` (int): Maximum retry attempts allowed.
+                - ``action`` (str): Recovery action --
+                  ``"retry"``, ``"fallback"``, or ``"escalate"``.
+                - ``context`` (str): What the agent was doing when the
+                  error occurred, e.g. ``"Calling Task_ListIssues"``.
+
+        Returns:
+            HTML-formatted string ready for ``parse_mode="HTML"`` in
+            Telegram.
+
+        Example output::
+
+            <b>Warning: Ошибка</b>
+
+            <b>Тип:</b> MCPTimeoutError
+            <b>Сообщение:</b> Connection timeout after 30s
+
+            <b>Расположение:</b> <code>client.py:142</code>
+            <b>Контекст:</b> Calling Task_ListIssues
+
+            <b>Попытка:</b> 2/3
+            <b>Действие:</b> Repeat Повтор
+        """
+        error_type = str(error_data.get("error_type", "") or "")
+        message = str(error_data.get("message", "") or "")
+        file_path = str(error_data.get("file", "") or "")
+        line_number = int(error_data.get("line", 0) or 0)
+        attempt = int(error_data.get("attempt", 0) or 0)
+        max_attempts = int(error_data.get("max_attempts", 0) or 0)
+        action = str(error_data.get("action", "") or "")
+        context = str(error_data.get("context", "") or "")
+
+        lines: list[str] = ["\u26a0\ufe0f <b>Ошибка</b>"]
+
+        # -- Type section --
+        if error_type:
+            lines.append("")
+            lines.append(f"<b>Тип:</b> {escape_html(error_type)}")
+
+        # -- Message section --
+        if message:
+            lines.append(f"<b>Сообщение:</b> {escape_html(message)}")
+
+        # -- Location section --
+        if file_path:
+            lines.append("")
+            safe_file = escape_html(file_path)
+            if line_number > 0:
+                lines.append(
+                    f"<b>Расположение:</b> <code>{safe_file}:{line_number}</code>"
+                )
+            else:
+                lines.append(
+                    f"<b>Расположение:</b> <code>{safe_file}</code>"
+                )
+
+        # -- Context section --
+        if context:
+            lines.append(f"<b>Контекст:</b> {escape_html(context)}")
+
+        # -- Attempt section --
+        if attempt > 0 and max_attempts > 0:
+            lines.append("")
+            lines.append(f"<b>Попытка:</b> {attempt}/{max_attempts}")
+
+        # -- Action section --
+        action_label = self._get_action_label(action)
+        if action_label:
+            lines.append(f"<b>Действие:</b> {action_label}")
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _get_action_label(action: str) -> str:
+        """Map an action keyword to a localised label with icon.
+
+        Args:
+            action: One of ``"retry"``, ``"fallback"``, or ``"escalate"``.
+                    Empty string or unknown values return ``""``.
+
+        Returns:
+            Localised label like ``"Repeat Повтор"`` or empty string.
+        """
+        mapping: dict[str, str] = {
+            "retry": "\U0001f504 Повтор",
+            "fallback": "\u21a9\ufe0f Откат",
+            "escalate": "\U0001f6a8 Эскалация",
+        }
+        return mapping.get(action.lower(), "") if action else ""

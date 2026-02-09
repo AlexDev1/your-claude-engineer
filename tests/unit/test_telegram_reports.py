@@ -1,6 +1,6 @@
 """
-Tests for TelegramReports (ENG-85, ENG-86)
-============================================
+Tests for TelegramReports (ENG-85, ENG-86, ENG-87)
+=====================================================
 
 Verifies:
 1. Daily digest generation with all fields
@@ -13,6 +13,10 @@ Verifies:
 8. Session summary: time formatting (ENG-86)
 9. Session summary: token formatting with thousands separators (ENG-86)
 10. Session summary: XSS protection (ENG-86)
+11. Error alert: full report generation (ENG-87)
+12. Error alert: action labels with icons (ENG-87)
+13. Error alert: optional fields omitted when empty (ENG-87)
+14. Error alert: XSS protection (ENG-87)
 """
 
 import re
@@ -628,3 +632,269 @@ class TestSessionSummaryXssProtection:
             "retries": 2,
             "errors": ["MCP timeout"],
         }
+
+
+# ---------------------------------------------------------------------------
+# Error alert generation tests (ENG-87)
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateErrorAlert:
+    """Test TelegramReports.generate_error_alert."""
+
+    def setup_method(self) -> None:
+        """Create a TelegramReports instance for each test."""
+        self.reports = TelegramReports()
+
+    def _full_error_data(self) -> dict:
+        """Return a complete error data dictionary for reuse.
+
+        Returns:
+            Dict with all supported error_data keys populated.
+        """
+        return {
+            "error_type": "MCPTimeoutError",
+            "message": "Connection timeout after 30s",
+            "file": "client.py",
+            "line": 142,
+            "attempt": 2,
+            "max_attempts": 3,
+            "action": "retry",
+            "context": "Calling Task_ListIssues",
+        }
+
+    def test_full_alert_header(self) -> None:
+        """Full alert starts with the error header."""
+        result = self.reports.generate_error_alert(self._full_error_data())
+        assert "<b>Ошибка</b>" in result
+
+    def test_full_alert_error_type(self) -> None:
+        """Error type is shown."""
+        result = self.reports.generate_error_alert(self._full_error_data())
+        assert "<b>Тип:</b> MCPTimeoutError" in result
+
+    def test_full_alert_message(self) -> None:
+        """Error message is shown."""
+        result = self.reports.generate_error_alert(self._full_error_data())
+        assert "<b>Сообщение:</b> Connection timeout after 30s" in result
+
+    def test_full_alert_location_with_line(self) -> None:
+        """Location shows file:line format."""
+        result = self.reports.generate_error_alert(self._full_error_data())
+        assert "<b>Расположение:</b> <code>client.py:142</code>" in result
+
+    def test_full_alert_context(self) -> None:
+        """Context is shown."""
+        result = self.reports.generate_error_alert(self._full_error_data())
+        assert "<b>Контекст:</b> Calling Task_ListIssues" in result
+
+    def test_full_alert_attempt(self) -> None:
+        """Attempt counter shows current/max."""
+        result = self.reports.generate_error_alert(self._full_error_data())
+        assert "<b>Попытка:</b> 2/3" in result
+
+    def test_full_alert_action_retry(self) -> None:
+        """Retry action shows correct icon and label."""
+        result = self.reports.generate_error_alert(self._full_error_data())
+        assert "<b>Действие:</b>" in result
+        assert "Повтор" in result
+
+    def test_action_fallback(self) -> None:
+        """Fallback action shows correct icon and label."""
+        data = self._full_error_data()
+        data["action"] = "fallback"
+        result = self.reports.generate_error_alert(data)
+        assert "Откат" in result
+
+    def test_action_escalate(self) -> None:
+        """Escalate action shows correct icon and label."""
+        data = self._full_error_data()
+        data["action"] = "escalate"
+        result = self.reports.generate_error_alert(data)
+        assert "Эскалация" in result
+
+    def test_action_case_insensitive(self) -> None:
+        """Action matching is case-insensitive."""
+        data = self._full_error_data()
+        data["action"] = "RETRY"
+        result = self.reports.generate_error_alert(data)
+        assert "Повтор" in result
+
+    def test_unknown_action_omitted(self) -> None:
+        """Unknown action value does not produce an action line."""
+        data = self._full_error_data()
+        data["action"] = "unknown_action"
+        result = self.reports.generate_error_alert(data)
+        assert "Действие" not in result
+
+    def test_no_file_no_location_section(self) -> None:
+        """Location section omitted when file is empty."""
+        data = {
+            "error_type": "ValueError",
+            "message": "Invalid input",
+            "attempt": 1,
+            "max_attempts": 3,
+            "action": "retry",
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "Расположение" not in result
+
+    def test_file_without_line(self) -> None:
+        """Location shown without line number when line is 0."""
+        data = {
+            "error_type": "ImportError",
+            "message": "Module not found",
+            "file": "agent.py",
+            "line": 0,
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "<b>Расположение:</b> <code>agent.py</code>" in result
+        # No "agent.py:NNN" pattern -- just plain "agent.py"
+        assert "agent.py:" not in result
+
+    def test_empty_error_data(self) -> None:
+        """Empty dict produces only the header without crashing."""
+        result = self.reports.generate_error_alert({})
+        assert "<b>Ошибка</b>" in result
+        assert "Тип" not in result
+        assert "Сообщение" not in result
+        assert "Расположение" not in result
+        assert "Попытка" not in result
+        assert "Действие" not in result
+
+    def test_none_values_treated_as_defaults(self) -> None:
+        """None values for optional fields default safely."""
+        data = {
+            "error_type": None,
+            "message": None,
+            "file": None,
+            "line": None,
+            "attempt": None,
+            "max_attempts": None,
+            "action": None,
+            "context": None,
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "<b>Ошибка</b>" in result
+
+    def test_no_attempt_section_when_zero(self) -> None:
+        """Attempt section omitted when attempt or max_attempts is 0."""
+        data = {
+            "error_type": "RuntimeError",
+            "message": "Something broke",
+            "attempt": 0,
+            "max_attempts": 0,
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "Попытка" not in result
+
+    def test_context_omitted_when_empty(self) -> None:
+        """Context section omitted when context is empty string."""
+        data = {
+            "error_type": "ValueError",
+            "message": "Bad value",
+            "context": "",
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "Контекст" not in result
+
+
+# ---------------------------------------------------------------------------
+# Error alert: XSS protection (ENG-87)
+# ---------------------------------------------------------------------------
+
+
+class TestErrorAlertXssProtection:
+    """Test that user-supplied data in error alerts is HTML-escaped."""
+
+    def setup_method(self) -> None:
+        """Create a TelegramReports instance for each test."""
+        self.reports = TelegramReports()
+
+    def test_xss_in_error_type(self) -> None:
+        """HTML in error_type is escaped."""
+        data = {"error_type": "<script>alert(1)</script>"}
+        result = self.reports.generate_error_alert(data)
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+
+    def test_xss_in_message(self) -> None:
+        """HTML in message is escaped."""
+        data = {
+            "error_type": "Error",
+            "message": '<img src=x onerror="alert(1)">',
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "<img" not in result
+        assert "&lt;img" in result
+
+    def test_xss_in_file(self) -> None:
+        """HTML in file path is escaped."""
+        data = {
+            "error_type": "Error",
+            "file": '<script>alert("xss")</script>',
+            "line": 1,
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+
+    def test_xss_in_context(self) -> None:
+        """HTML in context is escaped."""
+        data = {
+            "error_type": "Error",
+            "context": "<b>evil</b> injection",
+        }
+        result = self.reports.generate_error_alert(data)
+        # The literal <b>evil</b> should be escaped, not rendered as bold
+        assert "&lt;b&gt;evil&lt;/b&gt;" in result
+
+    def test_ampersand_in_message(self) -> None:
+        """Ampersands in message are properly escaped."""
+        data = {
+            "error_type": "Error",
+            "message": "x < y && z > w",
+        }
+        result = self.reports.generate_error_alert(data)
+        assert "&amp;&amp;" in result
+        assert "&lt;" in result
+        assert "&gt;" in result
+
+    def test_only_allowed_tags_in_error_alert(self) -> None:
+        """Error alert uses only Telegram-allowed HTML tags."""
+        data = {
+            "error_type": "MCPTimeoutError",
+            "message": "Connection timeout",
+            "file": "client.py",
+            "line": 142,
+            "attempt": 2,
+            "max_attempts": 3,
+            "action": "retry",
+            "context": "Calling MCP",
+        }
+        result = self.reports.generate_error_alert(data)
+        used_tags = _extract_tags(result)
+        assert used_tags.issubset(ALLOWED_TAGS), (
+            f"Found disallowed tags: {used_tags - ALLOWED_TAGS}"
+        )
+
+    def test_tags_properly_closed_in_error_alert(self) -> None:
+        """Every opening tag in error alert has a matching close."""
+        data = {
+            "error_type": "MCPTimeoutError",
+            "message": "Connection timeout",
+            "file": "client.py",
+            "line": 142,
+            "attempt": 2,
+            "max_attempts": 3,
+            "action": "retry",
+            "context": "Calling MCP",
+        }
+        result = self.reports.generate_error_alert(data)
+
+        for tag in _extract_tags(result):
+            open_count = result.count(f"<{tag}>") + result.count(f"<{tag} ")
+            close_count = result.count(f"</{tag}>")
+            assert open_count == close_count, (
+                f"Tag <{tag}> opened {open_count} but closed {close_count} times"
+            )
