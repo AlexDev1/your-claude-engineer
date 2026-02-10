@@ -228,3 +228,29 @@ def get_coding_tools() -> list[str]:
 def get_reviewer_tools() -> list[str]:
     """Get tools for reviewer agent (read-only file ops + git diff)."""
     return ["Read", "Glob", "Grep", "Bash"]
+
+
+def get_devops_tools() -> list[str]:
+    """Get tools for DevOps agent (file ops + bash for Docker/CI/CD)."""
+    return ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+
+
+def get_testing_tools() -> list[str]:
+    """Get tools for testing agent (file ops + bash + Playwright for E2E)."""
+    builtin_tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
+    return builtin_tools + PLAYWRIGHT_TOOLS
+
+
+def get_security_tools() -> list[str]:
+    """Get tools for security agent (read + bash for scanning tools)."""
+    return ["Read", "Glob", "Grep", "Bash"]
+
+
+def get_research_tools() -> list[str]:
+    """Get tools for research agent (read-only analysis)."""
+    return ["Read", "Glob", "Grep"]
+
+
+def get_planner_tools() -> list[str]:
+    """Get tools for planner agent (read + Task MCP for subtask creation)."""
+    return ["Read", "Glob", "Grep"] + TASK_TOOLS

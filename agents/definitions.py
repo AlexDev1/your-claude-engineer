@@ -23,6 +23,11 @@ from mcp_config import (
     get_telegram_tools,
     get_coding_tools,
     get_reviewer_tools,
+    get_devops_tools,
+    get_testing_tools,
+    get_security_tools,
+    get_research_tools,
+    get_planner_tools,
 )
 
 # File tools needed by multiple agents
@@ -42,6 +47,11 @@ DEFAULT_MODELS: Final[dict[str, ModelOption]] = {
     "coding": "sonnet",
     "telegram": "haiku",
     "reviewer": "haiku",
+    "devops": "haiku",
+    "testing": "sonnet",
+    "security": "haiku",
+    "research": "haiku",
+    "planner": "sonnet",
 }
 
 
@@ -178,6 +188,36 @@ def create_agent_definitions() -> dict[str, AgentDefinition]:
             tools=get_reviewer_tools(),
             model=_get_model("reviewer"),
         ),
+        "devops": AgentDefinition(
+            description="Manages CI/CD pipelines, Docker, deployment, and infrastructure. Use for DevOps operations.",
+            prompt=_load_prompt("devops_agent_prompt"),
+            tools=get_devops_tools(),
+            model=_get_model("devops"),
+        ),
+        "testing": AgentDefinition(
+            description="Writes and runs tests (unit, integration, E2E). Dedicated testing agent. Use for test creation and execution.",
+            prompt=_load_prompt("testing_agent_prompt"),
+            tools=get_testing_tools(),
+            model=_get_model("testing"),
+        ),
+        "security": AgentDefinition(
+            description="Performs security auditing, dependency scanning, and vulnerability detection. Use for security reviews.",
+            prompt=_load_prompt("security_agent_prompt"),
+            tools=get_security_tools(),
+            model=_get_model("security"),
+        ),
+        "research": AgentDefinition(
+            description="Investigates codebase, documentation, and libraries before implementation. Use for pre-coding research.",
+            prompt=_load_prompt("research_agent_prompt"),
+            tools=get_research_tools(),
+            model=_get_model("research"),
+        ),
+        "planner": AgentDefinition(
+            description="Analyzes tasks, creates implementation plans, and decomposes complex tasks into subtasks. Use for task planning.",
+            prompt=_load_prompt("planner_agent_prompt"),
+            tools=get_planner_tools(),
+            model=_get_model("planner"),
+        ),
     }
 
 
@@ -189,3 +229,8 @@ TASK_AGENT = AGENT_DEFINITIONS["task"]
 TELEGRAM_AGENT = AGENT_DEFINITIONS["telegram"]
 CODING_AGENT = AGENT_DEFINITIONS["coding"]
 REVIEWER_AGENT = AGENT_DEFINITIONS["reviewer"]
+DEVOPS_AGENT = AGENT_DEFINITIONS["devops"]
+TESTING_AGENT = AGENT_DEFINITIONS["testing"]
+SECURITY_AGENT = AGENT_DEFINITIONS["security"]
+RESEARCH_AGENT = AGENT_DEFINITIONS["research"]
+PLANNER_AGENT = AGENT_DEFINITIONS["planner"]
