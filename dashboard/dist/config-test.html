@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ENG-25: Centralized Config</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #00d4ff;
+            border-bottom: 2px solid #00d4ff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #ff6b6b;
+            margin-top: 30px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .badge-development {
+            background: #2d5a3d;
+            color: #4ade80;
+        }
+        .badge-staging {
+            background: #5a4a2d;
+            color: #fbbf24;
+        }
+        .badge-production {
+            background: #5a2d2d;
+            color: #f87171;
+        }
+        pre {
+            background: #16213e;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #333;
+            line-height: 1.6;
+        }
+        .section {
+            margin-bottom: 24px;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .status-ok {
+            background: #1a3a2a;
+            border: 1px solid #4ade80;
+            color: #4ade80;
+        }
+        .tests {
+            background: #1a2a3a;
+            border: 1px solid #60a5fa;
+            color: #60a5fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .meta {
+            color: #888;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>ENG-25: Centralized Config
+        <span class="badge badge-development">DEVELOPMENT</span>
+    </h1>
+
+    <div class="status status-ok">
+        Configuration loaded and validated successfully via Pydantic Settings.
+    </div>
+
+    <div class="tests">
+        Validation tests: 13/13 passed (URL format, enum values, bounds, secrets masking, derived properties)
+    </div>
+
+    <div class="section">
+        <h2>Config Dump (Text)</h2>
+        <pre>============================================================
+  Configuration Dump
+============================================================
+  Environment: development
+
+  environment: development
+  task_mcp_url: https://mcp.axoncode.pro/task/sse
+  telegram_mcp_url: https://mcp.axoncode.pro/telegram/sse
+  mcp_api_key: ***5f25
+  orchestrator_model: opus
+  task_agent_model: haiku
+  coding_agent_model: opus
+  telegram_agent_model: haiku
+  generations_base_path: /Users/yourname/projects/ai-generations
+  health_check_max_retries: 3
+  health_check_retry_delay_seconds: 30
+  heartbeat_interval_minutes: 5
+  stale_threshold_hours: 2.0
+  heartbeat_team: 
+  telegram_bot_token: ***UbNM
+  telegram_chat_id: 299973428
+  daily_digest_hour: 18
+  weekly_summary_day: 4
+  github_token: (not set)
+  github_repo: 
+  github_base_branch: main
+  github_reviewers: 
+  github_issues_sync: False
+  max_context_tokens: 180000
+  analytics_api_url: http://localhost:8003
+  backup_retention_days: 30
+
+============================================================</pre>
+    </div>
+
+    <div class="section">
+        <h2>Config Dump (JSON)</h2>
+        <pre>{
+  &quot;environment&quot;: &quot;development&quot;,
+  &quot;task_mcp_url&quot;: &quot;https://mcp.axoncode.pro/task/sse&quot;,
+  &quot;telegram_mcp_url&quot;: &quot;https://mcp.axoncode.pro/telegram/sse&quot;,
+  &quot;mcp_api_key&quot;: &quot;***5f25&quot;,
+  &quot;orchestrator_model&quot;: &quot;opus&quot;,
+  &quot;task_agent_model&quot;: &quot;haiku&quot;,
+  &quot;coding_agent_model&quot;: &quot;opus&quot;,
+  &quot;telegram_agent_model&quot;: &quot;haiku&quot;,
+  &quot;generations_base_path&quot;: &quot;/Users/yourname/projects/ai-generations&quot;,
+  &quot;health_check_max_retries&quot;: 3,
+  &quot;health_check_retry_delay_seconds&quot;: 30,
+  &quot;heartbeat_interval_minutes&quot;: 5,
+  &quot;stale_threshold_hours&quot;: 2.0,
+  &quot;heartbeat_team&quot;: &quot;&quot;,
+  &quot;telegram_bot_token&quot;: &quot;***UbNM&quot;,
+  &quot;telegram_chat_id&quot;: &quot;299973428&quot;,
+  &quot;daily_digest_hour&quot;: 18,
+  &quot;weekly_summary_day&quot;: 4,
+  &quot;github_token&quot;: &quot;&quot;,
+  &quot;github_repo&quot;: &quot;&quot;,
+  &quot;github_base_branch&quot;: &quot;main&quot;,
+  &quot;github_reviewers&quot;: &quot;&quot;,
+  &quot;github_issues_sync&quot;: false,
+  &quot;max_context_tokens&quot;: 180000,
+  &quot;analytics_api_url&quot;: &quot;http://localhost:8003&quot;,
+  &quot;backup_retention_days&quot;: 30
+}</pre>
+    </div>
+
+    <div class="section">
+        <h2>Derived Properties</h2>
+        <pre>orchestrator_model_id: claude-opus-4-5-20251101
+is_production: False
+is_development: True
+telegram_configured: True
+mcp_auth_headers: True
+github_reviewers_list: []</pre>
+    </div>
+
+    <p class="meta">
+        Generated by test_config_html.py | config.py module (ENG-25)
+    </p>
+</body>
+</html>

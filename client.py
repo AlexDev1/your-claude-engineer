@@ -97,6 +97,37 @@ def calculate_backoff(
     return max(0.0, backoff + jitter)
 
 
+async def subagent_start_hook(input: dict[str, Any], tool_use_id: str | None, context: dict[str, Any]) -> dict[str, Any]:
+    """
+    Логирует запуск субагента для аудита.
+
+    Args:
+        input: Данные хука (ожидает SubagentStartHookInput)
+        tool_use_id: Не используется для этого события
+        context: Контекст хука (резерв)
+    """
+    agent_id = input.get("agent_id", "unknown")
+    agent_type = input.get("agent_type", "unknown")
+    logger.info("Subagent started: id=%s type=%s", agent_id, agent_type)
+    return {}  # Продолжить выполнение без изменений
+
+
+async def subagent_stop_hook(input: dict[str, Any], tool_use_id: str | None, context: dict[str, Any]) -> dict[str, Any]:
+    """
+    Логирует завершение субагента и путь к транскрипту.
+
+    Args:
+        input: Данные хука (ожидает SubagentStopHookInput)
+        tool_use_id: Не используется для этого события
+        context: Контекст хука (резерв)
+    """
+    agent_id = input.get("agent_id", "unknown")
+    agent_type = input.get("agent_type", "unknown")
+    transcript = input.get("agent_transcript_path", "n/a")
+    logger.info("Subagent stopped: id=%s type=%s transcript=%s", agent_id, agent_type, transcript)
+    return {}  # Продолжить выполнение без изменений
+
+
 async def call_mcp_tool_with_retry(
     tool_name: str,
     call_fn: Callable[..., Coroutine[Any, Any, T]],
@@ -420,6 +451,16 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
                     HookMatcher(
                         matcher="Bash",
                         hooks=[cast(HookCallback, bash_security_hook)],
+                    ),
+                ],
+                "SubagentStart": [
+                    HookMatcher(
+                        hooks=[cast(HookCallback, subagent_start_hook)],
+                    ),
+                ],
+                "SubagentStop": [
+                    HookMatcher(
+                        hooks=[cast(HookCallback, subagent_stop_hook)],
                     ),
                 ],
             },
