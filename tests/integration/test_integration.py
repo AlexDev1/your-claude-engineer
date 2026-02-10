@@ -572,7 +572,7 @@ class TestTelegramIntegration:
             highlights=["Completed auth feature", "Fixed login bug"]
         )
 
-        assert "Daily Digest" in digest
+        assert "Дайджест за день" in digest
         assert "5" in digest  # completed count
         assert "3" in digest  # in progress count
         assert "10" in digest  # todo count
@@ -592,7 +592,7 @@ class TestTelegramIntegration:
             status="completed"
         )
 
-        assert "Session Summary" in summary
+        assert "Итоги сессии" in summary
         assert "ENG-123" in summary
         assert "45" in summary  # duration
 
@@ -610,7 +610,7 @@ class TestTelegramIntegration:
             phase="implement"
         )
 
-        assert "Error Alert" in alert
+        assert "Оповещение об ошибке" in alert
         assert "SYNTAX" in alert
         assert "42" in alert  # line number
         assert "ENG-456" in alert
@@ -630,7 +630,7 @@ class TestTelegramIntegration:
             elapsed_minutes=30
         )
 
-        assert "Status" in status
+        assert "Статус" in status
         assert "5" in status  # todo count
         assert "2" in status  # in progress count
         assert "10" in status  # done count
