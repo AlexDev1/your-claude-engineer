@@ -3,7 +3,7 @@
 #
 # Test and development commands
 
-.PHONY: help test test-api test-e2e test-agent test-security test-all coverage lint format clean dev preflight diagnose
+.PHONY: help test test-unit test-api test-e2e test-agent test-security test-all coverage lint format clean dev preflight diagnose
 
 # Default target
 help:
@@ -24,54 +24,53 @@ help:
 
 # Run preflight checks
 preflight:
-	python preflight.py
+	.venv/bin/python -m axon_agent.tools.preflight
 
 # Run self-diagnostics
 diagnose:
-	python self_diagnostics.py
+	.venv/bin/python -m axon_agent.tools.diagnostics
 
 # Install dependencies
 install:
-	pip install -r requirements.txt
-	pip install -r analytics_server/requirements.txt
-	pip install pytest pytest-cov pytest-asyncio pytest-playwright httpx
+	uv pip install -e ".[dev]"
 	cd dashboard && npm install
 	playwright install chromium
 
 # Run all tests
-test: test-api test-agent test-security
+test: test-unit test-api test-agent test-security
 	@echo "All tests completed"
+
+# Run unit tests
+test-unit:
+	@echo "Running unit tests..."
+	.venv/bin/pytest tests/unit/ -v --tb=short
 
 # Run API tests
 test-api:
 	@echo "Running API tests..."
-	pytest tests/api/ -v --tb=short
+	.venv/bin/pytest tests/api/ -v --tb=short
 
 # Run E2E tests (requires running servers)
 test-e2e:
 	@echo "Running E2E tests..."
 	@echo "Make sure dashboard (port 5173) and API (port 8003) are running"
-	HEADLESS=true pytest tests/e2e/ -v --tb=short
+	HEADLESS=true .venv/bin/pytest tests/e2e/ -v --tb=short
 
 # Run agent integration tests
 test-agent:
 	@echo "Running agent integration tests..."
-	pytest tests/integration/ -v --tb=short
+	.venv/bin/pytest tests/integration/ -v --tb=short
 
 # Run security tests
 test-security:
 	@echo "Running security tests..."
-	python test_security.py
-	pytest test_github_integration.py -v
+	.venv/bin/pytest tests/unit/test_security.py tests/unit/test_github_integration.py -v
 
 # Run all tests with coverage
 coverage:
 	@echo "Running tests with coverage..."
-	pytest tests/api/ tests/integration/ -v \
-		--cov=analytics_server \
-		--cov=agents \
-		--cov=agent \
-		--cov=security \
+	.venv/bin/pytest tests/ -v \
+		--cov=src/axon_agent \
 		--cov-report=term-missing \
 		--cov-report=html:htmlcov \
 		--cov-fail-under=80
@@ -80,21 +79,21 @@ coverage:
 # Run linters
 lint:
 	@echo "Running linters..."
-	-ruff check .
-	-mypy analytics_server/ agents/ --ignore-missing-imports
+	-.venv/bin/ruff check src/
+	-.venv/bin/mypy src/axon_agent/ --ignore-missing-imports
 
 # Format code
 format:
 	@echo "Formatting code..."
-	-ruff format .
-	-isort .
+	-.venv/bin/ruff format .
+	-.venv/bin/ruff check --fix .
 
 # Clean up
 clean:
 	@echo "Cleaning up..."
 	rm -rf __pycache__ .pytest_cache htmlcov .coverage
-	rm -rf tests/__pycache__ tests/api/__pycache__ tests/e2e/__pycache__ tests/integration/__pycache__
-	rm -rf analytics_server/__pycache__ agents/__pycache__
+	rm -rf tests/__pycache__ tests/api/__pycache__ tests/e2e/__pycache__ tests/integration/__pycache__ tests/unit/__pycache__
+	rm -rf src/axon_agent/__pycache__
 	rm -rf dashboard/dist dashboard/node_modules/.cache
 	find . -name "*.pyc" -delete
 	find . -name ".DS_Store" -delete
@@ -106,12 +105,12 @@ dev:
 	@echo "Dashboard:  http://localhost:5173"
 	@echo ""
 	@echo "Run in separate terminals:"
-	@echo "  Terminal 1: python -m analytics_server.server"
+	@echo "  Terminal 1: .venv/bin/python -m axon_agent.dashboard.api"
 	@echo "  Terminal 2: cd dashboard && npm run dev"
 
 # Start API server only
 dev-api:
-	python -m analytics_server.server
+	.venv/bin/python -m axon_agent.dashboard.api
 
 # Start dashboard only
 dev-dashboard:
@@ -120,14 +119,14 @@ dev-dashboard:
 # Run E2E tests with visible browser
 test-e2e-headed:
 	@echo "Running E2E tests with visible browser..."
-	HEADLESS=false SLOW_MO=500 pytest tests/e2e/ -v -x --tb=short
+	HEADLESS=false SLOW_MO=500 .venv/bin/pytest tests/e2e/ -v -x --tb=short
 
 # Quick test (fast feedback)
 test-quick:
 	@echo "Running quick tests..."
-	pytest tests/api/test_analytics_api.py::TestHealthEndpoint -v
-	pytest tests/api/test_issues_api.py::TestListIssues -v
+	.venv/bin/pytest tests/api/test_analytics_api.py::TestHealthEndpoint -v
+	.venv/bin/pytest tests/api/test_issues_api.py::TestListIssues -v
 
 # CI test command (used in GitHub Actions)
 test-ci:
-	pytest tests/api/ tests/integration/ -v --tb=short --cov=analytics_server --cov-report=xml
+	.venv/bin/pytest tests/api/ tests/integration/ tests/unit/ -v --tb=short --cov=src/axon_agent --cov-report=xml

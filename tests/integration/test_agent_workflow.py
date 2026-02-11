@@ -19,9 +19,6 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from pathlib import Path
 from datetime import datetime
 
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 
 class TestAgentSessionFlow:
     """Tests for agent session execution flow."""
@@ -51,14 +48,14 @@ class TestAgentSessionFlow:
 
     def test_agent_module_imports(self):
         """Agent module imports successfully."""
-        from agent import (
+        from axon_agent.core.session import (
             run_agent_session,
-            run_autonomous_agent,
             SessionResult,
             SESSION_CONTINUE,
             SESSION_ERROR,
             SESSION_COMPLETE,
         )
+        from axon_agent.core.runner import run_autonomous_agent
 
         assert SessionResult is not None
         assert SESSION_CONTINUE == "continue"
@@ -67,7 +64,7 @@ class TestAgentSessionFlow:
 
     def test_session_result_creation(self):
         """SessionResult can be created with valid status."""
-        from agent import SessionResult
+        from axon_agent.core.session import SessionResult
 
         result = SessionResult(status="continue", response="Test response")
         assert result.status == "continue"
@@ -76,12 +73,12 @@ class TestAgentSessionFlow:
     @pytest.mark.asyncio
     async def test_agent_session_handles_error(self, mock_project_dir, mock_claude_client):
         """Agent session handles errors gracefully."""
-        from agent import run_agent_session, SESSION_ERROR
+        from axon_agent.core.session import run_agent_session, SESSION_ERROR
 
         # Make query raise an exception
         mock_claude_client.query.side_effect = Exception("Test error")
 
-        with patch("agent.create_client", return_value=mock_claude_client):
+        with patch("axon_agent.core.client.create_client", return_value=mock_claude_client):
             result = await run_agent_session(
                 mock_claude_client,
                 "Test message",
@@ -97,7 +94,7 @@ class TestContextManager:
 
     def test_context_manager_imports(self):
         """Context manager imports successfully."""
-        from context_manager import (
+        from axon_agent.core.context import (
             ContextManager,
             get_context_manager,
             estimate_tokens,
@@ -108,7 +105,7 @@ class TestContextManager:
 
     def test_estimate_tokens(self):
         """Token estimation works correctly."""
-        from context_manager import estimate_tokens
+        from axon_agent.core.context import estimate_tokens
 
         # Approximately 4 chars per token
         text = "a" * 400
@@ -117,7 +114,7 @@ class TestContextManager:
 
     def test_context_manager_singleton(self):
         """Context manager is a singleton."""
-        from context_manager import get_context_manager
+        from axon_agent.core.context import get_context_manager
 
         cm1 = get_context_manager()
         cm2 = get_context_manager()
@@ -126,7 +123,7 @@ class TestContextManager:
 
     def test_context_manager_stats(self):
         """Context manager provides stats."""
-        from context_manager import get_context_manager
+        from axon_agent.core.context import get_context_manager
 
         cm = get_context_manager()
         cm.reset()
@@ -144,23 +141,33 @@ class TestAgentDefinitions:
 
     def test_agent_definitions_import(self):
         """Agent definitions import successfully."""
-        from agents.definitions import (
+        from axon_agent.agents.definitions import (
             AGENT_DEFINITIONS,
             TASK_AGENT,
             CODING_AGENT,
             TELEGRAM_AGENT,
             REVIEWER_AGENT,
+            DEVOPS_AGENT,
+            TESTING_AGENT,
+            SECURITY_AGENT,
+            RESEARCH_AGENT,
+            PLANNER_AGENT,
         )
 
-        assert len(AGENT_DEFINITIONS) == 4
+        assert len(AGENT_DEFINITIONS) == 9
         assert "task" in AGENT_DEFINITIONS
         assert "coding" in AGENT_DEFINITIONS
         assert "telegram" in AGENT_DEFINITIONS
         assert "reviewer" in AGENT_DEFINITIONS
+        assert "devops" in AGENT_DEFINITIONS
+        assert "testing" in AGENT_DEFINITIONS
+        assert "security" in AGENT_DEFINITIONS
+        assert "research" in AGENT_DEFINITIONS
+        assert "planner" in AGENT_DEFINITIONS
 
     def test_agent_has_required_fields(self):
         """Each agent has required fields."""
-        from agents.definitions import AGENT_DEFINITIONS
+        from axon_agent.agents.definitions import AGENT_DEFINITIONS
 
         for name, agent in AGENT_DEFINITIONS.items():
             assert hasattr(agent, "description")
@@ -170,7 +177,7 @@ class TestAgentDefinitions:
 
     def test_coding_agent_has_file_tools(self):
         """Coding agent has file operation tools."""
-        from agents.definitions import CODING_AGENT
+        from axon_agent.agents.definitions import CODING_AGENT
 
         tools = CODING_AGENT.tools
         assert "Read" in tools
@@ -179,7 +186,7 @@ class TestAgentDefinitions:
 
     def test_coding_agent_has_playwright_tools(self):
         """Coding agent has Playwright tools."""
-        from agents.definitions import CODING_AGENT
+        from axon_agent.agents.definitions import CODING_AGENT
 
         tools = CODING_AGENT.tools
         playwright_tools = [t for t in tools if "playwright" in t.lower()]
@@ -187,7 +194,7 @@ class TestAgentDefinitions:
 
     def test_model_configuration(self):
         """Model configuration works correctly."""
-        from agents.definitions import _get_model, DEFAULT_MODELS
+        from axon_agent.agents.definitions import _get_model, DEFAULT_MODELS
 
         # Default model for task agent
         model = _get_model("task")
@@ -203,7 +210,7 @@ class TestMCPConfiguration:
 
     def test_mcp_config_import(self):
         """MCP config imports successfully."""
-        from mcp_config import (
+        from axon_agent.mcp.config import (
             TASK_TOOLS,
             TELEGRAM_TOOLS,
             PLAYWRIGHT_TOOLS,
@@ -218,28 +225,28 @@ class TestMCPConfiguration:
 
     def test_task_tools_format(self):
         """Task tools have correct format."""
-        from mcp_config import TASK_TOOLS
+        from axon_agent.mcp.config import TASK_TOOLS
 
         for tool in TASK_TOOLS:
             assert tool.startswith("mcp__task__")
 
     def test_telegram_tools_format(self):
         """Telegram tools have correct format."""
-        from mcp_config import TELEGRAM_TOOLS
+        from axon_agent.mcp.config import TELEGRAM_TOOLS
 
         for tool in TELEGRAM_TOOLS:
             assert tool.startswith("mcp__telegram__")
 
     def test_playwright_tools_format(self):
         """Playwright tools have correct format."""
-        from mcp_config import PLAYWRIGHT_TOOLS
+        from axon_agent.mcp.config import PLAYWRIGHT_TOOLS
 
         for tool in PLAYWRIGHT_TOOLS:
             assert tool.startswith("mcp__playwright__")
 
     def test_coding_tools_includes_builtin(self):
         """Coding tools include built-in tools."""
-        from mcp_config import get_coding_tools
+        from axon_agent.mcp.config import get_coding_tools
 
         tools = get_coding_tools()
         assert "Read" in tools
@@ -252,7 +259,7 @@ class TestPrompts:
 
     def test_prompts_import(self):
         """Prompts module imports successfully."""
-        from prompts import (
+        from axon_agent.core.prompts import (
             get_execute_task_with_memory,
             get_continuation_task_with_memory,
         )
@@ -262,7 +269,7 @@ class TestPrompts:
 
     def test_execute_task_prompt_generation(self, tmp_path):
         """Execute task prompt is generated correctly."""
-        from prompts import get_execute_task_with_memory
+        from axon_agent.core.prompts import get_execute_task_with_memory
 
         # Create a temp project dir with memory file
         project_dir = tmp_path / "project"
@@ -278,7 +285,7 @@ class TestPrompts:
 
     def test_continuation_prompt_generation(self, tmp_path):
         """Continuation prompt is generated correctly."""
-        from prompts import get_continuation_task_with_memory
+        from axon_agent.core.prompts import get_continuation_task_with_memory
 
         # Create a temp project dir with memory file
         project_dir = tmp_path / "project"
@@ -298,7 +305,7 @@ class TestSecurityValidation:
 
     def test_security_import(self):
         """Security module imports successfully."""
-        from security import (
+        from axon_agent.security.hooks import (
             bash_security_hook,
             validate_git_command,
             validate_chmod_command,
@@ -310,7 +317,7 @@ class TestSecurityValidation:
 
     def test_validation_result(self):
         """ValidationResult works correctly."""
-        from security import ValidationResult
+        from axon_agent.security.hooks import ValidationResult
 
         allowed = ValidationResult(allowed=True, reason="")
         assert allowed.allowed is True
@@ -322,7 +329,7 @@ class TestSecurityValidation:
     @pytest.mark.asyncio
     async def test_bash_hook_allows_safe_commands(self):
         """Bash hook allows safe commands."""
-        from security import bash_security_hook
+        from axon_agent.security.hooks import bash_security_hook
 
         input_data = {
             "session_id": "test",
@@ -339,7 +346,7 @@ class TestSecurityValidation:
     @pytest.mark.asyncio
     async def test_bash_hook_blocks_dangerous_commands(self):
         """Bash hook blocks dangerous commands."""
-        from security import bash_security_hook
+        from axon_agent.security.hooks import bash_security_hook
 
         input_data = {
             "session_id": "test",
@@ -359,7 +366,7 @@ class TestGitHubIntegration:
 
     def test_github_module_imports(self):
         """GitHub integration imports successfully."""
-        from github_integration import (
+        from axon_agent.integrations.github import (
             GitHubClient,
             PushResult,
             PRResult,
@@ -373,7 +380,7 @@ class TestGitHubIntegration:
 
     def test_branch_name_sanitization(self):
         """Branch names are sanitized correctly."""
-        from github_integration import _sanitize_branch_name
+        from axon_agent.integrations.github import _sanitize_branch_name
 
         assert _sanitize_branch_name("ENG-123") == "eng-123"
         assert _sanitize_branch_name("Feature/Test") == "feature-test"
@@ -381,7 +388,7 @@ class TestGitHubIntegration:
 
     def test_is_configured_check(self):
         """Configuration check works."""
-        from github_integration import is_github_configured
+        from axon_agent.integrations.github import is_github_configured
 
         # Result depends on environment
         result = is_github_configured()
@@ -411,12 +418,12 @@ class TestFullWorkflow:
             }
 
     @pytest.mark.asyncio
-    async def test_workflow_issue_lifecycle(self, mock_services):
+    async def test_workflow_issue_lifecycle(self):
         """Test complete issue lifecycle."""
         # This test demonstrates the flow without actually calling LLM
 
         # 1. Create issue via API
-        from analytics_server.server import app, ISSUES_STORE, initialize_issues_store
+        from axon_agent.dashboard.api import app, ISSUES_STORE, initialize_issues_store
         from fastapi.testclient import TestClient
 
         ISSUES_STORE.clear()
@@ -457,10 +464,13 @@ class TestFullWorkflow:
         # Task count should include our completed task
 
     @pytest.mark.asyncio
-    async def test_workflow_error_recovery(self, mock_services):
+    async def test_workflow_error_recovery(self):
         """Test workflow handles errors gracefully."""
-        from analytics_server.server import app
+        from axon_agent.dashboard.api import app, ISSUES_STORE, initialize_issues_store
         from fastapi.testclient import TestClient
+
+        ISSUES_STORE.clear()
+        initialize_issues_store()
 
         client = TestClient(app)
 

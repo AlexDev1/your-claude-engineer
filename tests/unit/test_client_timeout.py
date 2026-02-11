@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from client import (
+from axon_agent.core.client import (
     BACKOFF_MULTIPLIER,
     INITIAL_BACKOFF_SECONDS,
     MAX_BACKOFF_SECONDS,
@@ -101,7 +101,7 @@ class TestCalculateBackoff:
 
     def test_exponential_growth(self) -> None:
         """Backoff grows exponentially with attempt number."""
-        with patch("client.random.random", return_value=0.5):
+        with patch("axon_agent.core.client.random.random", return_value=0.5):
             # Jitter factor = 0.2 * (0.5*2 - 1) = 0.0, so no jitter
             b0 = calculate_backoff(0, initial=1.0, max_backoff=100.0, multiplier=2.0)
             b1 = calculate_backoff(1, initial=1.0, max_backoff=100.0, multiplier=2.0)
@@ -132,14 +132,14 @@ class TestCalculateBackoff:
 
     def test_never_negative(self) -> None:
         """Backoff is always non-negative, even with max negative jitter."""
-        with patch("client.random.random", return_value=0.0):
+        with patch("axon_agent.core.client.random.random", return_value=0.0):
             # Jitter factor = 0.2 * (0.0*2 - 1) = -0.2
             backoff = calculate_backoff(0, initial=0.1, max_backoff=30.0, multiplier=2.0)
         assert backoff >= 0.0
 
     def test_custom_multiplier(self) -> None:
         """Custom multiplier is applied correctly."""
-        with patch("client.random.random", return_value=0.5):
+        with patch("axon_agent.core.client.random.random", return_value=0.5):
             backoff = calculate_backoff(
                 2, initial=1.0, max_backoff=100.0, multiplier=3.0,
             )
@@ -148,7 +148,7 @@ class TestCalculateBackoff:
 
     def test_default_parameters_match_constants(self) -> None:
         """Default parameters use the module-level constants."""
-        with patch("client.random.random", return_value=0.5):
+        with patch("axon_agent.core.client.random.random", return_value=0.5):
             backoff = calculate_backoff(0)
         assert backoff == pytest.approx(INITIAL_BACKOFF_SECONDS)
 
@@ -164,7 +164,7 @@ class TestCallMCPToolWithRetry:
         """Returns result immediately when call succeeds."""
         mock_fn = AsyncMock(return_value={"status": "ok"})
 
-        with patch("client.asyncio.wait_for", new_callable=AsyncMock) as mock_wf:
+        with patch("axon_agent.core.client.asyncio.wait_for", new_callable=AsyncMock) as mock_wf:
             mock_wf.return_value = {"status": "ok"}
             result = await call_mcp_tool_with_retry(
                 "mcp__task__GetIssue", mock_fn, timeout=5.0,
@@ -186,8 +186,8 @@ class TestCallMCPToolWithRetry:
             return "recovered"
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock),
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock),
         ):
             result = await call_mcp_tool_with_retry(
                 "mcp__task__GetIssue", AsyncMock(), timeout=5.0, max_retries=3,
@@ -203,8 +203,8 @@ class TestCallMCPToolWithRetry:
             raise asyncio.TimeoutError()
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock),
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock),
         ):
             with pytest.raises(MCPTimeoutError) as exc_info:
                 await call_mcp_tool_with_retry(
@@ -222,9 +222,9 @@ class TestCallMCPToolWithRetry:
             raise asyncio.TimeoutError()
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
-            patch("client.calculate_backoff", side_effect=[1.5, 3.0]) as mock_backoff,
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch("axon_agent.core.client.calculate_backoff", side_effect=[1.5, 3.0]) as mock_backoff,
         ):
             with pytest.raises(MCPTimeoutError):
                 await call_mcp_tool_with_retry(
@@ -254,9 +254,9 @@ class TestCallMCPToolWithRetry:
             return "ok"
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock),
-            patch("client.calculate_backoff", return_value=5.0) as mock_backoff,
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock),
+            patch("axon_agent.core.client.calculate_backoff", return_value=5.0) as mock_backoff,
         ):
             result = await call_mcp_tool_with_retry(
                 "mcp__task__GetIssue", AsyncMock(),
@@ -278,7 +278,7 @@ class TestCallMCPToolWithRetry:
             call_count += 1
             raise ValueError("Invalid API key")
 
-        with patch("client.asyncio.wait_for", side_effect=_mock_wait_for):
+        with patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for):
             with pytest.raises(ValueError, match="Invalid API key"):
                 await call_mcp_tool_with_retry(
                     "mcp__task__GetIssue", AsyncMock(),
@@ -299,7 +299,7 @@ class TestCallMCPToolWithRetry:
         async def _mock_wait_for(coro: Any, timeout: float) -> Any:
             return await coro
 
-        with patch("client.asyncio.wait_for", side_effect=_mock_wait_for):
+        with patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for):
             result = await call_mcp_tool_with_retry(
                 "mcp__task__UpdateIssue",
                 _tool_fn,
@@ -319,7 +319,7 @@ class TestCallMCPToolWithRetry:
             coro.close()
             return "ok"
 
-        with patch("client.asyncio.wait_for", side_effect=_mock_wait_for):
+        with patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for):
             await call_mcp_tool_with_retry("mcp__task__WhoAmI", AsyncMock())
 
         assert captured_timeout[0] == MCP_TIMEOUT_SECONDS
@@ -335,8 +335,8 @@ class TestCallMCPToolWithRetry:
             raise asyncio.TimeoutError()
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock),
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock),
         ):
             with pytest.raises(MCPTimeoutError):
                 await call_mcp_tool_with_retry(
@@ -352,9 +352,9 @@ class TestCallMCPToolWithRetry:
             raise asyncio.TimeoutError()
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock),
-            patch("client.GracefulDegradation") as mock_gd_cls,
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock),
+            patch("axon_agent.core.client.GracefulDegradation") as mock_gd_cls,
         ):
             from contextlib import asynccontextmanager
 
@@ -384,8 +384,8 @@ class TestCallMCPToolWithRetry:
             raise Exception("429 Too Many Requests")
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock),
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock),
         ):
             with pytest.raises(MCPTimeoutError):
                 await call_mcp_tool_with_retry(
@@ -406,8 +406,8 @@ class TestCallMCPToolWithRetry:
             return "finally"
 
         with (
-            patch("client.asyncio.wait_for", side_effect=_mock_wait_for),
-            patch("client.asyncio.sleep", new_callable=AsyncMock),
+            patch("axon_agent.core.client.asyncio.wait_for", side_effect=_mock_wait_for),
+            patch("axon_agent.core.client.asyncio.sleep", new_callable=AsyncMock),
         ):
             result = await call_mcp_tool_with_retry(
                 "mcp__task__GetIssue", AsyncMock(),

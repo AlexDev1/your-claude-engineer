@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Poll Commands Test (ENG-54)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1, h2 { color: #fff; }
+        .test-section {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        input, select {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            background: #0f3460;
+            color: #fff;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover { background: #ff6b6b; }
+        button.secondary {
+            background: #0f3460;
+            border: 1px solid #e94560;
+        }
+        button.secondary:hover { background: #16213e; }
+        .result {
+            background: #0f3460;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { border-left: 4px solid #4caf50; }
+        .error { border-left: 4px solid #f44336; }
+        .warning { border-left: 4px solid #ff9800; }
+        .command-item {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 8px 0;
+            border-left: 3px solid #4fc3f7;
+        }
+        .command-name {
+            color: #4fc3f7;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .command-meta {
+            color: #888;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        code { color: #4fc3f7; }
+        .info-box {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4fc3f7;
+        }
+        .offset-display {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #0f3460;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Telegram Poll Commands Test (ENG-54)</h1>
+    <p>Testing the Telegram_PollCommands MCP tool implementation.</p>
+
+    <div class="info-box">
+        <strong>How it works:</strong><br>
+        1. The endpoint polls Telegram's getUpdates API for new messages<br>
+        2. Filters for commands (messages starting with /)<br>
+        3. Returns command details with metadata (chat_id, timestamp, etc.)<br>
+        4. Maintains an offset to track processed updates
+    </div>
+
+    <div class="test-section">
+        <h2>Current Offset</h2>
+        <p>The offset tracks which updates have been processed.</p>
+        <button onclick="getOffset()">Get Current Offset</button>
+        <button onclick="resetOffset()" class="secondary">Reset Offset</button>
+        <div id="offset-display" class="offset-display">Loading...</div>
+        <div id="offset-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Poll Commands</h2>
+        <p>Fetch unprocessed commands from Telegram.</p>
+        <div>
+            <label>
+                Timeout (seconds):
+                <input type="number" id="poll-timeout" value="0" min="0" max="60" style="width: 60px;">
+            </label>
+            <label>
+                <input type="checkbox" id="mark-processed" checked>
+                Mark as processed (update offset)
+            </label>
+        </div>
+        <div style="margin-top: 10px;">
+            <button onclick="pollCommands()">Poll Commands</button>
+            <button onclick="pollCommandsPreview()" class="secondary">Preview Only (don't update offset)</button>
+        </div>
+        <div id="poll-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>API Endpoint Check</h2>
+        <button onclick="checkEndpoints()">Check Available Endpoints</button>
+        <div id="endpoints-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Ensure <code>TELEGRAM_BOT_TOKEN</code> is set in your <code>.env</code> file</li>
+            <li>Start the analytics server: <code>python -m uvicorn analytics_server.server:app --port 8003</code></li>
+            <li>Send a command to your Telegram bot (e.g., <code>/status</code>, <code>/pause</code>)</li>
+            <li>Click "Poll Commands" to fetch the command</li>
+            <li>The command should appear with full metadata</li>
+        </ol>
+        <p><strong>Supported commands:</strong> /status, /pause, /resume, /skip, /priority, /next, /log, /budget</p>
+    </div>
+
+    <script>
+        // Allow configuring port via URL param: ?port=8004
+        const urlParams = new URLSearchParams(window.location.search);
+        const port = urlParams.get('port') || '8003';
+        const API_BASE = `http://localhost:${port}`;
+
+        async function getOffset() {
+            const displayDiv = document.getElementById('offset-display');
+            const resultDiv = document.getElementById('offset-result');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/telegram/offset`);
+                const data = await response.json();
+                displayDiv.textContent = `Offset: ${data.offset}`;
+                resultDiv.style.display = 'none';
+            } catch (error) {
+                displayDiv.textContent = 'Error loading offset';
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Failed to get offset: ${error.message}`;
+            }
+        }
+
+        async function resetOffset() {
+            const displayDiv = document.getElementById('offset-display');
+            const resultDiv = document.getElementById('offset-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = 'Resetting offset...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/telegram/reset-offset`, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    displayDiv.textContent = `Offset: ${data.new_offset}`;
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `Offset reset!\n\nPrevious: ${data.previous_offset}\nNew: ${data.new_offset}\n\n${data.message}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `Error: ${data.error || JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Failed to reset offset: ${error.message}`;
+            }
+        }
+
+        async function pollCommands() {
+            const timeout = document.getElementById('poll-timeout').value;
+            const markProcessed = document.getElementById('mark-processed').checked;
+            await doPollCommands(timeout, markProcessed);
+        }
+
+        async function pollCommandsPreview() {
+            const timeout = document.getElementById('poll-timeout').value;
+            await doPollCommands(timeout, false);
+        }
+
+        async function doPollCommands(timeout, markProcessed) {
+            const resultDiv = document.getElementById('poll-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = 'Polling Telegram for commands...';
+
+            try {
+                const url = `${API_BASE}/api/telegram/poll-commands?timeout=${timeout}&mark_processed=${markProcessed}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.command_count === 0) {
+                        resultDiv.className = 'result warning';
+                        resultDiv.innerHTML = `<strong>No commands found</strong>\n\n` +
+                            `Offset: ${data.offset}\n\n` +
+                            `Try sending a command to your Telegram bot (e.g., /status)`;
+                    } else {
+                        resultDiv.className = 'result success';
+                        let html = `<strong>Found ${data.command_count} command(s)</strong>\n`;
+                        html += `Offset: ${data.offset}\n\n`;
+
+                        for (const cmd of data.commands) {
+                            html += `<div class="command-item">`;
+                            html += `<div class="command-name">${cmd.command}</div>`;
+                            if (cmd.arguments) {
+                                html += `Arguments: ${cmd.arguments}\n`;
+                            }
+                            html += `<div class="command-meta">`;
+                            html += `Chat ID: ${cmd.chat_id} | Message ID: ${cmd.message_id}`;
+                            if (cmd.username) {
+                                html += ` | User: @${cmd.username}`;
+                            }
+                            html += `\nTime: ${cmd.timestamp}`;
+                            html += `\nRaw: ${cmd.raw_text}`;
+                            html += `</div></div>`;
+                        }
+
+                        resultDiv.innerHTML = html;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Error:</strong> ${data.error}`;
+                }
+
+                // Refresh offset display
+                getOffset();
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Request failed: ${error.message}\n\nMake sure the analytics server is running on port 8003.`;
+            }
+        }
+
+        async function checkEndpoints() {
+            const resultDiv = document.getElementById('endpoints-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = 'Checking endpoints...';
+
+            try {
+                const response = await fetch(`${API_BASE}/openapi.json`);
+                const data = await response.json();
+
+                const paths = Object.keys(data.paths || {});
+                const telegramPaths = paths.filter(p => p.includes('telegram'));
+
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `<strong>Available Telegram Endpoints:</strong>\n\n` +
+                    telegramPaths.map(p => `  ${p}`).join('\n') +
+                    `\n\n<strong>poll-commands endpoint:</strong> ${telegramPaths.includes('/api/telegram/poll-commands') ? 'YES' : 'NO'}` +
+                    `\n<strong>reset-offset endpoint:</strong> ${telegramPaths.includes('/api/telegram/reset-offset') ? 'YES' : 'NO'}` +
+                    `\n<strong>offset endpoint:</strong> ${telegramPaths.includes('/api/telegram/offset') ? 'YES' : 'NO'}`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Failed to check endpoints: ${error.message}`;
+            }
+        }
+
+        // Load initial offset
+        getOffset();
+    </script>
+</body>
+</html>

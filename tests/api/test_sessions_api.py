@@ -9,7 +9,6 @@ Coverage: list sessions, get single session, filtering, pagination,
 
 import json
 import os
-import sys
 import tempfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -18,11 +17,8 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-# Ensure project root is importable
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-from analytics_server.server import app
-from analytics_server.sessions_router import (
+from axon_agent.dashboard.api import app
+from axon_agent.dashboard.sessions import (
     SessionSummary,
     _calculate_duration,
     _load_session_file,
@@ -91,7 +87,7 @@ def sessions_dir(tmp_path):
 def mock_sessions_dir(sessions_dir):
     """Patch _get_sessions_dir to use the temporary directory."""
     with patch(
-        "analytics_server.sessions_router._get_sessions_dir",
+        "axon_agent.dashboard.sessions._get_sessions_dir",
         return_value=sessions_dir,
     ):
         yield sessions_dir
@@ -370,7 +366,7 @@ class TestListSessionsEndpoint:
             empty_dir = Path(tmp) / ".agent" / "sessions"
             empty_dir.mkdir(parents=True)
             with patch(
-                "analytics_server.sessions_router._get_sessions_dir",
+                "axon_agent.dashboard.sessions._get_sessions_dir",
                 return_value=empty_dir,
             ):
                 response = client.get("/api/sessions")
@@ -383,7 +379,7 @@ class TestListSessionsEndpoint:
     def test_nonexistent_sessions_dir(self, client):
         """Returns empty list when sessions directory does not exist."""
         with patch(
-            "analytics_server.sessions_router._get_sessions_dir",
+            "axon_agent.dashboard.sessions._get_sessions_dir",
             return_value=Path("/nonexistent/path"),
         ):
             response = client.get("/api/sessions")

@@ -26,7 +26,7 @@ Verifies:
 
 import re
 
-from telegram_reports import TelegramReports
+from axon_agent.integrations.telegram import TelegramReports
 
 # Telegram-supported HTML tags (subset used by reports)
 ALLOWED_TAGS = {"b", "i", "code", "pre", "a"}

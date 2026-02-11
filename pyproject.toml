@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axon-agent"
+version = "0.1.0"
+description = "Autonomous AI coding agent harness on Claude Agent SDK"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+dependencies = [
+    "claude-agent-sdk>=0.1.25",
+    "click>=8.0",
+    "httpx>=0.28",
+    "pydantic>=2.12",
+    "pydantic-settings>=2.12",
+    "python-dotenv>=1.0",
+    "mcp>=1.26",
+    "fastapi>=0.109",
+    "uvicorn>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+axon-agent = "axon_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"axon_agent" = ["prompts/*.md", "py.typed", "dashboard/static/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow",
+    "e2e: marks tests as end-to-end tests",
+    "integration: marks tests as integration tests",
+    "api: marks tests as API tests",
+]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --strict-markers -ra"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true

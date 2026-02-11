@@ -22,7 +22,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from session_state import (
+from axon_agent.core.state import (
     MAX_PHASE_RETRIES,
     STALE_RECOVERY_HOURS,
     ErrorType,
@@ -41,7 +41,7 @@ from session_state import (
     set_default_project_dir,
     transition_phase,
 )
-from prompts import get_recovery_context
+from axon_agent.core.prompts import get_recovery_context
 
 
 class TestSessionPhase:
@@ -770,7 +770,7 @@ class TestStandaloneFunctions:
 
     def test_no_default_raises_error(self):
         """Functions raise ValueError without default or explicit dir."""
-        import session_state as ss
+        from axon_agent.core import state as ss
         old_default = ss._default_project_dir
         ss._default_project_dir = None
 

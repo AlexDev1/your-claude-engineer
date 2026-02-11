@@ -20,7 +20,6 @@ Requirements:
 """
 
 import os
-import sys
 import time
 import uuid
 import pytest
@@ -28,9 +27,6 @@ import httpx
 from datetime import datetime
 from typing import Generator
 from unittest.mock import patch, MagicMock, AsyncMock
-
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 
 # =============================================================================
@@ -530,7 +526,7 @@ class TestTelegramIntegration:
 
     def test_telegram_reports_module_imports(self):
         """Telegram reports module imports successfully."""
-        from telegram_reports import (
+        from axon_agent.integrations.telegram import (
             format_daily_digest,
             format_session_summary,
             format_error_alert,
@@ -548,7 +544,7 @@ class TestTelegramIntegration:
 
     def test_format_progress_bar(self):
         """Progress bar formatting works correctly."""
-        from telegram_reports import format_progress_bar
+        from axon_agent.integrations.telegram import format_progress_bar
 
         # Test various percentages
         bar_50 = format_progress_bar(5, 10)
@@ -562,7 +558,7 @@ class TestTelegramIntegration:
 
     def test_format_daily_digest(self):
         """Daily digest formatting works correctly."""
-        from telegram_reports import format_daily_digest_simple
+        from axon_agent.integrations.telegram import format_daily_digest_simple
 
         digest = format_daily_digest_simple(
             completed=5,
@@ -580,7 +576,7 @@ class TestTelegramIntegration:
 
     def test_format_session_summary(self):
         """Session summary formatting works correctly."""
-        from telegram_reports import format_session_summary_simple
+        from axon_agent.integrations.telegram import format_session_summary_simple
 
         summary = format_session_summary_simple(
             issue_id="ENG-123",
@@ -598,7 +594,7 @@ class TestTelegramIntegration:
 
     def test_format_error_alert(self):
         """Error alert formatting works correctly."""
-        from telegram_reports import format_error_alert_simple
+        from axon_agent.integrations.telegram import format_error_alert_simple
 
         alert = format_error_alert_simple(
             error_type="syntax",
@@ -617,7 +613,7 @@ class TestTelegramIntegration:
 
     def test_format_status(self):
         """Status formatting works correctly."""
-        from telegram_reports import format_status_simple
+        from axon_agent.integrations.telegram import format_status_simple
 
         status = format_status_simple(
             todo=5,
@@ -645,7 +641,7 @@ class TestTelegramIntegration:
         # This test uses mocking since we don't want to actually send messages
         # In a real integration test with Telegram available, this would call the API
 
-        from telegram_reports import format_status_simple
+        from axon_agent.integrations.telegram import format_status_simple
 
         message = format_status_simple(
             todo=3,
@@ -779,7 +775,7 @@ class TestMCPConfigModule:
 
     def test_mcp_config_imports(self):
         """MCP config module imports successfully."""
-        from mcp_config import (
+        from axon_agent.mcp.config import (
             TASK_TOOLS,
             TELEGRAM_TOOLS,
             PLAYWRIGHT_TOOLS,
@@ -794,21 +790,21 @@ class TestMCPConfigModule:
 
     def test_task_tools_have_correct_prefix(self):
         """Task tools have mcp__task__ prefix."""
-        from mcp_config import TASK_TOOLS
+        from axon_agent.mcp.config import TASK_TOOLS
 
         for tool in TASK_TOOLS:
             assert tool.startswith("mcp__task__"), f"Tool {tool} missing prefix"
 
     def test_telegram_tools_have_correct_prefix(self):
         """Telegram tools have mcp__telegram__ prefix."""
-        from mcp_config import TELEGRAM_TOOLS
+        from axon_agent.mcp.config import TELEGRAM_TOOLS
 
         for tool in TELEGRAM_TOOLS:
             assert tool.startswith("mcp__telegram__"), f"Tool {tool} missing prefix"
 
     def test_coding_tools_include_builtins(self):
         """Coding tools include built-in tools."""
-        from mcp_config import get_coding_tools
+        from axon_agent.mcp.config import get_coding_tools
 
         tools = get_coding_tools()
         assert "Read" in tools

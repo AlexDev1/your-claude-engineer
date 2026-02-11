@@ -22,7 +22,7 @@ from unittest.mock import patch
 
 import pytest
 
-from session_recorder import (
+from axon_agent.monitoring.recorder import (
     MAX_PREVIEW_LENGTH,
     MAX_SESSIONS,
     Session,
@@ -582,6 +582,6 @@ class TestEndTriggersRotation:
     def test_rotation_called_on_end(self, recorder: SessionRecorder) -> None:
         """end() invokes rotate_sessions after saving."""
         recorder.start()
-        with patch("session_recorder.rotate_sessions") as mock_rotate:
+        with patch("axon_agent.monitoring.recorder.rotate_sessions") as mock_rotate:
             recorder.end()
         mock_rotate.assert_called_once_with(recorder.sessions_dir)

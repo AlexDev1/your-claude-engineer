@@ -6,17 +6,14 @@ Tests for the analytics server endpoints.
 Coverage: velocity, efficiency, bottlenecks, summary, export.
 """
 
-import pytest
-from datetime import datetime, timedelta
-from unittest.mock import patch, AsyncMock, MagicMock
 import json
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
-# Import the server module for testing
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+import httpx
+import pytest
 
-from analytics_server.server import (
+from axon_agent.dashboard.api import (
     app,
     calculate_velocity,
     calculate_efficiency,
@@ -28,13 +25,15 @@ from analytics_server.server import (
     BottleneckData,
 )
 
-from fastapi.testclient import TestClient
-
-
 @pytest.fixture
-def client():
-    """Create FastAPI test client."""
-    return TestClient(app)
+async def client():
+    """HTTPX async client over in-process ASGI app (без сетевых вызовов)."""
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=True)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as client:
+        yield client
 
 
 @pytest.fixture
@@ -94,9 +93,9 @@ def sample_issues():
 class TestHealthEndpoint:
     """Tests for health check endpoint."""
 
-    def test_health_check(self, client):
+    async def test_health_check(self, client):
         """Health endpoint returns healthy status."""
-        response = client.get("/health")
+        response = await client.get("/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
@@ -254,9 +253,9 @@ class TestActivityHeatmap:
 class TestVelocityEndpoint:
     """Tests for /api/analytics/velocity endpoint."""
 
-    def test_velocity_endpoint_default(self, client):
+    async def test_velocity_endpoint_default(self, client):
         """Velocity endpoint returns valid data."""
-        response = client.get("/api/analytics/velocity")
+        response = await client.get("/api/analytics/velocity")
 
         assert response.status_code == 200
         data = response.json()
@@ -265,29 +264,29 @@ class TestVelocityEndpoint:
         assert "trend" in data
         assert "total_completed" in data
 
-    def test_velocity_endpoint_custom_days(self, client):
+    async def test_velocity_endpoint_custom_days(self, client):
         """Velocity endpoint respects days parameter."""
-        response = client.get("/api/analytics/velocity?days=7")
+        response = await client.get("/api/analytics/velocity?days=7")
 
         assert response.status_code == 200
         data = response.json()
         assert len(data["daily"]) == 7
 
-    def test_velocity_endpoint_invalid_days(self, client):
+    async def test_velocity_endpoint_invalid_days(self, client):
         """Velocity endpoint validates days range."""
-        response = client.get("/api/analytics/velocity?days=0")
+        response = await client.get("/api/analytics/velocity?days=0")
         assert response.status_code == 422  # Validation error
 
-        response = client.get("/api/analytics/velocity?days=100")
+        response = await client.get("/api/analytics/velocity?days=100")
         assert response.status_code == 422  # Exceeds max
 
 
 class TestEfficiencyEndpoint:
     """Tests for /api/analytics/efficiency endpoint."""
 
-    def test_efficiency_endpoint(self, client):
+    async def test_efficiency_endpoint(self, client):
         """Efficiency endpoint returns valid data."""
-        response = client.get("/api/analytics/efficiency")
+        response = await client.get("/api/analytics/efficiency")
 
         assert response.status_code == 200
         data = response.json()
@@ -302,9 +301,9 @@ class TestEfficiencyEndpoint:
 class TestBottlenecksEndpoint:
     """Tests for /api/analytics/bottlenecks endpoint."""
 
-    def test_bottlenecks_endpoint(self, client):
+    async def test_bottlenecks_endpoint(self, client):
         """Bottlenecks endpoint returns valid data."""
-        response = client.get("/api/analytics/bottlenecks")
+        response = await client.get("/api/analytics/bottlenecks")
 
         assert response.status_code == 200
         data = response.json()
@@ -317,9 +316,9 @@ class TestBottlenecksEndpoint:
 class TestSummaryEndpoint:
     """Tests for /api/analytics/summary endpoint."""
 
-    def test_summary_endpoint(self, client):
+    async def test_summary_endpoint(self, client):
         """Summary endpoint returns complete dashboard data."""
-        response = client.get("/api/analytics/summary")
+        response = await client.get("/api/analytics/summary")
 
         assert response.status_code == 200
         data = response.json()
@@ -333,9 +332,9 @@ class TestSummaryEndpoint:
 class TestExportEndpoint:
     """Tests for /api/analytics/export endpoint."""
 
-    def test_export_json(self, client):
+    async def test_export_json(self, client):
         """Export endpoint returns JSON format."""
-        response = client.get("/api/analytics/export?format=json")
+        response = await client.get("/api/analytics/export?format=json")
 
         assert response.status_code == 200
         data = response.json()
@@ -344,18 +343,18 @@ class TestExportEndpoint:
         assert "issues" in data
         assert "summary" in data
 
-    def test_export_csv(self, client):
+    async def test_export_csv(self, client):
         """Export endpoint returns CSV format."""
-        response = client.get("/api/analytics/export?format=csv")
+        response = await client.get("/api/analytics/export?format=csv")
 
         assert response.status_code == 200
         assert "text/csv" in response.headers["content-type"]
         assert "attachment" in response.headers.get("content-disposition", "")
 
-    def test_export_period_filter(self, client):
+    async def test_export_period_filter(self, client):
         """Export endpoint respects period parameter."""
         for period in ["day", "week", "month"]:
-            response = client.get(f"/api/analytics/export?format=json&period={period}")
+            response = await client.get(f"/api/analytics/export?format=json&period={period}")
             assert response.status_code == 200
             data = response.json()
             assert data["period"] == period
@@ -364,9 +363,9 @@ class TestExportEndpoint:
 class TestContextEndpoints:
     """Tests for context budget endpoints."""
 
-    def test_get_context_stats(self, client):
+    async def test_get_context_stats(self, client):
         """Context stats endpoint returns valid data."""
-        response = client.get("/api/context/stats")
+        response = await client.get("/api/context/stats")
 
         assert response.status_code == 200
         data = response.json()
@@ -376,21 +375,21 @@ class TestContextEndpoints:
         assert "usage_percent" in data
         assert "breakdown" in data
 
-    def test_update_context_stats(self, client):
+    async def test_update_context_stats(self, client):
         """Context stats can be updated."""
         new_stats = {
             "total_used": 50000,
             "remaining": 150000,
         }
-        response = client.post("/api/context/stats", json=new_stats)
+        response = await client.post("/api/context/stats", json=new_stats)
 
         assert response.status_code == 200
         data = response.json()
         assert data["updated"] is True
 
-    def test_get_prompt_stats(self, client):
+    async def test_get_prompt_stats(self, client):
         """Prompt stats endpoint returns token information."""
-        response = client.get("/api/context/prompts")
+        response = await client.get("/api/context/prompts")
 
         assert response.status_code == 200
         # Response structure depends on prompts directory existence

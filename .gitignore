@@ -16,4 +16,4 @@ api-key
 
 # Agent persistent memory (SESSION_LOG is local, MEMORY/SOUL can be tracked)
 .agent/SESSION_LOG.md
-dashboard/node_modules/
+dashboard/node_modules/*.egg-info

@@ -43,7 +43,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from github_integration import (
+from axon_agent.integrations.github import (
     AutoPRResult,
     GitHubIssueResult,
     StatusCheckResult,
@@ -153,19 +153,19 @@ class TestHasCommitsAheadOfBase:
     def test_commits_ahead(self) -> None:
         """Returns True when branch has commits ahead of base."""
         mock_result = MagicMock(stdout="3\n")
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             assert _has_commits_ahead_of_base("agent/eng-63", "main") is True
 
     def test_no_commits_ahead(self) -> None:
         """Returns False when branch has zero commits ahead."""
         mock_result = MagicMock(stdout="0\n")
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             assert _has_commits_ahead_of_base("agent/eng-63", "main") is False
 
     def test_git_error_returns_false(self) -> None:
         """Returns False when git command fails."""
         with patch(
-            "github_integration.subprocess.run",
+            "axon_agent.integrations.github.subprocess.run",
             side_effect=subprocess.CalledProcessError(128, "git"),
         ):
             assert _has_commits_ahead_of_base("agent/eng-63", "main") is False
@@ -173,13 +173,13 @@ class TestHasCommitsAheadOfBase:
     def test_invalid_output_returns_false(self) -> None:
         """Returns False when git output cannot be parsed as int."""
         mock_result = MagicMock(stdout="not-a-number\n")
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             assert _has_commits_ahead_of_base("agent/eng-63", "main") is False
 
     def test_passes_correct_git_args(self) -> None:
         """Passes correct branch range to git rev-list."""
         mock_result = MagicMock(stdout="1\n")
-        with patch("github_integration.subprocess.run", return_value=mock_result) as mock_run:
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result) as mock_run:
             _has_commits_ahead_of_base("agent/eng-63", "develop")
 
         mock_run.assert_called_once_with(
@@ -202,7 +202,7 @@ class TestCheckExistingPRViaGH:
         """Returns PR info when gh pr view succeeds."""
         pr_data = json.dumps({"number": 42, "url": "https://github.com/org/repo/pull/42"})
         mock_result = MagicMock(returncode=0, stdout=pr_data)
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             result = _check_existing_pr_via_gh("agent/eng-63")
 
         assert result is not None
@@ -212,7 +212,7 @@ class TestCheckExistingPRViaGH:
     def test_no_pr_exists(self) -> None:
         """Returns None when no PR exists for the branch."""
         mock_result = MagicMock(returncode=1, stdout="", stderr="no pull requests found")
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             result = _check_existing_pr_via_gh("agent/eng-99")
 
         assert result is None
@@ -220,7 +220,7 @@ class TestCheckExistingPRViaGH:
     def test_gh_not_installed(self) -> None:
         """Returns None when gh CLI is not installed."""
         with patch(
-            "github_integration.subprocess.run",
+            "axon_agent.integrations.github.subprocess.run",
             side_effect=FileNotFoundError("gh not found"),
         ):
             result = _check_existing_pr_via_gh("agent/eng-63")
@@ -230,7 +230,7 @@ class TestCheckExistingPRViaGH:
     def test_invalid_json_returns_none(self) -> None:
         """Returns None when gh output is invalid JSON."""
         mock_result = MagicMock(returncode=0, stdout="not json")
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             result = _check_existing_pr_via_gh("agent/eng-63")
 
         assert result is None
@@ -247,19 +247,19 @@ class TestIsGHCLIAvailable:
     def test_gh_available_and_authenticated(self) -> None:
         """Returns True when gh auth status succeeds."""
         mock_result = MagicMock(returncode=0)
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             assert _is_gh_cli_available() is True
 
     def test_gh_not_authenticated(self) -> None:
         """Returns False when gh auth status fails."""
         mock_result = MagicMock(returncode=1)
-        with patch("github_integration.subprocess.run", return_value=mock_result):
+        with patch("axon_agent.integrations.github.subprocess.run", return_value=mock_result):
             assert _is_gh_cli_available() is False
 
     def test_gh_not_installed(self) -> None:
         """Returns False when gh CLI is not on PATH."""
         with patch(
-            "github_integration.subprocess.run",
+            "axon_agent.integrations.github.subprocess.run",
             side_effect=FileNotFoundError("gh not found"),
         ):
             assert _is_gh_cli_available() is False
@@ -284,7 +284,7 @@ class TestCreateAutoPR:
 
     def test_gh_cli_not_available(self, issue_params: dict[str, str]) -> None:
         """Returns failure when gh CLI is not available."""
-        with patch("github_integration._is_gh_cli_available", return_value=False):
+        with patch("axon_agent.integrations.github._is_gh_cli_available", return_value=False):
             result = create_auto_pr(**issue_params)
 
         assert result.success is False
@@ -294,8 +294,8 @@ class TestCreateAutoPR:
         """Returns existing PR info when PR already exists."""
         existing = {"url": "https://github.com/org/repo/pull/10", "number": 10}
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=existing),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=existing),
         ):
             result = create_auto_pr(**issue_params)
 
@@ -307,9 +307,9 @@ class TestCreateAutoPR:
     def test_no_commits_ahead(self, issue_params: dict[str, str]) -> None:
         """Returns failure when branch has no new commits."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=False),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=False),
         ):
             result = create_auto_pr(**issue_params)
 
@@ -322,10 +322,10 @@ class TestCreateAutoPR:
         mock_run_result = MagicMock(returncode=0, stdout=f"{pr_url}\n")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             result = create_auto_pr(**issue_params)
 
@@ -351,10 +351,10 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             create_auto_pr(**issue_params)
 
@@ -370,10 +370,10 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             create_auto_pr(**issue_params)
 
@@ -391,10 +391,10 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             create_auto_pr(
                 **issue_params,
@@ -414,10 +414,10 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             create_auto_pr(**issue_params)
 
@@ -435,10 +435,10 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result),
         ):
             result = create_auto_pr(**issue_params)
 
@@ -448,11 +448,11 @@ class TestCreateAutoPR:
     def test_gh_create_timeout(self, issue_params: dict[str, str]) -> None:
         """Returns failure when gh pr create times out."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
             patch(
-                "github_integration.subprocess.run",
+                "axon_agent.integrations.github.subprocess.run",
                 side_effect=subprocess.TimeoutExpired("gh", 60),
             ),
         ):
@@ -464,11 +464,11 @@ class TestCreateAutoPR:
     def test_gh_not_found_during_create(self, issue_params: dict[str, str]) -> None:
         """Returns failure when gh binary disappears during creation."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
             patch(
-                "github_integration.subprocess.run",
+                "axon_agent.integrations.github.subprocess.run",
                 side_effect=FileNotFoundError("gh not found"),
             ),
         ):
@@ -485,10 +485,10 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             create_auto_pr(**issue_params)
 
@@ -518,10 +518,10 @@ class TestCreateAutoPR:
             return existing
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", side_effect=_mock_check),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_create),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", side_effect=_mock_check),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_create),
         ):
             result = create_auto_pr(**issue_params)
 
@@ -536,10 +536,10 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._check_existing_pr_via_gh", return_value=None),
-            patch("github_integration._has_commits_ahead_of_base", return_value=True),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None),
+            patch("axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True),
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             create_auto_pr(
                 issue_id="ENG-63",
@@ -559,14 +559,14 @@ class TestCreateAutoPR:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._check_existing_pr_via_gh", return_value=None
+                "axon_agent.integrations.github._check_existing_pr_via_gh", return_value=None
             ),
             patch(
-                "github_integration._has_commits_ahead_of_base", return_value=True
+                "axon_agent.integrations.github._has_commits_ahead_of_base", return_value=True
             ),
-            patch("github_integration.subprocess.run", return_value=mock_run_result) as mock_run,
+            patch("axon_agent.integrations.github.subprocess.run", return_value=mock_run_result) as mock_run,
         ):
             create_auto_pr(**issue_params, base_branch="develop")
 
@@ -828,7 +828,7 @@ class TestCreateGitHubIssue:
 
     def test_gh_cli_not_available(self) -> None:
         """Returns failure when gh CLI is not available."""
-        with patch("github_integration._is_gh_cli_available", return_value=False):
+        with patch("axon_agent.integrations.github._is_gh_cli_available", return_value=False):
             result = create_github_issue("Test", "Description")
 
         assert result.success is False
@@ -840,8 +840,8 @@ class TestCreateGitHubIssue:
         mock_result = MagicMock(returncode=0, stdout=f"{issue_url}\n")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = create_github_issue("Test Issue", "A description")
 
@@ -855,9 +855,9 @@ class TestCreateGitHubIssue:
         mock_result = MagicMock(returncode=0, stdout=f"{issue_url}\n")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             create_github_issue("Test", "Desc", labels=["bug", "agent-synced"])
@@ -873,8 +873,8 @@ class TestCreateGitHubIssue:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = create_github_issue("Test", "Desc")
 
@@ -884,9 +884,9 @@ class TestCreateGitHubIssue:
     def test_creation_timeout(self) -> None:
         """Returns failure when gh issue create times out."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command",
+                "axon_agent.integrations.github._run_gh_command",
                 side_effect=subprocess.TimeoutExpired("gh", 60),
             ),
         ):
@@ -898,9 +898,9 @@ class TestCreateGitHubIssue:
     def test_gh_not_found(self) -> None:
         """Returns failure when gh CLI binary is missing."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command",
+                "axon_agent.integrations.github._run_gh_command",
                 side_effect=FileNotFoundError("gh not found"),
             ),
         ):
@@ -920,7 +920,7 @@ class TestUpdateGitHubIssue:
 
     def test_gh_cli_not_available(self) -> None:
         """Returns failure when gh CLI is not available."""
-        with patch("github_integration._is_gh_cli_available", return_value=False):
+        with patch("axon_agent.integrations.github._is_gh_cli_available", return_value=False):
             result = update_github_issue(42, title="New Title")
 
         assert result.success is False
@@ -931,9 +931,9 @@ class TestUpdateGitHubIssue:
         mock_result = MagicMock(returncode=0, stdout="", stderr="")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = update_github_issue(42, title="New Title")
@@ -949,9 +949,9 @@ class TestUpdateGitHubIssue:
         mock_result = MagicMock(returncode=0, stdout="", stderr="")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = update_github_issue(42, description="New body")
@@ -965,9 +965,9 @@ class TestUpdateGitHubIssue:
         mock_result = MagicMock(returncode=0, stdout="", stderr="")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = update_github_issue(42, state="closed")
@@ -982,9 +982,9 @@ class TestUpdateGitHubIssue:
         mock_result = MagicMock(returncode=0, stdout="", stderr="")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = update_github_issue(42, state="open")
@@ -1000,8 +1000,8 @@ class TestUpdateGitHubIssue:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = update_github_issue(42, title="New Title")
 
@@ -1016,9 +1016,9 @@ class TestUpdateGitHubIssue:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command", return_value=mock_close_fail
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_close_fail
             ),
         ):
             result = update_github_issue(42, state="closed")
@@ -1031,9 +1031,9 @@ class TestUpdateGitHubIssue:
         mock_result = MagicMock(returncode=0, stdout="", stderr="")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = update_github_issue(42, labels=["agent-synced", "in-progress"])
@@ -1047,9 +1047,9 @@ class TestUpdateGitHubIssue:
     def test_timeout(self) -> None:
         """Returns failure when gh times out."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command",
+                "axon_agent.integrations.github._run_gh_command",
                 side_effect=subprocess.TimeoutExpired("gh", 60),
             ),
         ):
@@ -1060,7 +1060,7 @@ class TestUpdateGitHubIssue:
 
     def test_no_changes_requested(self) -> None:
         """Succeeds silently when no changes are requested."""
-        with patch("github_integration._is_gh_cli_available", return_value=True):
+        with patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True):
             result = update_github_issue(42)
 
         assert result.success is True
@@ -1086,10 +1086,10 @@ class TestSyncIssueToGitHub:
 
         with (
             patch(
-                "github_integration._find_synced_github_issue", return_value=None
+                "axon_agent.integrations.github._find_synced_github_issue", return_value=None
             ),
             patch(
-                "github_integration.create_github_issue", return_value=create_result
+                "axon_agent.integrations.github.create_github_issue", return_value=create_result
             ) as mock_create,
         ):
             result = sync_issue_to_github(
@@ -1121,10 +1121,10 @@ class TestSyncIssueToGitHub:
 
         with (
             patch(
-                "github_integration._find_synced_github_issue", return_value=existing
+                "axon_agent.integrations.github._find_synced_github_issue", return_value=existing
             ),
             patch(
-                "github_integration.update_github_issue", return_value=update_result
+                "axon_agent.integrations.github.update_github_issue", return_value=update_result
             ),
         ):
             result = sync_issue_to_github(
@@ -1155,13 +1155,13 @@ class TestSyncIssueToGitHub:
 
         with (
             patch(
-                "github_integration._find_synced_github_issue", return_value=None
+                "axon_agent.integrations.github._find_synced_github_issue", return_value=None
             ),
             patch(
-                "github_integration.create_github_issue", return_value=create_result
+                "axon_agent.integrations.github.create_github_issue", return_value=create_result
             ),
             patch(
-                "github_integration.update_github_issue", return_value=close_result
+                "axon_agent.integrations.github.update_github_issue", return_value=close_result
             ) as mock_update,
         ):
             result = sync_issue_to_github(
@@ -1190,13 +1190,13 @@ class TestSyncIssueToGitHub:
 
         with (
             patch(
-                "github_integration._find_synced_github_issue", return_value=None
+                "axon_agent.integrations.github._find_synced_github_issue", return_value=None
             ),
             patch(
-                "github_integration.create_github_issue", return_value=create_result
+                "axon_agent.integrations.github.create_github_issue", return_value=create_result
             ) as mock_create,
             patch(
-                "github_integration.update_github_issue", return_value=close_result
+                "axon_agent.integrations.github.update_github_issue", return_value=close_result
             ),
         ):
             result = sync_issue_to_github(
@@ -1222,10 +1222,10 @@ class TestSyncIssueToGitHub:
 
         with (
             patch(
-                "github_integration._find_synced_github_issue", return_value=None
+                "axon_agent.integrations.github._find_synced_github_issue", return_value=None
             ),
             patch(
-                "github_integration.create_github_issue", return_value=create_result
+                "axon_agent.integrations.github.create_github_issue", return_value=create_result
             ),
         ):
             result = sync_issue_to_github(
@@ -1250,10 +1250,10 @@ class TestSyncIssueToGitHub:
 
         with (
             patch(
-                "github_integration._find_synced_github_issue", return_value=existing
+                "axon_agent.integrations.github._find_synced_github_issue", return_value=existing
             ),
             patch(
-                "github_integration.update_github_issue", return_value=update_result
+                "axon_agent.integrations.github.update_github_issue", return_value=update_result
             ),
         ):
             result = sync_issue_to_github(
@@ -1277,10 +1277,10 @@ class TestSyncIssueToGitHub:
 
         with (
             patch(
-                "github_integration._find_synced_github_issue", return_value=None
+                "axon_agent.integrations.github._find_synced_github_issue", return_value=None
             ),
             patch(
-                "github_integration.create_github_issue", return_value=create_result
+                "axon_agent.integrations.github.create_github_issue", return_value=create_result
             ) as mock_create,
         ):
             sync_issue_to_github(
@@ -1305,7 +1305,7 @@ class TestSyncIssueFromGitHub:
 
     def test_gh_cli_not_available(self) -> None:
         """Returns failure when gh CLI is not available."""
-        with patch("github_integration._is_gh_cli_available", return_value=False):
+        with patch("axon_agent.integrations.github._is_gh_cli_available", return_value=False):
             result = sync_issue_from_github(42)
 
         assert result.success is False
@@ -1324,8 +1324,8 @@ class TestSyncIssueFromGitHub:
         mock_result = MagicMock(returncode=0, stdout=issue_data)
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = sync_issue_from_github(42)
 
@@ -1346,8 +1346,8 @@ class TestSyncIssueFromGitHub:
         mock_result = MagicMock(returncode=0, stdout=issue_data)
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = sync_issue_from_github(42)
 
@@ -1366,8 +1366,8 @@ class TestSyncIssueFromGitHub:
         mock_result = MagicMock(returncode=0, stdout=issue_data)
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = sync_issue_from_github(42)
 
@@ -1386,8 +1386,8 @@ class TestSyncIssueFromGitHub:
         mock_result = MagicMock(returncode=0, stdout=issue_data)
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = sync_issue_from_github(42)
 
@@ -1406,8 +1406,8 @@ class TestSyncIssueFromGitHub:
         mock_result = MagicMock(returncode=0, stdout=issue_data)
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = sync_issue_from_github(42)
 
@@ -1421,8 +1421,8 @@ class TestSyncIssueFromGitHub:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = sync_issue_from_github(999)
 
@@ -1434,8 +1434,8 @@ class TestSyncIssueFromGitHub:
         mock_result = MagicMock(returncode=0, stdout="not json")
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = sync_issue_from_github(42)
 
@@ -1445,9 +1445,9 @@ class TestSyncIssueFromGitHub:
     def test_timeout(self) -> None:
         """Returns failure when gh issue view times out."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command",
+                "axon_agent.integrations.github._run_gh_command",
                 side_effect=subprocess.TimeoutExpired("gh", 60),
             ),
         ):
@@ -1459,9 +1459,9 @@ class TestSyncIssueFromGitHub:
     def test_gh_not_found(self) -> None:
         """Returns failure when gh CLI binary is missing."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
             patch(
-                "github_integration._run_gh_command",
+                "axon_agent.integrations.github._run_gh_command",
                 side_effect=FileNotFoundError("gh not found"),
             ),
         ):
@@ -1521,7 +1521,7 @@ class TestGetRepoNWO:
     def test_successful_detection(self) -> None:
         """Returns NWO string when gh repo view succeeds."""
         mock_result = MagicMock(returncode=0, stdout="AxonCode/your-claude-engineer\n")
-        with patch("github_integration._run_gh_command", return_value=mock_result):
+        with patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result):
             nwo = _get_repo_nwo()
 
         assert nwo == "AxonCode/your-claude-engineer"
@@ -1529,7 +1529,7 @@ class TestGetRepoNWO:
     def test_gh_failure_returns_none(self) -> None:
         """Returns None when gh repo view fails."""
         mock_result = MagicMock(returncode=1, stdout="", stderr="not a git repo")
-        with patch("github_integration._run_gh_command", return_value=mock_result):
+        with patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result):
             nwo = _get_repo_nwo()
 
         assert nwo is None
@@ -1537,7 +1537,7 @@ class TestGetRepoNWO:
     def test_empty_output_returns_none(self) -> None:
         """Returns None when gh repo view returns empty output."""
         mock_result = MagicMock(returncode=0, stdout="")
-        with patch("github_integration._run_gh_command", return_value=mock_result):
+        with patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result):
             nwo = _get_repo_nwo()
 
         assert nwo is None
@@ -1545,7 +1545,7 @@ class TestGetRepoNWO:
     def test_gh_not_found_returns_none(self) -> None:
         """Returns None when gh CLI is not installed."""
         with patch(
-            "github_integration._run_gh_command",
+            "axon_agent.integrations.github._run_gh_command",
             side_effect=FileNotFoundError("gh not found"),
         ):
             nwo = _get_repo_nwo()
@@ -1555,7 +1555,7 @@ class TestGetRepoNWO:
     def test_timeout_returns_none(self) -> None:
         """Returns None when gh repo view times out."""
         with patch(
-            "github_integration._run_gh_command",
+            "axon_agent.integrations.github._run_gh_command",
             side_effect=subprocess.TimeoutExpired("gh", 60),
         ):
             nwo = _get_repo_nwo()
@@ -1576,7 +1576,7 @@ class TestSetCommitStatus:
 
     def test_gh_cli_not_available(self) -> None:
         """Returns failure when gh CLI is not available."""
-        with patch("github_integration._is_gh_cli_available", return_value=False):
+        with patch("axon_agent.integrations.github._is_gh_cli_available", return_value=False):
             result = set_commit_status(
                 self.SAMPLE_SHA, "success", "agent/tests", "All tests passed"
             )
@@ -1587,8 +1587,8 @@ class TestSetCommitStatus:
     def test_repo_detection_failure(self) -> None:
         """Returns failure when repo NWO cannot be determined."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=None),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=None),
         ):
             result = set_commit_status(
                 self.SAMPLE_SHA, "success", "agent/tests", "All tests passed"
@@ -1602,10 +1602,10 @@ class TestSetCommitStatus:
         mock_result = MagicMock(returncode=0, stdout='{"state":"success"}')
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = set_commit_status(
@@ -1630,10 +1630,10 @@ class TestSetCommitStatus:
         mock_result = MagicMock(returncode=0, stdout='{}')
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = set_commit_status(
@@ -1656,10 +1656,10 @@ class TestSetCommitStatus:
         mock_result = MagicMock(returncode=0, stdout='{}')
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             set_commit_status(
@@ -1676,10 +1676,10 @@ class TestSetCommitStatus:
         mock_result = MagicMock(returncode=0, stdout='{}')
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             set_commit_status(
@@ -1700,9 +1700,9 @@ class TestSetCommitStatus:
         )
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
-            patch("github_integration._run_gh_command", return_value=mock_result),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._run_gh_command", return_value=mock_result),
         ):
             result = set_commit_status(
                 self.SAMPLE_SHA, "success", "agent/tests", "Passed"
@@ -1714,10 +1714,10 @@ class TestSetCommitStatus:
     def test_timeout(self) -> None:
         """Returns failure when gh api times out."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command",
+                "axon_agent.integrations.github._run_gh_command",
                 side_effect=subprocess.TimeoutExpired("gh", 60),
             ),
         ):
@@ -1731,10 +1731,10 @@ class TestSetCommitStatus:
     def test_gh_not_found(self) -> None:
         """Returns failure when gh CLI binary disappears."""
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command",
+                "axon_agent.integrations.github._run_gh_command",
                 side_effect=FileNotFoundError("gh not found"),
             ),
         ):
@@ -1750,10 +1750,10 @@ class TestSetCommitStatus:
         mock_result = MagicMock(returncode=0, stdout='{}')
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = set_commit_status(
@@ -1769,10 +1769,10 @@ class TestSetCommitStatus:
         mock_result = MagicMock(returncode=0, stdout='{}')
 
         with (
-            patch("github_integration._is_gh_cli_available", return_value=True),
-            patch("github_integration._get_repo_nwo", return_value=self.SAMPLE_NWO),
+            patch("axon_agent.integrations.github._is_gh_cli_available", return_value=True),
+            patch("axon_agent.integrations.github._get_repo_nwo", return_value=self.SAMPLE_NWO),
             patch(
-                "github_integration._run_gh_command", return_value=mock_result
+                "axon_agent.integrations.github._run_gh_command", return_value=mock_result
             ) as mock_cmd,
         ):
             result = set_commit_status(
@@ -1797,7 +1797,7 @@ class TestReportTestStatus:
     def test_passed(self) -> None:
         """Reports success status with default description."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             result = report_test_status(self.SAMPLE_SHA, passed=True)
@@ -1813,7 +1813,7 @@ class TestReportTestStatus:
     def test_failed(self) -> None:
         """Reports failure status with default description."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_test_status(self.SAMPLE_SHA, passed=False)
@@ -1828,7 +1828,7 @@ class TestReportTestStatus:
     def test_custom_details(self) -> None:
         """Reports status with custom description override."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_test_status(
@@ -1845,7 +1845,7 @@ class TestReportTestStatus:
     def test_uses_correct_context(self) -> None:
         """Uses the agent/tests context name."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_test_status(self.SAMPLE_SHA, passed=True)
@@ -1866,7 +1866,7 @@ class TestReportQualityStatus:
     def test_passed(self) -> None:
         """Reports success status with default description."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             result = report_quality_status(self.SAMPLE_SHA, passed=True)
@@ -1882,7 +1882,7 @@ class TestReportQualityStatus:
     def test_failed(self) -> None:
         """Reports failure status with default description."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_quality_status(self.SAMPLE_SHA, passed=False)
@@ -1897,7 +1897,7 @@ class TestReportQualityStatus:
     def test_custom_details(self) -> None:
         """Reports status with custom description override."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_quality_status(
@@ -1914,7 +1914,7 @@ class TestReportQualityStatus:
     def test_uses_correct_context(self) -> None:
         """Uses the agent/quality-gates context name."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_quality_status(self.SAMPLE_SHA, passed=True)
@@ -1935,7 +1935,7 @@ class TestReportVerificationStatus:
     def test_passed(self) -> None:
         """Reports success status with default description."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             result = report_verification_status(self.SAMPLE_SHA, passed=True)
@@ -1951,7 +1951,7 @@ class TestReportVerificationStatus:
     def test_failed(self) -> None:
         """Reports failure status with default description."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_verification_status(self.SAMPLE_SHA, passed=False)
@@ -1966,7 +1966,7 @@ class TestReportVerificationStatus:
     def test_custom_details(self) -> None:
         """Reports status with custom description override."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_verification_status(
@@ -1983,7 +1983,7 @@ class TestReportVerificationStatus:
     def test_uses_correct_context(self) -> None:
         """Uses the agent/verification context name."""
         with patch(
-            "github_integration.set_commit_status",
+            "axon_agent.integrations.github.set_commit_status",
             return_value=StatusCheckResult(success=True, message="ok"),
         ) as mock_set:
             report_verification_status(self.SAMPLE_SHA, passed=True)
@@ -2006,7 +2006,7 @@ class TestReportAllStatuses:
         success_result = StatusCheckResult(success=True, message="ok")
 
         with patch(
-            "github_integration.set_commit_status", return_value=success_result
+            "axon_agent.integrations.github.set_commit_status", return_value=success_result
         ):
             results = report_all_statuses(
                 self.SAMPLE_SHA,
@@ -2026,7 +2026,7 @@ class TestReportAllStatuses:
         failure_result = StatusCheckResult(success=True, message="ok")
 
         with patch(
-            "github_integration.set_commit_status", return_value=failure_result
+            "axon_agent.integrations.github.set_commit_status", return_value=failure_result
         ) as mock_set:
             report_all_statuses(
                 self.SAMPLE_SHA,
@@ -2047,7 +2047,7 @@ class TestReportAllStatuses:
         success_result = StatusCheckResult(success=True, message="ok")
 
         with patch(
-            "github_integration.set_commit_status", return_value=success_result
+            "axon_agent.integrations.github.set_commit_status", return_value=success_result
         ) as mock_set:
             report_all_statuses(
                 self.SAMPLE_SHA,
@@ -2070,7 +2070,7 @@ class TestReportAllStatuses:
         success_result = StatusCheckResult(success=True, message="ok")
 
         with patch(
-            "github_integration.set_commit_status", return_value=success_result
+            "axon_agent.integrations.github.set_commit_status", return_value=success_result
         ):
             results = report_all_statuses(
                 self.SAMPLE_SHA,

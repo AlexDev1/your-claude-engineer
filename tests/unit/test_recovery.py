@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from recovery import (
+from axon_agent.core.recovery import (
     DEFAULT_BASE_DELAY_SECONDS,
     DEFAULT_MAX_RETRIES,
     GIT_MAX_RETRIES,
@@ -145,7 +145,7 @@ class TestMCPRetry:
         """Retries up to MCP_MAX_RETRIES times before degrading."""
         func = _make_flaky(MCP_MAX_RETRIES + 1)
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             result = await degradation.with_mcp_retry(func)
 
         assert result.success is False
@@ -157,7 +157,7 @@ class TestMCPRetry:
         """Succeeds on second attempt after one failure."""
         func = _make_flaky(1)
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await degradation.with_mcp_retry(func)
 
         assert result.success is True
@@ -167,7 +167,7 @@ class TestMCPRetry:
         """Backoff delays follow 2s, 4s pattern."""
         func = _make_flaky(MCP_MAX_RETRIES + 1)
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await degradation.with_mcp_retry(func)
 
         # Should have slept (MCP_MAX_RETRIES - 1) times
@@ -179,7 +179,7 @@ class TestMCPRetry:
         """Degraded result message includes individual error descriptions."""
         func = _make_flaky(MCP_MAX_RETRIES + 1, exc=TimeoutError("SSE timeout"))
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await degradation.with_mcp_retry(func)
 
         assert "SSE timeout" in result.message
@@ -344,7 +344,7 @@ class TestRateLimitBackoff:
         """Rate limit triggers escalating backoff delays."""
         func = _make_flaky(RATE_LIMIT_MAX_RETRIES + 1, exc=Exception("HTTP 429: too many requests"))
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError, match="Rate limit exceeded"):
                 await degradation.with_rate_limit_backoff(func)
 
@@ -356,7 +356,7 @@ class TestRateLimitBackoff:
         """Succeeds on second attempt after rate limit clears."""
         func = _make_flaky(1, exc=Exception("Rate limit exceeded (429)"))
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await degradation.with_rate_limit_backoff(func)
 
         assert result.success is True
@@ -367,7 +367,7 @@ class TestRateLimitBackoff:
         async def _rate_limited() -> None:
             raise Exception("429: Too Many Requests")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(RuntimeError, match="Rate limit exceeded after"):
                 await degradation.with_rate_limit_backoff(_rate_limited)
 
@@ -383,7 +383,7 @@ class TestRateLimitBackoff:
         """Backoff schedule is exactly 30s, 60s, 120s."""
         func = _make_flaky(RATE_LIMIT_MAX_RETRIES + 1, exc=Exception("429 rate limit"))
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError):
                 await degradation.with_rate_limit_backoff(func)
 
@@ -395,7 +395,7 @@ class TestRateLimitBackoff:
         """RuntimeError message includes total backoff time."""
         func = _make_flaky(RATE_LIMIT_MAX_RETRIES + 1, exc=Exception("429"))
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(RuntimeError) as exc_info:
                 await degradation.with_rate_limit_backoff(func)
 
@@ -457,7 +457,7 @@ class TestGitHelpers:
         """Git stash returns True on success."""
         degradation = GracefulDegradation(project_dir=temp_project)
 
-        with patch("recovery.subprocess.run") as mock_run:
+        with patch("axon_agent.core.recovery.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
             result = degradation._try_git_stash()
 
@@ -467,7 +467,7 @@ class TestGitHelpers:
         """Git stash returns False on failure."""
         degradation = GracefulDegradation(project_dir=temp_project)
 
-        with patch("recovery.subprocess.run") as mock_run:
+        with patch("axon_agent.core.recovery.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stderr="No local changes to save")
             result = degradation._try_git_stash()
 
@@ -477,7 +477,7 @@ class TestGitHelpers:
         """Git stash returns False on subprocess error."""
         degradation = GracefulDegradation(project_dir=temp_project)
 
-        with patch("recovery.subprocess.run", side_effect=FileNotFoundError("git not found")):
+        with patch("axon_agent.core.recovery.subprocess.run", side_effect=FileNotFoundError("git not found")):
             result = degradation._try_git_stash()
 
         assert result is False
@@ -486,7 +486,7 @@ class TestGitHelpers:
         """Returns 'clean working tree' when no changes."""
         degradation = GracefulDegradation(project_dir=temp_project)
 
-        with patch("recovery.subprocess.run") as mock_run:
+        with patch("axon_agent.core.recovery.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="")
             context = degradation._collect_git_context()
 
@@ -496,7 +496,7 @@ class TestGitHelpers:
         """Returns file count when there are changes."""
         degradation = GracefulDegradation(project_dir=temp_project)
 
-        with patch("recovery.subprocess.run") as mock_run:
+        with patch("axon_agent.core.recovery.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="M file1.py\nM file2.py\n?? new.txt")
             context = degradation._collect_git_context()
 
@@ -506,7 +506,7 @@ class TestGitHelpers:
         """Returns fallback message on error."""
         degradation = GracefulDegradation(project_dir=temp_project)
 
-        with patch("recovery.subprocess.run", side_effect=FileNotFoundError("git not found")):
+        with patch("axon_agent.core.recovery.subprocess.run", side_effect=FileNotFoundError("git not found")):
             context = degradation._collect_git_context()
 
         assert "unable to read git status" in context
@@ -565,7 +565,7 @@ class TestRetryWithBackoffDecorator:
                 raise TimeoutError("transient")
             return "recovered"
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await _flaky()
 
         assert result.success is True
@@ -577,7 +577,7 @@ class TestRetryWithBackoffDecorator:
         async def _fails() -> None:
             raise RuntimeError("permanent failure")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await _fails()
 
         assert result.success is False
@@ -590,7 +590,7 @@ class TestRetryWithBackoffDecorator:
         async def _fails() -> None:
             raise RuntimeError("fail")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await _fails()
 
         delays = [call.args[0] for call in mock_sleep.call_args_list]
@@ -619,7 +619,7 @@ class TestHandleMCPTimeoutDecorator:
             counter["n"] += 1
             raise TimeoutError("MCP SSE timeout")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await _mcp_timeout()
 
         assert result.success is False
@@ -634,7 +634,7 @@ class TestHandleMCPTimeoutDecorator:
         async def _mcp_timeout() -> None:
             raise TimeoutError("timeout")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await _mcp_timeout()
 
         delays = [call.args[0] for call in mock_sleep.call_args_list]
@@ -652,7 +652,7 @@ class TestHandleMCPTimeoutDecorator:
                 raise TimeoutError("transient MCP failure")
             return "ok"
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await _flaky_mcp()
 
         assert result.success is True
@@ -723,7 +723,7 @@ class TestHandleGitErrorDecorator:
                 raise Exception("git merge conflict")
             return "resolved"
 
-        with patch("recovery._try_git_stash_cwd", return_value=True) as mock_stash:
+        with patch("axon_agent.core.recovery._try_git_stash_cwd", return_value=True) as mock_stash:
             result = await _git_conflict()
 
         assert result.success is True
@@ -736,7 +736,7 @@ class TestHandleGitErrorDecorator:
         async def _always_conflict() -> None:
             raise Exception("persistent merge conflict")
 
-        with patch("recovery._try_git_stash_cwd", return_value=False):
+        with patch("axon_agent.core.recovery._try_git_stash_cwd", return_value=False):
             result = await _always_conflict()
 
         assert result.success is False
@@ -763,7 +763,7 @@ class TestHandleRateLimitDecorator:
         async def _rate_limited() -> None:
             raise Exception("429 Too Many Requests")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             result = await _rate_limited()
 
         assert result.success is False
@@ -794,7 +794,7 @@ class TestHandleRateLimitDecorator:
                 raise Exception("HTTP 429: rate limit")
             return "ok"
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await _transient_limit()
 
         assert result.success is True
@@ -806,7 +806,7 @@ class TestHandleRateLimitDecorator:
         async def _always_limited() -> None:
             raise Exception("429 rate limit exceeded")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await _always_limited()
 
         assert "Rate limit exceeded" in result.error_message
@@ -892,7 +892,7 @@ class TestHandleDecorator:
             counter["n"] += 1
             raise TimeoutError("MCP unreachable")
 
-        with patch("recovery.asyncio.sleep", new_callable=AsyncMock):
+        with patch("axon_agent.core.recovery.asyncio.sleep", new_callable=AsyncMock):
             result = await _mcp_fail()
 
         assert result.success is False
