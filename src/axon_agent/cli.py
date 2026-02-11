@@ -223,8 +223,10 @@ def team(
     dashboard_port: int,
 ) -> None:
     """Run in team mode with parallel workers."""
-    from axon_agent.config import get_config
-    from axon_agent.team.coordinator import TeamCoordinator
+    from pathlib import Path
+
+    from axon_agent.team.coordinator import run_team
+    from axon_agent.team.protocol import TeamConfig
 
     model_alias = model or _default_model()
     model_id = _resolve_model(model_alias)
@@ -240,17 +242,18 @@ def team(
         start_dashboard(port=dashboard_port)
         click.echo(f"Dashboard: http://localhost:{dashboard_port}")
 
-    config = get_config()
-    coordinator = TeamCoordinator(
-        config=config,
+    team_config = TeamConfig(
         team=team,
-        workers=workers,
+        project_dir=Path.cwd(),
         model=model_id,
+        num_workers=workers,
         max_tasks=max_tasks,
+        dashboard_port=dashboard_port,
+        no_dashboard=no_dashboard,
     )
 
     try:
-        asyncio.run(coordinator.run())
+        asyncio.run(run_team(team_config))
     except KeyboardInterrupt:
         click.echo("\n\nTeam coordinator interrupted.")
         raise SystemExit(130)
