@@ -1,6 +1,6 @@
 # Project Map
 
-*Auto-generated: 2026-02-09 12:20:46*
+*Auto-generated: 2026-02-11 20:30:37*
 
 > This file is automatically updated after each commit.
 > Coding Agent reads this at session start for project context.
@@ -15,39 +15,50 @@ your-claude-engineer/
 │   ├── sessions/
 ├── .github/ (1 files)
 │   └── workflows/ (1 files)
-├── agents/ (2 files)
-├── analytics_server/ (2 files)
-├── backups/ (3 files)
-├── dashboard/ (54 files)
+├── dashboard/ (59 files)
 │   ├── public/ (9 files)
 │   │   ├── icons/ (1 files)
-│   ├── src/ (39 files)
-│   │   ├── components/ (21 files)
+│   ├── src/ (44 files)
+│   │   ├── components/ (23 files)
 │   │   ├── context/ (1 files)
-│   │   ├── hooks/ (6 files)
-│   │   ├── pages/ (6 files)
+│   │   ├── hooks/ (7 files)
+│   │   ├── pages/ (8 files)
 │   │   ├── styles/ (2 files)
 │   │   ├── utils/
-├── prompts/ (7 files)
-├── screenshots/ (114 files)
+├── docs/ (3 files)
+│   ├── plans/ (2 files)
+├── prompts/ (12 files)
 ├── scripts/ (5 files)
-├── tests/ (16 files)
-│   ├── api/ (3 files)
+├── src/ (70 files)
+│   ├── axon_agent/ (64 files)
+│   │   ├── agents/ (2 files)
+│   │   ├── core/ (9 files)
+│   │   ├── dashboard/ (17 files)
+│   │   │   ├── static/ (14 files)
+│   │   ├── integrations/ (3 files)
+│   │   ├── mcp/ (2 files)
+│   │   ├── monitoring/ (6 files)
+│   │   ├── prompts/ (13 files)
+│   │   ├── security/ (2 files)
+│   │   ├── team/ (5 files)
+│   └── axon_agent.egg-info/ (6 files)
+├── tests/ (20 files)
+│   ├── api/ (4 files)
 │   ├── e2e/ (3 files)
 │   ├── integration/ (3 files)
-│   ├── unit/ (5 files)
-├── [27 files in root]
+│   ├── unit/ (8 files)
+├── [9 files in root]
 ```
 
 ## Key Files
 
 ### Entry Points
-- `agent.py`
 - `dashboard/src/App.jsx`
 
 ### Configuration
 - `dashboard/package.json`
 - `requirements.txt`
+- `pyproject.toml`
 - `dashboard/vite.config.js`
 - `dashboard/tailwind.config.js`
 - `.env.example`
@@ -83,17 +94,18 @@ your-claude-engineer/
 | Port | Description |
 |------|-------------|
 | 3000 | vite.config.js |
-| 5173 | Dashboard (Vite dev server) |
-| 8003 | vite.config.js |
+| 5173 | Dashboard (Vite dev сервер) |
+| 8003 | API сервер (FastAPI) |
 | 8080 | Analytics API (FastAPI) |
+| 8085 | vite.config.js |
 
 ## Recent Commits
 
-- `40dc586` feat(ENG-88): add weekly summary report for Telegram (11 секунд назад)
-- `ff0605b` chore: update project map after ENG-87 (8 минут назад)
-- `fb5bc5c` feat(ENG-87): add error alerts for Telegram reports (9 минут назад)
-- `46eccd1` chore: update project map after ENG-86 (14 минут назад)
-- `c5665ba` feat(ENG-86): add session summary report for Telegram (15 минут назад)
+- `61a3294` refactor: migrate to src/axon_agent/ package structure (7 минут назад)
+- `b5932cb` Fix (20 часов назад)
+- `b91b2e0` Fix (21 час назад)
+- `c50cbbd` feat: add 5 new specialized agents (devops, testing, security, research, planner) (21 час назад)
+- `ba76d50` fix: обновить assert-ы интеграционных тестов после русификации Telegram-отчётов (24 часа назад)
 
 ## Import Graph (Hub Files)
 
