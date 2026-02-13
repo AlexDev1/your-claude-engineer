@@ -1,238 +1,313 @@
-# Your Claude Engineer
+# Axon Agent
 
-**Ваш собственный AI-инженер, который управляет проектами, пишет код и сообщает о прогрессе — автономно.**
+**Автономный AI-инженер, который управляет проектами, пишет код и сообщает о прогрессе.**
 
-Когда-нибудь хотели передать задачу на разработку и получить её полностью реализованной, протестированной и задокументированной? Your Claude Engineer — это фреймворк для длительных задач на базе [Claude Agent SDK](https://github.com/anthropics/claude-code/tree/main/agent-sdk-python), который превращает Claude в долго работающего инженера, способного решать сложные многоэтапные задачи.
+Axon Agent — фреймворк для длительных задач на базе [Claude Agent SDK](https://github.com/anthropics/claude-code/tree/main/agent-sdk-python), который превращает Claude в долго работающего инженера, способного решать сложные многоэтапные задачи.
 
-Полный рабочий процесс разработки с использованием субагентов:
+Полный рабочий процесс разработки с 9 специализированными субагентами:
 
-- **Управление проектом**: Создаёт и отслеживает работу через самохостируемый Task MCP Server (бэкенд на PostgreSQL), разбивает фичи на задачи и обновляет статусы
+- **Управление проектом**: Отслеживает работу через самохостируемый Task MCP Server (PostgreSQL), разбивает фичи на задачи и обновляет статусы
 - **Реализация кода**: Пишет, тестирует и итерирует код с UI-верификацией через Playwright
-- **Контроль версий**: Коммитит изменения в локальный git-репозиторий
-- **Коммуникация**: Информирует о прогрессе через Telegram
-
-Мультиагентная архитектура использует специализированных агентов (Task, Coding, Telegram), координируемых оркестратором, что позволяет проводить длительные автономные сессии без исчерпания контекстного окна.
+- **Код-ревью**: Автоматическое ревью перед коммитом (APPROVE / REQUEST_CHANGES)
+- **Контроль версий**: Коммитит изменения в локальный git
+- **Тестирование**: Unit, integration и E2E тесты
+- **Безопасность**: Аудит кода и сканирование зависимостей
+- **DevOps**: CI/CD, Docker, деплой
+- **Коммуникация**: Уведомления о прогрессе через Telegram
+- **Командный режим**: Параллельная работа нескольких воркеров с общей очередью задач
 
 ## Ключевые возможности
 
-- **Длительная автономность**: Архитектура позволяет проводить расширенные сессии кодинга
-- **Мультиагентная оркестрация**: Специализированные агенты отвечают за отдельные задачи
+- **Длительная автономность**: Свежая сессия каждую итерацию — без исчерпания контекстного окна
+- **9 специализированных агентов**: Task, Coding, Reviewer, Telegram, DevOps, Testing, Security, Research, Planner
+- **Командный режим**: Параллельные воркеры с координатором, общей очередью и автоматическим рестартом
+- **Встроенный дашборд**: FastAPI аналитика (velocity, efficiency, bottlenecks) на порту 8003
 - **Самохостируемое управление задачами**: PostgreSQL-бэкенд с полным контролем над данными
-- **Локальный Git**: Автоматические коммиты с описательными сообщениями
-- **Уведомления в Telegram**: Обновления прогресса в личный чат
+- **Восстановление после сбоев**: Checkpoint сессии, возобновление с фазы прерывания
+- **Контекстный бюджет**: Автостоп при 85% заполнения окна (180K токенов)
+- **Фазы сессии**: ORIENT → RESEARCH → PLANNING → IMPLEMENTATION → TESTING → REVIEW → COMMIT
 - **Браузерное тестирование**: Playwright MCP для автоматической UI-верификации
-- **Конфигурация моделей**: Выбор модели для каждого агента (Haiku, Sonnet или Opus)
-- **OAuth 2.0 + API Key аутентификация**: Двойная поддержка — OAuth 2.0 для Claude.ai и Bearer API-ключи для Claude Code
+- **Конфигурация моделей**: Выбор модели для каждого агента (Haiku, Sonnet, Opus)
+- **OAuth 2.0 + API Key**: Двойная аутентификация для MCP серверов
 
 ## Требования
 
-> Не работает на Windows из-за ограничений Claude Agent SDK и субагентов. Используйте WSL или Linux VM!
+> Не работает на Windows из-за ограничений Claude Agent SDK. Используйте WSL или Linux VM!
 
-### 0. Создание виртуального окружения Python (рекомендуется)
-
-```bash
-# Создание виртуального окружения
-python3 -m venv venv
-
-# Активация
-source venv/bin/activate  # На macOS/Linux
-```
-
-### 1. Установка Claude Code CLI и Python SDK
+### 1. Установка Claude Code CLI и пакета
 
 ```bash
 # Установка Claude Code CLI (требуется последняя версия)
 npm install -g @anthropic-ai/claude-code
 
-# Установка Python-зависимостей
-pip install -r requirements.txt
+# Установка Axon Agent
+pip install -e .
 ```
 
 ### 2. Развёртывание MCP серверов
 
 MCP серверы (Task + Telegram) развёрнуты в отдельном репозитории: **[AxonCode/axon-mcp](https://github.com/AxonCode/axon-mcp)**
 
-Следуйте инструкциям в axon-mcp для деплоя серверов на ваш VDS, затем вернитесь сюда для настройки агента.
+Следуйте инструкциям в axon-mcp для деплоя серверов, затем вернитесь сюда для настройки агента.
 
-### 3. Настройка локального окружения
+### 3. Настройка окружения
 
 ```bash
-# Скопируйте пример файла окружения
 cp .env.example .env
 
-# Отредактируйте .env с URL ваших MCP серверов и API ключом:
-# - TASK_MCP_URL: https://mcp.yourdomain.com/task/sse
-# - TELEGRAM_MCP_URL: https://mcp.yourdomain.com/telegram/sse
-# - MCP_API_KEY: mcp_your_api_key
+# Отредактируйте .env:
+# TASK_MCP_URL=https://mcp.yourdomain.com/task/sse
+# TELEGRAM_MCP_URL=https://mcp.yourdomain.com/telegram/sse
+# MCP_API_KEY=mcp_your_api_key
 ```
-
-<details>
-<summary><strong>Справочник переменных окружения</strong></summary>
-
-| Переменная | Описание | Обязательна |
-|------------|----------|-------------|
-| `TASK_MCP_URL` | URL вашего Task MCP Server | Да |
-| `TELEGRAM_MCP_URL` | URL вашего Telegram MCP Server | Да |
-| `MCP_API_KEY` | API ключ для аутентификации MCP серверов | Да |
-| `GENERATIONS_BASE_PATH` | Базовая директория для генерируемых проектов (по умолчанию: ./generations) | Нет |
-| `ORCHESTRATOR_MODEL` | Модель для оркестратора: haiku, sonnet, opus (по умолчанию: haiku) | Нет |
-| `TASK_AGENT_MODEL` | Модель для Task агента (по умолчанию: haiku) | Нет |
-| `CODING_AGENT_MODEL` | Модель для Coding агента (по умолчанию: sonnet) | Нет |
-| `TELEGRAM_AGENT_MODEL` | Модель для Telegram агента (по умолчанию: haiku) | Нет |
-
-</details>
 
 ### 4. Проверка установки
 
 ```bash
-claude --version  # Должна быть последняя версия
-pip show claude-agent-sdk  # Проверка установки SDK
-
-# Тест подключения к MCP серверам (health не требует auth)
-curl https://mcp.yourdomain.com/task/health
-curl https://mcp.yourdomain.com/telegram/health
-
-# Тест с API ключом
-curl -H "Authorization: Bearer $MCP_API_KEY" https://mcp.yourdomain.com/task/sse
+claude --version
+axon-agent health   # Проверка подключения к MCP серверам
+axon-agent config   # Просмотр текущей конфигурации
 ```
 
 ## Быстрый старт
 
 ```bash
-# Базовое использование — создаёт проект в ./generations/my-app/
-uv run python autonomous_agent_demo.py --project-dir my-app
+# Solo режим — агент работает в текущей директории
+axon-agent run
 
-# Указать другую директорию вывода
-uv run python autonomous_agent_demo.py --generations-base ~/projects/ai --project-dir my-app
+# Указать команду и ограничить итерации
+axon-agent run --team ENG --max-iterations 5
 
-# Ограничить итерации для тестирования
-uv run python autonomous_agent_demo.py --project-dir my-app --max-iterations 3
+# Использовать Opus для оркестратора
+axon-agent run --model opus
 
-# Использовать Opus для оркестратора (более мощный, но дороже)
-uv run python autonomous_agent_demo.py --project-dir my-app --model opus
+# Командный режим — 3 параллельных воркера
+axon-agent team --team ENG --workers 3
+
+# Запустить дашборд аналитики отдельно
+axon-agent dashboard --port 8003
 ```
 
 ## Как это работает
 
-### Мультиагентная оркестрация
+### Мультиагентная архитектура
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                  МУЛЬТИАГЕНТНАЯ АРХИТЕКТУРА                   │
-├───────────────────────────────────────────────────────────────┤
-│                                                               │
-│                    ┌─────────────────┐                        │
-│                    │   ОРКЕСТРАТОР   │  (Haiku по умолчанию)  │
-│                    │   Координирует  │                        │
-│                    └────────┬────────┘                        │
-│                             │                                 │
-│           ┌─────────────────┼─────────────────┐               │
-│           │                 │                 │               │
-│      ┌────▼─────┐    ┌─────▼──────┐   ┌─────▼──────┐          │
-│      │   TASK   │    │   CODING   │   │ TELEGRAM   │          │
-│      │  (Haiku) │    │  (Sonnet)  │   │  (Haiku)   │          │
-│      └────┬─────┘    └─────┬──────┘   └─────┬──────┘          │
-│           │                │                │                 │
-│      Task MCP         Playwright       Telegram MCP           │
-│      Server           + Local Git         Server              │
-│     (PostgreSQL)                        (Bot API)             │
-│                                                               │
-│     ┌──────────────────────────────────────────────┐          │
-│     │          ПРОЕКТ (Изолированный Git)          │          │
-│     │      GENERATIONS_BASE_PATH/project-name/     │          │
-│     └──────────────────────────────────────────────┘          │
-└───────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    МУЛЬТИАГЕНТНАЯ АРХИТЕКТУРА                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│                      ┌─────────────────┐                            │
+│                      │   ОРКЕСТРАТОР   │  (Haiku по умолчанию)      │
+│                      │   Координирует  │                            │
+│                      └────────┬────────┘                            │
+│                               │                                     │
+│     ┌──────────┬──────────┬───┴───┬──────────┬──────────┐           │
+│     │          │          │       │          │          │           │
+│ ┌───▼────┐ ┌──▼───┐ ┌────▼──┐ ┌──▼───┐ ┌───▼────┐ ┌──▼───┐       │
+│ │  TASK  │ │CODING│ │REVIEW │ │ TELE │ │ DEVOPS │ │ TEST │       │
+│ │(Haiku) │ │(Son.)│ │(Haiku)│ │(Hai.)│ │(Haiku) │ │(Son.)│       │
+│ └───┬────┘ └──┬───┘ └───────┘ └──┬───┘ └────────┘ └──────┘       │
+│     │         │                   │                                │
+│ Task MCP   Playwright        Telegram MCP                          │
+│ (Postgres) + Local Git        (Bot API)                            │
+│                                                                     │
+│ ┌──────────┐ ┌──────────┐ ┌──────────┐                              │
+│ │ SECURITY │ │ RESEARCH │ │ PLANNER  │                              │
+│ │ (Haiku)  │ │ (Haiku)  │ │ (Sonnet) │                              │
+│ └──────────┘ └──────────┘ └──────────┘                              │
+│                                                                     │
+│     ┌──────────────────────────────────────────────┐                │
+│     │         ПРОЕКТ (Рабочая директория)           │                │
+│     │              cwd с Git                        │                │
+│     └──────────────────────────────────────────────┘                │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Ответственность агентов
+### Командный режим
 
-1. **Оркестратор:**
-   - Читает состояние проекта из `.task_project.json`
-   - Запрашивает текущий статус у Task MCP Server
-   - Решает, что делать дальше
-   - Делегирует специализированным агентам через Task tool
-   - Координирует передачу между агентами
+```
+┌─────────────────────────────────────────────────────────┐
+│                     TEAM MODE                            │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────────┐     ┌──────────────────────────┐       │
+│  │ COORDINATOR │────▶│   Общая очередь задач    │       │
+│  │  (главный)  │     │  (Task MCP → TaskQueue)  │       │
+│  └──────┬──────┘     └──────────────────────────┘       │
+│         │                                               │
+│   ┌─────┼──────────────┐                                │
+│   │     │              │                                │
+│ ┌─▼──┐ ┌▼───┐ ┌─────┐ ┌──────────┐                     │
+│ │ W1 │ │ W2 │ │ W3  │ │DASHBOARD │                     │
+│ │SDK │ │SDK │ │SDK  │ │ :8003    │                     │
+│ └────┘ └────┘ └─────┘ └──────────┘                     │
+│                                                         │
+│  Каждый воркер = независимый axon-agent worker          │
+│  Мониторинг здоровья + авторестарт (до 3 раз)           │
+└─────────────────────────────────────────────────────────┘
+```
 
-2. **Task Agent:**
-   - Создаёт и обновляет проекты и задачи
-   - Управляет переходами статусов (Todo → In Progress → Done)
-   - Добавляет комментарии с деталями реализации
-   - Поддерживает META issue для отслеживания сессий
+### Агенты
 
-3. **Coding Agent:**
-   - Реализует фичи на основе задач
-   - Пишет и тестирует код приложения
-   - Использует Playwright для браузерного UI-тестирования
-   - Валидирует ранее завершённые фичи
-   - Управляет локальными git-коммитами
+| Агент | Модель | Назначение |
+|-------|--------|------------|
+| **Task** | Haiku | Управление задачами, приоритезация, отслеживание через Task MCP |
+| **Coding** | Sonnet | Реализация фич, Playwright тесты, Git коммиты |
+| **Reviewer** | Haiku | Код-ревью перед коммитом: APPROVE или REQUEST_CHANGES |
+| **Telegram** | Haiku | Уведомления о прогрессе через Telegram Bot API |
+| **DevOps** | Haiku | CI/CD, Docker, деплой, инфраструктура |
+| **Testing** | Sonnet | Unit, integration и E2E тестирование |
+| **Security** | Haiku | Аудит безопасности, сканирование зависимостей |
+| **Research** | Haiku | Исследование перед реализацией |
+| **Planner** | Sonnet | Декомпозиция задач на подзадачи |
 
-4. **Telegram Agent:**
-   - Публикует обновления прогресса в ваш Telegram-чат
-   - Уведомляет о завершении фич
-   - Отправляет сводки статуса проекта
+Модели настраиваются через переменные окружения: `TASK_AGENT_MODEL`, `CODING_AGENT_MODEL` и т.д. Допустимые значения: `haiku`, `sonnet`, `opus`, `inherit`.
 
-## Опции командной строки
+### Фазы сессии
 
-| Опция | Описание | По умолчанию |
-|-------|----------|--------------|
-| `--project-dir` | Имя проекта или путь | `./autonomous_demo_project` |
-| `--generations-base` | Базовая директория для всех проектов | `./generations` или `GENERATIONS_BASE_PATH` |
-| `--max-iterations` | Максимум итераций агента | Без ограничений |
-| `--model` | Модель оркестратора: haiku, sonnet, или opus | `haiku` или `ORCHESTRATOR_MODEL` |
+Каждая итерация агента проходит через фазы с checkpoint'ами для восстановления:
 
-## Кастомизация
+1. **ORIENT** — Понимание текущей задачи
+2. **RESEARCH** — Исследование кодовой базы
+3. **PLANNING** — Декомпозиция задачи
+4. **IMPLEMENTATION** — Написание кода
+5. **TESTING** — Запуск тестов
+6. **REVIEW** — Код-ревью
+7. **COMMIT** — Git коммит
 
-### Изменение приложения
+## CLI справочник
 
-Отредактируйте `prompts/app_spec.txt` чтобы указать другое приложение для сборки.
+| Команда | Опции | Описание |
+|---------|-------|----------|
+| `axon-agent run` | `--team`, `--model`, `--max-iterations`, `--skip-preflight`, `--no-dashboard`, `--dashboard-port` | Solo режим |
+| `axon-agent team` | `--team`, `--workers`, `--model`, `--max-tasks`, `--no-dashboard`, `--dashboard-port` | Командный режим |
+| `axon-agent health` | — | Проверка MCP серверов |
+| `axon-agent config` | `--json`, `--show-secrets` | Просмотр конфигурации |
+| `axon-agent dashboard` | `--port` | Запуск дашборда отдельно |
 
-### Изменение количества задач
+<details>
+<summary><strong>Справочник переменных окружения</strong></summary>
 
-Отредактируйте `prompts/initializer_task.md` чтобы изменить количество создаваемых задач.
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `TASK_MCP_URL` | URL Task MCP Server | `http://localhost:8001/sse` |
+| `TELEGRAM_MCP_URL` | URL Telegram MCP Server | `http://localhost:8002/sse` |
+| `MCP_API_KEY` | API ключ для MCP аутентификации | — |
+| `ORCHESTRATOR_MODEL` | Модель оркестратора | `haiku` |
+| `TASK_AGENT_MODEL` | Модель Task агента | `haiku` |
+| `CODING_AGENT_MODEL` | Модель Coding агента | `sonnet` |
+| `TELEGRAM_AGENT_MODEL` | Модель Telegram агента | `haiku` |
+| `MAX_CONTEXT_TOKENS` | Бюджет контекстного окна | `180000` |
+| `HEARTBEAT_INTERVAL_MINUTES` | Интервал проверки зависших задач | `5` |
+| `STALE_THRESHOLD_HOURS` | Часов без обновления = задача зависла | `2.0` |
+| `GITHUB_TOKEN` | GitHub PAT для интеграции | — |
+| `GITHUB_REPO` | Репозиторий (owner/repo) | — |
 
-### Изменение разрешённых команд
-
-Отредактируйте `security.py` чтобы добавить или удалить команды из `ALLOWED_COMMANDS`.
+</details>
 
 ## Структура проекта
 
 ```
 your-claude-engineer/
-├── autonomous_agent_demo.py  # Точка входа
-├── agent.py                  # Логика сессий агента
-├── client.py                 # Конфигурация Claude SDK + MCP
-├── mcp_config.py             # URL MCP серверов и определения инструментов
-├── security.py               # Allowlist bash-команд и валидация
-├── progress.py               # Утилиты отслеживания прогресса
-├── prompts.py                # Утилиты загрузки промптов
-├── test_security.py          # Тесты безопасности
-├── agents/
-│   ├── definitions.py        # Определения агентов с конфигурацией моделей
-│   └── orchestrator.py       # Запуск сессии оркестратора
-├── prompts/
-│   ├── app_spec.txt              # Спецификация приложения
-│   ├── orchestrator_prompt.md    # Системный промпт оркестратора
-│   ├── initializer_task.md       # Сообщение задачи для первой сессии
-│   ├── continuation_task.md      # Сообщение задачи для продолжения
-│   ├── task_agent_prompt.md      # Промпт Task субагента
-│   ├── coding_agent_prompt.md    # Промпт Coding субагента
-│   └── telegram_agent_prompt.md  # Промпт Telegram субагента
-└── requirements.txt          # Python зависимости
+├── src/axon_agent/              # Основной пакет
+│   ├── cli.py                   # CLI точка входа (Click)
+│   ├── config.py                # Конфигурация (Pydantic Settings)
+│   ├── __init__.py              # Версия и экспорты
+│   ├── __main__.py              # python -m axon_agent
+│   │
+│   ├── agents/                  # Определения агентов
+│   │   └── definitions.py       # 9 агентов с конфигурацией моделей
+│   │
+│   ├── core/                    # Ядро агента
+│   │   ├── client.py            # Claude SDK клиент + MCP серверы
+│   │   ├── runner.py            # Основной цикл (run_autonomous_agent)
+│   │   ├── session.py           # Раннер одной сессии
+│   │   ├── context.py           # Бюджет контекстного окна
+│   │   ├── state.py             # Персистентное состояние
+│   │   ├── recovery.py          # Восстановление после ошибок
+│   │   ├── progress.py          # Отслеживание прогресса
+│   │   └── prompts.py           # Загрузка промптов
+│   │
+│   ├── team/                    # Командный режим
+│   │   ├── coordinator.py       # Координатор (спавнит воркеров)
+│   │   ├── worker.py            # Воркер-подпроцесс
+│   │   ├── task_queue.py        # Общая очередь задач
+│   │   └── protocol.py          # Типы данных (TeamConfig, WorkerStatus)
+│   │
+│   ├── dashboard/               # Веб-дашборд аналитики
+│   │   ├── api.py               # FastAPI сервер
+│   │   ├── sessions.py          # Session replay (ENG-75)
+│   │   └── static/              # Frontend (HTML/CSS/JS)
+│   │
+│   ├── monitoring/              # Мониторинг и диагностика
+│   │   ├── health.py            # Health checks MCP серверов
+│   │   ├── heartbeat.py         # Детекция зависших задач
+│   │   ├── preflight.py         # Pre-flight проверки
+│   │   ├── recorder.py          # Запись событий
+│   │   └── diagnostics.py       # Диагностическая информация
+│   │
+│   ├── integrations/            # Внешние интеграции
+│   │   ├── github.py            # GitHub PR и issues
+│   │   └── telegram.py          # Telegram rich reports
+│   │
+│   ├── mcp/                     # MCP конфигурация
+│   │   └── config.py            # URL серверов и определения инструментов
+│   │
+│   ├── security/                # Безопасность
+│   │   └── hooks.py             # Allowlist Bash команд
+│   │
+│   └── prompts/                 # Системные промпты агентов
+│       ├── orchestrator_prompt.md
+│       ├── task_agent_prompt.md
+│       ├── coding_agent_prompt.md
+│       ├── telegram_agent_prompt.md
+│       ├── reviewer_prompt.md
+│       ├── devops_agent_prompt.md
+│       ├── testing_agent_prompt.md
+│       ├── security_agent_prompt.md
+│       ├── research_agent_prompt.md
+│       ├── planner_agent_prompt.md
+│       ├── execute_task.md
+│       ├── continuation_task.md
+│       └── team_worker_prompt.md
+│
+├── pyproject.toml               # Метаданные пакета и зависимости
+├── .env.example                 # Пример переменных окружения
+├── .project.json                # Контекст текущего проекта (slug, team)
+├── CLAUDE.md                    # Инструкции для Claude Code
+└── README.md                    # Этот файл
 ```
 
-## Структура генерируемого проекта
+## Кастомизация
 
-Проекты создаются в изолированных директориях со своими git-репозиториями:
+### Изменение поведения агентов
 
+Отредактируйте соответствующий промпт в `src/axon_agent/prompts/`. Каждый агент имеет свой `.md` файл с системным промптом.
+
+### Изменение разрешённых команд
+
+Отредактируйте `ALLOWED_COMMANDS` в `src/axon_agent/security/hooks.py`.
+
+### Конфигурация моделей
+
+Через переменные окружения или флаг `--model`:
+
+```bash
+# Через env vars (в .env)
+ORCHESTRATOR_MODEL=opus
+CODING_AGENT_MODEL=sonnet
+TASK_AGENT_MODEL=haiku
+
+# Через CLI (устанавливает модель оркестратора)
+axon-agent run --model opus
 ```
-generations/my-app/           # Или GENERATIONS_BASE_PATH/my-app/
-├── .task_project.json        # Состояние проекта (маркер-файл)
-├── app_spec.txt              # Скопированная спецификация
-├── init.sh                   # Скрипт настройки окружения
-├── .claude_settings.json     # Настройки безопасности
-├── .git/                     # Отдельный git-репозиторий
-└── [файлы приложения]        # Сгенерированный код приложения
-```
+
+### Добавление нового агента
+
+1. Добавьте промпт в `src/axon_agent/prompts/new_agent_prompt.md`
+2. Добавьте определение в `src/axon_agent/agents/definitions.py`
+3. Добавьте env var для модели в `src/axon_agent/config.py`
 
 ## MCP серверы
 
@@ -240,56 +315,56 @@ MCP серверы развёрнуты отдельно — см. [AxonCode/axo
 
 | Сервер | Транспорт | Назначение |
 |--------|-----------|------------|
-| **Task MCP Server** | HTTP (SSE) | Управление проектами/задачами с PostgreSQL + pgvector бэкендом |
-| **Telegram MCP Server** | HTTP (SSE) | Уведомления через Telegram Bot API |
+| **Task MCP** | SSE | Управление проектами/задачами (PostgreSQL) |
+| **Telegram MCP** | SSE | Уведомления через Telegram Bot API |
 | **Playwright** | stdio | Браузерная автоматизация для UI-тестирования |
 
 ## Модель безопасности
 
-Демо использует многоуровневую безопасность (см. `security.py` и `client.py`):
+Многоуровневая защита (см. `src/axon_agent/security/hooks.py` и `src/axon_agent/core/client.py`):
 
-1. **OAuth 2.0 + API Key аутентификация:** Обрабатывается MCP серверами ([axon-mcp](https://github.com/AxonCode/axon-mcp))
-2. **Песочница на уровне ОС:** Bash-команды выполняются в изолированном окружении
-3. **Ограничения файловой системы:** Файловые операции ограничены директорией проекта
-4. **Allowlist Bash:** Разрешены только определённые команды (npm, node, git, curl, rm с валидацией и т.д.)
-5. **MCP-разрешения:** Инструменты явно разрешены в настройках безопасности
-6. **Валидация опасных команд:** Команды типа `rm` валидируются для предотвращения удаления системных директорий
+1. **OAuth 2.0 + API Key**: Обрабатывается MCP серверами ([axon-mcp](https://github.com/AxonCode/axon-mcp))
+2. **Песочница на уровне ОС**: Bash-команды в изолированном окружении
+3. **Ограничения файловой системы**: Операции ограничены директорией проекта
+4. **Allowlist Bash**: Разрешены только определённые команды (50+)
+5. **Валидация опасных команд**: `rm`, `chmod`, `pkill` проходят дополнительные проверки
+6. **MCP-разрешения**: Инструменты явно разрешены в настройках безопасности
+7. **Truncation hook**: Обрезка больших выводов инструментов (>5000 символов)
 
-## Просмотр прогресса
+## Дашборд
 
-**Task MCP Server:**
-- Просмотр задач через прямые запросы к БД
-- Наблюдение за изменениями статусов в реальном времени (Todo → In Progress → Done)
-- Чтение комментариев с деталями реализации
-- Проверка сводок сессий в META issue
+Встроенный веб-дашборд запускается автоматически (порт 8003) или отдельно:
 
-**Telegram:**
-- Получение обновлений прогресса в настроенный чат
-- Уведомления о завершении фич
+```bash
+axon-agent dashboard --port 8003
+```
 
-**Локальный Git:**
-- Просмотр коммитов в директории сгенерированного проекта
-- Проверка истории реализации через git log
+**Эндпоинты:**
+- `/api/analytics/velocity` — Скорость выполнения задач
+- `/api/analytics/efficiency` — Success rate, среднее время
+- `/api/analytics/bottlenecks` — Зависшие задачи
+- `/api/issues` — CRUD операции с задачами
+- `/api/sessions` — Session replay
 
 ## Устранение неполадок
 
-**"TASK_MCP_URL not set"**
-Установите `TASK_MCP_URL` в вашем `.env` файле
+**`axon-agent: command not found`**
+Убедитесь, что пакет установлен: `pip install -e .`
 
-**"TELEGRAM_MCP_URL not set"**
-Установите `TELEGRAM_MCP_URL` в вашем `.env` файле
-
-**"Connection refused" к MCP серверам**
-Проверьте, что MCP серверы запущены на VDS — см. [axon-mcp](https://github.com/AxonCode/axon-mcp)
+**`axon-agent health` показывает ошибки**
+Проверьте URL MCP серверов в `.env` и что серверы запущены.
 
 **"Command blocked by security hook"**
-Агент попытался выполнить запрещённую команду. Добавьте её в `ALLOWED_COMMANDS` в `security.py` при необходимости.
+Агент попытался выполнить запрещённую команду. Добавьте в `ALLOWED_COMMANDS` в `src/axon_agent/security/hooks.py`.
 
-**"Telegram message failed"**
-Убедитесь, что вы сначала написали боту (отправьте `/start`) и что `TELEGRAM_CHAT_ID` корректен.
+**Воркер не стартует в team mode**
+Проверьте, что `axon-agent worker` доступен (пакет установлен через `pip install -e .`).
 
-**401 "unauthorized" при подключении к MCP серверам**
-Убедитесь, что `MCP_API_KEY` установлен в `.env` файле. Создайте ключ через `admin_cli.py` в axon-mcp.
+**Контекстное окно исчерпано**
+Агент автоматически останавливается при 85% заполнения и продолжает в новой сессии. Увеличьте `MAX_CONTEXT_TOKENS` если нужно.
+
+**401 Unauthorized к MCP серверам**
+Проверьте `MCP_API_KEY` в `.env`. Создайте ключ через `admin_cli.py` в axon-mcp.
 
 ## Лицензия
 
